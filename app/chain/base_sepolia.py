@@ -54,17 +54,25 @@ class BaseSepoliaRpc:
             raise RpcConfigurationError("BASE_SEPOLIA_RPC_URL is not configured")
         if not self.url.startswith(("https://", "http://")):
             raise RpcConfigurationError("BASE_SEPOLIA_RPC_URL must be an HTTP(S) URL")
-        self._transport = transport
+        self._client = httpx.Client(timeout=5.0, transport=transport)
+
+    def close(self) -> None:
+        self._client.close()
+
+    def __enter__(self) -> "BaseSepoliaRpc":
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
 
     def _rpc(self, method: str, params: list[Any]) -> Any:
         try:
-            with httpx.Client(timeout=5.0, transport=self._transport) as client:
-                response = client.post(
-                    self.url,
-                    json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params},
-                )
-                response.raise_for_status()
-                payload = response.json()
+            response = self._client.post(
+                self.url,
+                json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params},
+            )
+            response.raise_for_status()
+            payload = response.json()
         except (httpx.HTTPError, ValueError) as exc:
             raise RpcRequestError("Base Sepolia RPC request failed") from exc
         if payload.get("error"):
