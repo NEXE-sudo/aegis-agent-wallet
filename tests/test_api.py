@@ -1,10 +1,9 @@
-import os
-
 import pytest
 from fastapi.testclient import TestClient
 
-import app.main as main
-from app.workflow.controller import TransactionController
+from app import main
+from app.policy.models import TransactionProposal
+from app.workflow.controller import TransactionController, fingerprint_proposal
 from app.workflow.store import WorkflowStore
 
 AGENT_TOKEN = "test-agent-token-with-enough-length"
@@ -134,7 +133,7 @@ def test_transaction_workflow_ignores_caller_supplied_daily_spend():
 
 
 def test_daily_spend_reservations_block_overspend():
-    first = propose(_payload(amount_base_units=45_000_000)).json()
+    propose(_payload(amount_base_units=45_000_000))
     assert first["status"] != "blocked"
     second = propose(_payload(amount_base_units=45_000_000)).json()
     assert second["status"] != "blocked"
@@ -162,8 +161,6 @@ def test_execution_rechecks_spending_and_blocks_stale_approval():
     second = propose(_payload(amount_base_units=45_000_000)).json()
     assert second["status"] in {"ready", "awaiting_approval"}
     # Simulate an externally inserted reservation to test execution-time revalidation.
-    from app.workflow.controller import fingerprint_proposal
-    from app.policy.models import TransactionProposal
     proposal = TransactionProposal(**_payload(amount_base_units=65_000_000))
     main.store.create({
         "transaction_id": "external-reservation", "fingerprint": fingerprint_proposal(proposal),
