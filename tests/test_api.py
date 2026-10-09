@@ -133,7 +133,7 @@ def test_transaction_workflow_ignores_caller_supplied_daily_spend():
 
 
 def test_daily_spend_reservations_block_overspend():
-    propose(_payload(amount_base_units=45_000_000))
+    first = propose(_payload(amount_base_units=45_000_000)).json()
     assert first["status"] != "blocked"
     second = propose(_payload(amount_base_units=45_000_000)).json()
     assert second["status"] != "blocked"
@@ -158,6 +158,7 @@ def test_idempotency_replay_returns_same_transaction_and_conflict_for_changed_pa
 def test_execution_rechecks_spending_and_blocks_stale_approval():
     # First reserve most of the daily budget; second proposal is initially evaluated against it.
     first = propose(_payload(amount_base_units=45_000_000)).json()
+    assert first["status"] in {"ready", "awaiting_approval"}
     second = propose(_payload(amount_base_units=45_000_000)).json()
     assert second["status"] in {"ready", "awaiting_approval"}
     # Simulate an externally inserted reservation to test execution-time revalidation.
