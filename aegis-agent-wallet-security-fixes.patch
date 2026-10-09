@@ -1,0 +1,858 @@
+diff --git a/.env.example b/.env.example
+index 36047f8..eda1744 100644
+--- a/.env.example
++++ b/.env.example
+@@ -1,2 +1,4 @@
+-# Local workflow database path. Keep .env out of version control.
+-AEGIS_DB_PATH=aegis-workflow.sqlite3
++# Generate distinct, random local secrets; never commit actual values.
++AEGIS_AGENT_TOKEN=replace-with-a-long-random-agent-token
++AEGIS_APPROVAL_TOKEN=replace-with-a-different-long-random-owner-token
++AEGIS_DB_PATH=./aegis-workflow.sqlite3
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+new file mode 100644
+index 0000000..862d869
+--- /dev/null
++++ b/CHANGELOG.md
+@@ -0,0 +1,12 @@
++# Changelog
++
++## 0.4.0
++
++- Calculate daily spending from persisted transactions instead of trusting the proposal caller.
++- Reserve pending transaction amounts and serialize budget checks with SQLite write locks.
++- Re-evaluate policy and spending atomically immediately before simulated execution.
++- Require separate bearer tokens for agent proposal creation and owner retrieval/approval/execution; protected routes fail closed when secrets are missing.
++- Add idempotency keys for proposal retries and reject reuse with a different payload.
++- Add additive SQLite migration for new accounting and idempotency columns.
++- Isolate API tests in temporary databases and cover auth, daily limits, idempotency, and execution-time revalidation.
++- Keep execution simulation-only; no wallet keys, signing, or blockchain RPC calls are added.
+diff --git a/README.md b/README.md
+index b127b04..9905a43 100644
+--- a/README.md
++++ b/README.md
+@@ -1,6 +1,6 @@
+ # Aegis Agent Wallet
+ 
+-A testnet-only AI-agent wallet prototype. Current milestones include deterministic policy checks, explainable risk scoring, fingerprint-bound approval, persistent transaction state, and a simulated execution controller.
++A testnet-only AI-agent wallet prototype. This build includes deterministic policy checks, explainable heuristic risk scoring, persistent transaction state, atomic daily-spend reservations, fingerprint-bound approval, bearer-token separation for agent and owner operations, idempotent proposal retries, and a simulated executor.
+ 
+ ## macOS setup
+ 
+@@ -10,33 +10,48 @@ python3 -m venv .venv
+ source .venv/bin/activate
+ python -m pip install --upgrade pip
+ pip install -e ".[dev]"
++```
++
++Create local secrets and configure the environment before starting the API:
++
++```bash
++export AEGIS_AGENT_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
++export AEGIS_APPROVAL_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
++export AEGIS_DB_PATH="./aegis-workflow.sqlite3"
+ python -m pytest -q
+ uvicorn app.main:app --reload
+ ```
+ 
+-API docs: http://127.0.0.1:8000/docs
++Keep both tokens private. The agent token and owner/approval token must be different. If a required token is missing, the protected endpoint fails closed with HTTP 503. A wrong or missing token returns HTTP 401. API docs: http://127.0.0.1:8000/docs
++
++For requests, send `Authorization: Bearer <AEGIS_AGENT_TOKEN>` to `POST /transactions/propose`. Use `Authorization: Bearer <AEGIS_APPROVAL_TOKEN>` for transaction retrieval, approval, and simulated execution. `/health`, `/policy/evaluate`, and `/risk/assess` are demo endpoints; the latter two accept caller-provided spend only for isolated evaluation and do not create transactions.
+ 
+ ## Workflow endpoints
+ 
+-- `POST /transactions/propose` — evaluates policy and risk, persists a transaction, and assigns its initial status.
+-- `GET /transactions/{transaction_id}` — retrieves the persisted transaction state.
+-- `POST /transactions/{transaction_id}/approve` — approves only when the submitted fingerprint exactly matches the stored transaction fingerprint and the body explicitly says `APPROVE`.
+-- `POST /transactions/{transaction_id}/execute` — runs the simulated executor once. Retries return a conflict instead of repeating execution.
+-- `POST /policy/evaluate` and `POST /risk/assess` — standalone policy and risk evaluations.
++- `POST /transactions/propose` — atomically calculates today's persisted spend, reserves the proposed amount, evaluates policy/risk, and saves the proposal. Supports the optional `Idempotency-Key` header (8–128 characters). Reusing a key with the same proposal returns the original record; reusing it with a different proposal returns HTTP 409.
++- `GET /transactions/{transaction_id}` — retrieves persisted state; owner token required.
++- `POST /transactions/{transaction_id}/approve` — requires the owner token, the exact stored SHA-256 fingerprint, and body confirmation `APPROVE`.
++- `POST /transactions/{transaction_id}/execute` — requires the owner token and re-evaluates policy and daily spending under the same SQLite write lock used for the simulated state transition.
++- `POST /policy/evaluate` and `POST /risk/assess` — standalone evaluation endpoints; their caller-provided spend is not trusted by the transaction workflow.
+ 
+-A proposal is fingerprinted using SHA-256 over its canonical JSON representation. Approval is bound to that fingerprint. SQLite state is persisted in `aegis-workflow.sqlite3` by default (override with `AEGIS_DB_PATH`).
++The daily limit is calculated from persisted same-day transactions for the same chain and token. Ready, awaiting-approval, approved, and simulated-executed transactions count against the daily limit; blocked proposals do not. Pending transactions reserve budget to reduce overspending from concurrent proposals. This is a local prototype accounting model, not a substitute for confirmed on-chain balances/receipts in a production wallet.
+ 
+-## Important limitations
++## Safety boundaries and limitations
+ 
+-- **Execution is simulated. No private key is loaded, no transaction is signed, and no RPC request is sent.** The simulated execution reference is not a real transaction hash.
+-- The sample token and recipient addresses are placeholders and must not be treated as verified Base Sepolia contracts or accounts.
+-- The API currently has no authentication or authorization. Run it only on a trusted local development machine; do not expose it to the public internet.
+-- The SQLite transitions prevent repeat execution in this prototype, but a production multi-worker system needs authenticated approval, robust key management, chain nonce/reconciliation logic, and a durable execution queue.
+-- Risk scores are simple heuristics, not a validated fraud detector.
++- **Execution is simulated. No private key is loaded, no transaction is signed, and no RPC request is sent.** The simulated reference is not a transaction hash.
++- Demo token and recipient addresses are placeholders, not verified Base Sepolia contracts or accounts.
++- Bearer-token authentication is a development guard, not a full identity/authorization system. Keep the API bound to localhost and do not expose it publicly.
++- The risk score is a transparent heuristic, not a validated fraud detector.
+ - Hard policy blocks cannot be overridden by approval.
++- Idempotency protects retries that reuse the same key; it does not prove on-chain exactly-once execution. A real executor needs durable submission state, nonce management, receipt reconciliation, secure key custody, and chain-specific tests.
++- Standalone policy/risk endpoints accept a supplied daily-spend figure for demonstration; never use those endpoint responses as execution authorization.
++- SQLite state is persistent in `aegis-workflow.sqlite3` by default. Set `AEGIS_DB_PATH` to change the path. Existing prototype databases are migrated additively.
+ 
+-## Demo request
++## Demo flow
+ 
+-Use the interactive API documentation to submit a transaction. A small payment to an approved recipient should become `ready`. A transaction to an unknown recipient, or one with high risk, should become `awaiting_approval`. A policy violation becomes `blocked`.
++1. Start the API with the two distinct tokens exported.
++2. In `/docs`, create a proposal with the agent bearer token and no `daily_spent_base_units` field.
++3. Use the owner token to retrieve, approve, or simulate execution.
++4. A small payment to an allow-listed recipient may become `ready`. An unknown recipient or high-risk proposal needs approval. A policy violation is `blocked`.
+ 
+-For an approval-required transaction, copy its `fingerprint` from the response and pass it to the approval endpoint. Only then can the simulated executor run.
++This remains a local, simulation-only prototype. Do not load real keys or use real funds.
+diff --git a/app/main.py b/app/main.py
+index 8c48fe2..18b598a 100644
+--- a/app/main.py
++++ b/app/main.py
+@@ -1,9 +1,11 @@
++"""Aegis Agent Wallet API. Workflow execution is simulation-only."""
++import hmac
+ import os
+ from contextlib import asynccontextmanager
+-
+-from fastapi import FastAPI, HTTPException
+ from typing import Literal
+ 
++from fastapi import Depends, FastAPI, Header, HTTPException, Response
++from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+ from pydantic import BaseModel, Field
+ 
+ from app.policy.engine import evaluate_transaction
+@@ -22,9 +24,21 @@ class EvaluationRequest(BaseModel):
+     recipient: str
+     amount_base_units: int = Field(gt=0)
+     token_decimals: int = Field(ge=0, le=36)
++    # Only the standalone evaluation endpoints accept caller-supplied simulated spend.
++    # The transaction workflow never trusts this value.
+     daily_spent_base_units: int = Field(default=0, ge=0)
+ 
+ 
++class ProposalRequest(BaseModel):
++    agent_id: str = "devops-01"
++    chain_id: int
++    token_symbol: str
++    token_address: str
++    recipient: str
++    amount_base_units: int = Field(gt=0)
++    token_decimals: int = Field(ge=0, le=36)
++
++
+ class EvaluationResponse(BaseModel):
+     decision: PolicyDecision
+     reasons: list[str]
+@@ -61,7 +75,6 @@ class TransactionResponse(BaseModel):
+     updated_at: str
+ 
+ 
+-# Demo-only policy. These are placeholders, not verified token contracts or user addresses.
+ DEMO_POLICY = AgentPolicy(
+     agent_id="devops-01",
+     allowed_chain_ids={84532},
+@@ -80,6 +93,7 @@ DEMO_POLICY = AgentPolicy(
+ 
+ store = WorkflowStore(os.environ.get("AEGIS_DB_PATH", "aegis-workflow.sqlite3"))
+ controller = TransactionController(DEMO_POLICY, store)
++bearer = HTTPBearer(auto_error=False)
+ 
+ 
+ @asynccontextmanager
+@@ -89,16 +103,30 @@ async def lifespan(_: FastAPI):
+ 
+ app = FastAPI(
+     title="Aegis Agent Wallet API",
+-    description=(
+-        "Policy, risk, and approval workflow simulation. Execution is simulated; "
+-        "no wallet signing or blockchain submission occurs."
+-    ),
+-    version="0.3.0",
++    description="Policy, risk, and approval workflow simulation. No signing or blockchain submission occurs.",
++    version="0.4.0",
+     lifespan=lifespan,
+ )
+ 
+ 
+-def _proposal(request: EvaluationRequest) -> TransactionProposal:
++def _require_token(credentials: HTTPAuthorizationCredentials | None, env_name: str) -> None:
++    expected = os.environ.get(env_name, "")
++    if not expected:
++        raise HTTPException(status_code=503, detail=f"{env_name} is not configured; endpoint fails closed")
++    supplied = credentials.credentials if credentials else ""
++    if not hmac.compare_digest(supplied, expected):
++        raise HTTPException(status_code=401, detail="Missing or invalid bearer token")
++
++
++def require_agent(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> None:
++    _require_token(credentials, "AEGIS_AGENT_TOKEN")
++
++
++def require_owner(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> None:
++    _require_token(credentials, "AEGIS_APPROVAL_TOKEN")
++
++
++def _proposal(request: EvaluationRequest | ProposalRequest) -> TransactionProposal:
+     if request.agent_id != DEMO_POLICY.agent_id:
+         raise HTTPException(status_code=404, detail="Unknown demo agent")
+     return TransactionProposal(
+@@ -146,14 +174,24 @@ def assess_risk(request: EvaluationRequest) -> RiskResponse:
+     )
+ 
+ 
+-@app.post("/transactions/propose", response_model=TransactionResponse, status_code=201)
+-def propose_transaction(request: EvaluationRequest) -> TransactionResponse:
++@app.post("/transactions/propose", response_model=TransactionResponse, status_code=201,
++          dependencies=[Depends(require_agent)])
++def propose_transaction(
++    request: ProposalRequest,
++    response: Response,
++    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key", min_length=8, max_length=128),
++) -> TransactionResponse:
+     proposal = _proposal(request)
+-    record = controller.propose(proposal, request.daily_spent_base_units)
++    outcome, record = controller.propose(proposal, idempotency_key)
++    if outcome == "idempotency_conflict":
++        raise HTTPException(status_code=409, detail="Idempotency-Key was already used for a different proposal")
++    if outcome == "replayed":
++        response.status_code = 200
+     return _record_response(record)
+ 
+ 
+-@app.get("/transactions/{transaction_id}", response_model=TransactionResponse)
++@app.get("/transactions/{transaction_id}", response_model=TransactionResponse,
++         dependencies=[Depends(require_owner)])
+ def get_transaction(transaction_id: str) -> TransactionResponse:
+     record = store.get(transaction_id)
+     if record is None:
+@@ -161,10 +199,9 @@ def get_transaction(transaction_id: str) -> TransactionResponse:
+     return _record_response(record)
+ 
+ 
+-@app.post("/transactions/{transaction_id}/approve", response_model=TransactionResponse)
+-def approve_transaction(
+-    transaction_id: str, request: ApprovalRequest
+-) -> TransactionResponse:
++@app.post("/transactions/{transaction_id}/approve", response_model=TransactionResponse,
++          dependencies=[Depends(require_owner)])
++def approve_transaction(transaction_id: str, request: ApprovalRequest) -> TransactionResponse:
+     outcome, record = controller.approve(transaction_id, request.transaction_fingerprint)
+     if outcome == "not_found":
+         raise HTTPException(status_code=404, detail="Transaction not found")
+@@ -181,7 +218,8 @@ def approve_transaction(
+     return _record_response(record or {})
+ 
+ 
+-@app.post("/transactions/{transaction_id}/execute", response_model=TransactionResponse)
++@app.post("/transactions/{transaction_id}/execute", response_model=TransactionResponse,
++          dependencies=[Depends(require_owner)])
+ def execute_transaction(transaction_id: str) -> TransactionResponse:
+     outcome, record = controller.execute(transaction_id)
+     if outcome == "not_found":
+diff --git a/app/workflow/controller.py b/app/workflow/controller.py
+index 932d18d..20848bc 100644
+--- a/app/workflow/controller.py
++++ b/app/workflow/controller.py
+@@ -24,37 +24,36 @@ class TransactionController:
+         self.policy = policy
+         self.store = store
+ 
+-    def propose(self, proposal: TransactionProposal, daily_spent_base_units: int) -> dict[str, Any]:
+-        policy_result = evaluate_transaction(proposal, self.policy, daily_spent_base_units)
+-        risk_result = assess_transaction_risk(proposal, self.policy, daily_spent_base_units)
++    def propose(
++        self, proposal: TransactionProposal, idempotency_key: str | None = None
++    ) -> tuple[str, dict[str, Any]]:
+         fingerprint = fingerprint_proposal(proposal)
+ 
+-        if policy_result.decision == PolicyDecision.BLOCK:
+-            status = "blocked"
+-        elif (
+-            policy_result.decision == PolicyDecision.REQUIRE_APPROVAL
+-            or risk_result.level == RiskLevel.HIGH
+-        ):
+-            status = "awaiting_approval"
+-        else:
+-            status = "ready"
+-
+-        transaction_id = str(uuid.uuid4())
+-        self.store.create({
+-            "transaction_id": transaction_id,
+-            "fingerprint": fingerprint,
+-            "proposal": asdict(proposal),
+-            "policy_decision": policy_result.decision.value,
+-            "policy_reasons": policy_result.reasons,
+-            "risk_score": risk_result.score,
+-            "risk_level": risk_result.level.value,
+-            "risk_reasons": risk_result.reasons,
+-            "status": status,
+-        })
+-        return self.store.get(transaction_id) or {}
++        def build_record(daily_spent_base_units: int) -> dict[str, Any]:
++            policy_result = evaluate_transaction(proposal, self.policy, daily_spent_base_units)
++            risk_result = assess_transaction_risk(proposal, self.policy, daily_spent_base_units)
++            if policy_result.decision == PolicyDecision.BLOCK:
++                status = "blocked"
++            elif policy_result.decision == PolicyDecision.REQUIRE_APPROVAL or risk_result.level == RiskLevel.HIGH:
++                status = "awaiting_approval"
++            else:
++                status = "ready"
++            return {
++                "transaction_id": str(uuid.uuid4()),
++                "fingerprint": fingerprint,
++                "proposal": asdict(proposal),
++                "policy_decision": policy_result.decision.value,
++                "policy_reasons": policy_result.reasons,
++                "risk_score": risk_result.score,
++                "risk_level": risk_result.level.value,
++                "risk_reasons": risk_result.reasons,
++                "status": status,
++            }
++
++        return self.store.create_evaluated(asdict(proposal), idempotency_key, build_record)
+ 
+     def approve(self, transaction_id: str, fingerprint: str) -> tuple[str, dict[str, Any] | None]:
+         return self.store.approve(transaction_id, fingerprint)
+ 
+     def execute(self, transaction_id: str) -> tuple[str, dict[str, Any] | None]:
+-        return self.store.execute_simulated(transaction_id)
++        return self.store.execute_simulated(transaction_id, self.policy)
+diff --git a/app/workflow/store.py b/app/workflow/store.py
+index a4a880f..a5abedf 100644
+--- a/app/workflow/store.py
++++ b/app/workflow/store.py
+@@ -1,27 +1,29 @@
+-"""SQLite-backed transaction state with atomic transitions and replay protection."""
++"""SQLite-backed transaction state with atomic budget reservations and replay protection."""
+ from __future__ import annotations
+ 
+ import json
+ import os
+ import sqlite3
+ from pathlib import Path
+-from typing import Any
+-
++from typing import Any, Callable
+ 
+ DEFAULT_DB_PATH = os.environ.get("AEGIS_DB_PATH", "aegis-workflow.sqlite3")
++RESERVED_STATUSES = ("ready", "awaiting_approval", "approved", "executed_simulated")
+ 
+ 
+ class WorkflowStore:
+     def __init__(self, db_path: str | Path = DEFAULT_DB_PATH) -> None:
+-        self.db_path = str(db_path)
++        raw_path = str(db_path)
++        self.db_path = str(Path(raw_path).expanduser()) if raw_path != ":memory:" else raw_path
+         if self.db_path != ":memory:":
+-            Path(self.db_path).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
++            Path(self.db_path).resolve().parent.mkdir(parents=True, exist_ok=True)
+         self._init_db()
+ 
+     def _connect(self) -> sqlite3.Connection:
+         connection = sqlite3.connect(self.db_path, timeout=10, isolation_level=None)
+         connection.row_factory = sqlite3.Row
+         connection.execute("PRAGMA foreign_keys = ON")
++        connection.execute("PRAGMA busy_timeout = 10000")
+         return connection
+ 
+     def _init_db(self) -> None:
+@@ -39,44 +41,140 @@ class WorkflowStore:
+                     status TEXT NOT NULL,
+                     approval_fingerprint TEXT,
+                     execution_reference TEXT,
++                    idempotency_key TEXT,
++                    chain_id INTEGER NOT NULL DEFAULT 0,
++                    token_address TEXT NOT NULL DEFAULT '',
++                    amount_base_units INTEGER NOT NULL DEFAULT 0,
+                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                 )
+             """)
++            # Additive migration keeps existing local prototype databases intact.
++            existing = {row["name"] for row in db.execute("PRAGMA table_info(transactions)")}
++            migrations = {
++                "idempotency_key": "TEXT",
++                "chain_id": "INTEGER NOT NULL DEFAULT 0",
++                "token_address": "TEXT NOT NULL DEFAULT ''",
++                "amount_base_units": "INTEGER NOT NULL DEFAULT 0",
++            }
++            for name, declaration in migrations.items():
++                if name not in existing:
++                    db.execute(f"ALTER TABLE transactions ADD COLUMN {name} {declaration}")
++            # Backfill the new accounting columns for older records.
++            rows = db.execute(
++                "SELECT transaction_id, proposal_json FROM transactions "
++                "WHERE chain_id = 0 OR token_address = '' OR amount_base_units = 0"
++            ).fetchall()
++            for row in rows:
++                try:
++                    proposal = json.loads(row["proposal_json"])
++                    db.execute(
++                        """UPDATE transactions SET chain_id = ?, token_address = ?,
++                           amount_base_units = ? WHERE transaction_id = ?""",
++                        (int(proposal.get("chain_id", 0)), str(proposal.get("token_address", "")).lower(),
++                         int(proposal.get("amount_base_units", 0)), row["transaction_id"]),
++                    )
++                except (TypeError, ValueError, json.JSONDecodeError):
++                    continue
++            db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_fingerprint ON transactions(fingerprint)")
++            db.execute("""
++                CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_idempotency
++                ON transactions(idempotency_key) WHERE idempotency_key IS NOT NULL
++            """)
+             db.execute("""
+-                CREATE INDEX IF NOT EXISTS idx_transactions_fingerprint
+-                ON transactions(fingerprint)
++                CREATE INDEX IF NOT EXISTS idx_transactions_daily_spend
++                ON transactions(chain_id, token_address, created_at, status)
+             """)
+ 
+-    def create(self, record: dict[str, Any]) -> None:
++    @staticmethod
++    def _daily_spend(db: sqlite3.Connection, chain_id: int, token_address: str,
++                     exclude_transaction_id: str | None = None) -> int:
++        statuses = ",".join("?" for _ in RESERVED_STATUSES)
++        query = (
++            f"SELECT COALESCE(SUM(amount_base_units), 0) AS total FROM transactions "
++            f"WHERE date(created_at) = date('now') AND chain_id = ? AND lower(token_address) = ? "
++            f"AND status IN ({statuses})"
++        )
++        args: list[Any] = [chain_id, token_address.lower(), *RESERVED_STATUSES]
++        if exclude_transaction_id is not None:
++            query += " AND transaction_id != ?"
++            args.append(exclude_transaction_id)
++        return int(db.execute(query, args).fetchone()["total"])
++
++    def create_evaluated(
++        self, proposal: dict[str, Any], idempotency_key: str | None,
++        build_record: Callable[[int], dict[str, Any]],
++    ) -> tuple[str, dict[str, Any]]:
++        """Serializes spend check + reservation so concurrent proposals cannot overspend."""
+         with self._connect() as db:
++            db.execute("BEGIN IMMEDIATE")
++            if idempotency_key:
++                prior = db.execute(
++                    "SELECT * FROM transactions WHERE idempotency_key = ?", (idempotency_key,)
++                ).fetchone()
++                if prior:
++                    record = self._decode(prior)
++                    if record["fingerprint"] != build_record(0)["fingerprint"]:
++                        db.execute("ROLLBACK")
++                        return "idempotency_conflict", record
++                    db.execute("COMMIT")
++                    return "replayed", record
++
++            spent = self._daily_spend(
++                db, int(proposal["chain_id"]), str(proposal["token_address"])
++            )
++            record = build_record(spent)
+             db.execute(
+                 """INSERT INTO transactions (
+                     transaction_id, fingerprint, proposal_json, policy_decision,
+-                    policy_reasons_json, risk_score, risk_level, risk_reasons_json, status
+-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
++                    policy_reasons_json, risk_score, risk_level, risk_reasons_json, status,
++                    idempotency_key, chain_id, token_address, amount_base_units
++                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                 (
+                     record["transaction_id"], record["fingerprint"],
+                     json.dumps(record["proposal"], sort_keys=True),
+                     record["policy_decision"], json.dumps(record["policy_reasons"]),
+-                    record["risk_score"], record["risk_level"],
+-                    json.dumps(record["risk_reasons"]), record["status"],
++                    record["risk_score"], record["risk_level"], json.dumps(record["risk_reasons"]),
++                    record["status"], idempotency_key, int(proposal["chain_id"]),
++                    str(proposal["token_address"]).lower(), int(proposal["amount_base_units"]),
+                 ),
+             )
++            db.execute("COMMIT")
++        return "created", self.get(record["transaction_id"]) or record
++
++    def create(self, record: dict[str, Any]) -> None:
++        proposal = record["proposal"]
++        with self._connect() as db:
++            db.execute(
++                """INSERT INTO transactions (
++                    transaction_id, fingerprint, proposal_json, policy_decision,
++                    policy_reasons_json, risk_score, risk_level, risk_reasons_json, status,
++                    chain_id, token_address, amount_base_units
++                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
++                (
++                    record["transaction_id"], record["fingerprint"],
++                    json.dumps(proposal, sort_keys=True), record["policy_decision"],
++                    json.dumps(record["policy_reasons"]), record["risk_score"],
++                    record["risk_level"], json.dumps(record["risk_reasons"]), record["status"],
++                    int(proposal.get("chain_id", 0)), str(proposal.get("token_address", "")).lower(),
++                    int(proposal.get("amount_base_units", 0)),
++                ),
++            )
++
++    def daily_spend(self, chain_id: int, token_address: str,
++                    exclude_transaction_id: str | None = None) -> int:
++        with self._connect() as db:
++            return self._daily_spend(db, chain_id, token_address, exclude_transaction_id)
+ 
+     def get(self, transaction_id: str) -> dict[str, Any] | None:
+         with self._connect() as db:
+-            row = db.execute(
+-                "SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)
+-            ).fetchone()
++            row = db.execute("SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)).fetchone()
+         return self._decode(row) if row else None
+ 
+     def approve(self, transaction_id: str, fingerprint: str) -> tuple[str, dict[str, Any] | None]:
+         with self._connect() as db:
+             db.execute("BEGIN IMMEDIATE")
+-            row = db.execute(
+-                "SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)
+-            ).fetchone()
++            row = db.execute("SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)).fetchone()
+             if row is None:
+                 db.execute("COMMIT")
+                 return "not_found", None
+@@ -104,12 +202,14 @@ class WorkflowStore:
+             db.execute("COMMIT")
+         return "approved", self.get(transaction_id)
+ 
+-    def execute_simulated(self, transaction_id: str) -> tuple[str, dict[str, Any] | None]:
++    def execute_simulated(self, transaction_id: str, policy: Any) -> tuple[str, dict[str, Any] | None]:
++        """Revalidates policy and spend inside the same write lock as execution."""
++        from app.policy.engine import evaluate_transaction
++        from app.policy.models import PolicyDecision, TransactionProposal
++
+         with self._connect() as db:
+             db.execute("BEGIN IMMEDIATE")
+-            row = db.execute(
+-                "SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)
+-            ).fetchone()
++            row = db.execute("SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)).fetchone()
+             if row is None:
+                 db.execute("COMMIT")
+                 return "not_found", None
+@@ -129,7 +229,39 @@ class WorkflowStore:
+             if record["status"] == "approved" and record["approval_fingerprint"] != record["fingerprint"]:
+                 db.execute("COMMIT")
+                 return "approval_mismatch", record
+-            # This milestone deliberately simulates execution. No signing or RPC calls occur.
++
++            proposal = TransactionProposal(**record["proposal"])
++            spent = self._daily_spend(
++                db, proposal.chain_id, proposal.token_address, exclude_transaction_id=transaction_id
++            )
++            result = evaluate_transaction(proposal, policy, spent)
++            if result.decision == PolicyDecision.BLOCK:
++                db.execute(
++                    """UPDATE transactions SET status = 'blocked', policy_decision = ?,
++                       policy_reasons_json = ?, approval_fingerprint = NULL,
++                       updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
++                    (result.decision.value, json.dumps(result.reasons), transaction_id),
++                )
++                db.execute("COMMIT")
++                return "blocked", self.get(transaction_id)
++            if result.decision == PolicyDecision.REQUIRE_APPROVAL:
++                # A still-valid approval may satisfy the same policy requirement that existed
++                # when the proposal was approved. A newly introduced requirement invalidates it.
++                previously_required = record["policy_decision"] == PolicyDecision.REQUIRE_APPROVAL.value
++                if record["status"] != "approved" or not previously_required:
++                    db.execute(
++                        """UPDATE transactions SET status = 'awaiting_approval', policy_decision = ?,
++                           policy_reasons_json = ?, approval_fingerprint = NULL,
++                           updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
++                        (result.decision.value, json.dumps(result.reasons), transaction_id),
++                    )
++                    db.execute("COMMIT")
++                    return "approval_required", self.get(transaction_id)
++            # A stored risk-based approval requirement is still enforced by the state machine.
++            if record["status"] == "awaiting_approval":
++                db.execute("COMMIT")
++                return "approval_required", record
++
+             reference = "simulated:" + record["fingerprint"][:24]
+             db.execute(
+                 """UPDATE transactions SET status = 'executed_simulated',
+diff --git a/pyproject.toml b/pyproject.toml
+index f4b2ec0..5088da6 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
+ 
+ [project]
+ name = "aegis-agent-wallet"
+-version = "0.3.0"
+-description = "Policy, risk, and approval workflow for a testnet-only AI agent wallet"
++version = "0.4.0"
++description = "Policy, risk, and approval workflow simulation for an AI agent wallet"
+ requires-python = ">=3.11"
+ dependencies = ["fastapi>=0.115,<1.0", "uvicorn[standard]>=0.30,<1.0", "pydantic>=2.8,<3.0"]
+ 
+diff --git a/tests/test_api.py b/tests/test_api.py
+index 36f8e77..aa19f82 100644
+--- a/tests/test_api.py
++++ b/tests/test_api.py
+@@ -1,8 +1,26 @@
++import os
++
++import pytest
+ from fastapi.testclient import TestClient
+ 
+-from app.main import app
++import app.main as main
++from app.workflow.controller import TransactionController
++from app.workflow.store import WorkflowStore
++
++AGENT_TOKEN = "test-agent-token-with-enough-length"
++OWNER_TOKEN = "test-owner-token-with-enough-length"
++AGENT_HEADERS = {"Authorization": f"Bearer {AGENT_TOKEN}"}
++OWNER_HEADERS = {"Authorization": f"Bearer {OWNER_TOKEN}"}
++client = TestClient(main.app)
++
+ 
+-client = TestClient(app)
++@pytest.fixture(autouse=True)
++def isolated_workflow(tmp_path, monkeypatch):
++    monkeypatch.setenv("AEGIS_AGENT_TOKEN", AGENT_TOKEN)
++    monkeypatch.setenv("AEGIS_APPROVAL_TOKEN", OWNER_TOKEN)
++    local_store = WorkflowStore(tmp_path / "workflow.sqlite3")
++    monkeypatch.setattr(main, "store", local_store)
++    monkeypatch.setattr(main, "controller", TransactionController(main.DEMO_POLICY, local_store))
+ 
+ 
+ def _payload(**overrides):
+@@ -14,12 +32,19 @@ def _payload(**overrides):
+         "recipient": "0x2222222222222222222222222222222222222222",
+         "amount_base_units": 1_000_000,
+         "token_decimals": 6,
+-        "daily_spent_base_units": 0,
+     }
+     payload.update(overrides)
+     return payload
+ 
+ 
++def propose(payload=None, **overrides):
++    return client.post("/transactions/propose", headers=AGENT_HEADERS, json=payload or _payload(**overrides))
++
++
++def owner_post(path, **kwargs):
++    return client.post(path, headers=OWNER_HEADERS, **kwargs)
++
++
+ def test_health():
+     response = client.get("/health")
+     assert response.status_code == 200
+@@ -27,25 +52,21 @@ def test_health():
+ 
+ 
+ def test_policy_endpoint_blocks_wrong_chain():
+-    response = client.post("/policy/evaluate", json=_payload(chain_id=1))
++    response = client.post("/policy/evaluate", json={**_payload(), "chain_id": 1, "daily_spent_base_units": 0})
+     assert response.status_code == 200
+     assert response.json()["decision"] == "block"
+ 
+ 
+ def test_unknown_agent_returns_404():
+-    response = client.post("/policy/evaluate", json=_payload(agent_id="not-configured"))
++    response = client.post("/policy/evaluate", json={**_payload(), "agent_id": "not-configured"})
+     assert response.status_code == 404
+ 
+ 
+ def test_risk_endpoint_returns_score_and_reasons():
+-    response = client.post(
+-        "/risk/assess",
+-        json=_payload(
+-            recipient="0x4444444444444444444444444444444444444444",
+-            amount_base_units=45_000_000,
+-            daily_spent_base_units=80_000_000,
+-        ),
+-    )
++    response = client.post("/risk/assess", json={
++        **_payload(recipient="0x4444444444444444444444444444444444444444", amount_base_units=45_000_000),
++        "daily_spent_base_units": 80_000_000,
++    })
+     assert response.status_code == 200
+     body = response.json()
+     assert body["score"] == 85
+@@ -54,98 +75,122 @@ def test_risk_endpoint_returns_score_and_reasons():
+ 
+ 
+ def test_risk_endpoint_rejects_unknown_agent():
+-    response = client.post("/risk/assess", json=_payload(agent_id="unknown-agent"))
++    response = client.post("/risk/assess", json={**_payload(), "agent_id": "unknown-agent"})
+     assert response.status_code == 404
+ 
+ 
++def test_workflow_requires_distinct_authentication():
++    assert client.post("/transactions/propose", json=_payload()).status_code == 401
++    assert client.post("/transactions/propose", headers=OWNER_HEADERS, json=_payload()).status_code == 401
++    record = propose().json()
++    assert client.get(f"/transactions/{record['transaction_id']}").status_code == 401
++    assert owner_post(f"/transactions/{record['transaction_id']}/execute").status_code == 200
++
++
+ def test_low_risk_transaction_can_be_simulated_once():
+-    proposed = client.post("/transactions/propose", json=_payload())
++    proposed = propose()
+     assert proposed.status_code == 201
+     record = proposed.json()
+     assert record["status"] == "ready"
+-
+-    executed = client.post(f"/transactions/{record['transaction_id']}/execute")
++    executed = owner_post(f"/transactions/{record['transaction_id']}/execute")
+     assert executed.status_code == 200
+     assert executed.json()["status"] == "executed_simulated"
+     assert executed.json()["execution_reference"].startswith("simulated:")
+-
+-    retry = client.post(f"/transactions/{record['transaction_id']}/execute")
+-    assert retry.status_code == 409
++    assert owner_post(f"/transactions/{record['transaction_id']}/execute").status_code == 409
+ 
+ 
+ def test_unknown_recipient_requires_fingerprint_bound_approval():
+-    proposed = client.post(
+-        "/transactions/propose",
+-        json=_payload(recipient="0x4444444444444444444444444444444444444444"),
+-    )
+-    assert proposed.status_code == 201
+-    record = proposed.json()
++    record = propose(_payload(recipient="0x4444444444444444444444444444444444444444")).json()
+     assert record["status"] == "awaiting_approval"
+-
+-    wrong = client.post(
+-        f"/transactions/{record['transaction_id']}/approve",
+-        json={"transaction_fingerprint": "0" * 64, "confirmation": "APPROVE"},
+-    )
++    wrong = owner_post(f"/transactions/{record['transaction_id']}/approve", json={
++        "transaction_fingerprint": "0" * 64, "confirmation": "APPROVE",
++    })
+     assert wrong.status_code == 409
+-
+-    approved = client.post(
+-        f"/transactions/{record['transaction_id']}/approve",
+-        json={
+-            "transaction_fingerprint": record["fingerprint"],
+-            "confirmation": "APPROVE",
+-        },
+-    )
++    approved = owner_post(f"/transactions/{record['transaction_id']}/approve", json={
++        "transaction_fingerprint": record["fingerprint"], "confirmation": "APPROVE",
++    })
+     assert approved.status_code == 200
+-    assert approved.json()["status"] == "approved"
+     assert approved.json()["approval_fingerprint"] == record["fingerprint"]
+-
+-    executed = client.post(f"/transactions/{record['transaction_id']}/execute")
++    executed = owner_post(f"/transactions/{record['transaction_id']}/execute")
+     assert executed.status_code == 200
+     assert executed.json()["status"] == "executed_simulated"
+ 
+ 
+ def test_blocked_transaction_cannot_be_approved_or_executed():
+-    proposed = client.post("/transactions/propose", json=_payload(chain_id=1))
+-    record = proposed.json()
++    record = propose(_payload(chain_id=1)).json()
+     assert record["status"] == "blocked"
+-
+-    approve = client.post(
+-        f"/transactions/{record['transaction_id']}/approve",
+-        json={"transaction_fingerprint": record["fingerprint"], "confirmation": "APPROVE"},
+-    )
++    approve = owner_post(f"/transactions/{record['transaction_id']}/approve", json={
++        "transaction_fingerprint": record["fingerprint"], "confirmation": "APPROVE",
++    })
+     assert approve.status_code == 409
+-
+-    execute = client.post(f"/transactions/{record['transaction_id']}/execute")
+-    assert execute.status_code == 403
+-
+-
+-def test_high_risk_transaction_requires_approval_even_if_policy_allows():
+-    # Approved recipient, but large enough to trigger the configured risk heuristic.
+-    proposed = client.post(
+-        "/transactions/propose",
+-        json=_payload(amount_base_units=40_000_000, daily_spent_base_units=90_000_000),
+-    )
+-    record = proposed.json()
+-    assert record["risk_level"] == "high"
+-    assert record["status"] == "awaiting_approval"
++    assert owner_post(f"/transactions/{record['transaction_id']}/execute").status_code == 403
++
++
++def test_transaction_workflow_ignores_caller_supplied_daily_spend():
++    # ProposalRequest does not accept caller-supplied accounting data. Persisted spend is authoritative.
++    body = {**_payload(amount_base_units=40_000_000), "daily_spent_base_units": 149_000_000}
++    record = propose(body).json()
++    assert record["status"] == "ready"  # caller's fabricated spend is ignored
++
++
++def test_daily_spend_reservations_block_overspend():
++    first = propose(_payload(amount_base_units=45_000_000)).json()
++    assert first["status"] != "blocked"
++    second = propose(_payload(amount_base_units=45_000_000)).json()
++    assert second["status"] != "blocked"
++    third = propose(_payload(amount_base_units=45_000_000)).json()
++    assert third["status"] != "blocked"
++    fourth = propose(_payload(amount_base_units=20_000_000)).json()
++    assert fourth["status"] == "blocked"
++    assert "daily spending limit" in " ".join(fourth["policy_reasons"]).lower()
++
++
++def test_idempotency_replay_returns_same_transaction_and_conflict_for_changed_payload():
++    headers = {**AGENT_HEADERS, "Idempotency-Key": "retry-key-0001"}
++    first = client.post("/transactions/propose", headers=headers, json=_payload())
++    second = client.post("/transactions/propose", headers=headers, json=_payload())
++    assert first.status_code == 201
++    assert second.status_code == 200
++    assert first.json()["transaction_id"] == second.json()["transaction_id"]
++    conflict = client.post("/transactions/propose", headers=headers, json=_payload(amount_base_units=2_000_000))
++    assert conflict.status_code == 409
++
++
++def test_execution_rechecks_spending_and_blocks_stale_approval():
++    # First reserve most of the daily budget; second proposal is initially evaluated against it.
++    first = propose(_payload(amount_base_units=45_000_000)).json()
++    second = propose(_payload(amount_base_units=45_000_000)).json()
++    assert second["status"] in {"ready", "awaiting_approval"}
++    # Simulate an externally inserted reservation to test execution-time revalidation.
++    from app.workflow.controller import fingerprint_proposal
++    from app.policy.models import TransactionProposal
++    proposal = TransactionProposal(**_payload(amount_base_units=65_000_000))
++    main.store.create({
++        "transaction_id": "external-reservation", "fingerprint": fingerprint_proposal(proposal),
++        "proposal": _payload(amount_base_units=65_000_000), "policy_decision": "allow",
++        "policy_reasons": ["test reservation"], "risk_score": 0, "risk_level": "low",
++        "risk_reasons": [], "status": "ready",
++    })
++    result = owner_post(f"/transactions/{second['transaction_id']}/execute")
++    assert result.status_code == 403
++    assert result.json()["detail"] == "Policy-blocked transactions cannot execute"
++
++
++def test_missing_auth_configuration_fails_closed(monkeypatch):
++    monkeypatch.delenv("AEGIS_AGENT_TOKEN", raising=False)
++    response = client.post("/transactions/propose", json=_payload())
++    assert response.status_code == 503
+ 
+ 
+ def test_transaction_state_survives_store_reopen(tmp_path):
+-    from app.workflow.store import WorkflowStore
+-
+     db_path = tmp_path / "workflow.sqlite3"
+     local_store = WorkflowStore(db_path)
+     record = {
+-        "transaction_id": "test-id",
+-        "fingerprint": "a" * 64,
+-        "proposal": _payload(),
+-        "policy_decision": "allow",
+-        "policy_reasons": ["ok"],
+-        "risk_score": 0,
+-        "risk_level": "low",
+-        "risk_reasons": ["ok"],
+-        "status": "ready",
++        "transaction_id": "test-id", "fingerprint": "a" * 64, "proposal": _payload(),
++        "policy_decision": "allow", "policy_reasons": ["ok"], "risk_score": 0,
++        "risk_level": "low", "risk_reasons": ["ok"], "status": "ready",
+     }
+     local_store.create(record)
+     reopened = WorkflowStore(db_path)
+     assert reopened.get("test-id")["status"] == "ready"
++    assert reopened.daily_spend(84532, _payload()["token_address"]) == 1_000_000

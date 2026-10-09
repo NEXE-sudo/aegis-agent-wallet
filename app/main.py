@@ -1,9 +1,11 @@
+"""Aegis Agent Wallet API. Workflow execution is simulation-only."""
+import hmac
 import os
 from contextlib import asynccontextmanager
-
-from fastapi import FastAPI, HTTPException
 from typing import Literal
 
+from fastapi import Depends, FastAPI, Header, HTTPException, Response
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
 from app.policy.engine import evaluate_transaction
@@ -22,7 +24,19 @@ class EvaluationRequest(BaseModel):
     recipient: str
     amount_base_units: int = Field(gt=0)
     token_decimals: int = Field(ge=0, le=36)
+    # Only the standalone evaluation endpoints accept caller-supplied simulated spend.
+    # The transaction workflow never trusts this value.
     daily_spent_base_units: int = Field(default=0, ge=0)
+
+
+class ProposalRequest(BaseModel):
+    agent_id: str = "devops-01"
+    chain_id: int
+    token_symbol: str
+    token_address: str
+    recipient: str
+    amount_base_units: int = Field(gt=0)
+    token_decimals: int = Field(ge=0, le=36)
 
 
 class EvaluationResponse(BaseModel):
@@ -61,7 +75,6 @@ class TransactionResponse(BaseModel):
     updated_at: str
 
 
-# Demo-only policy. These are placeholders, not verified token contracts or user addresses.
 DEMO_POLICY = AgentPolicy(
     agent_id="devops-01",
     allowed_chain_ids={84532},
@@ -80,6 +93,7 @@ DEMO_POLICY = AgentPolicy(
 
 store = WorkflowStore(os.environ.get("AEGIS_DB_PATH", "aegis-workflow.sqlite3"))
 controller = TransactionController(DEMO_POLICY, store)
+bearer = HTTPBearer(auto_error=False)
 
 
 @asynccontextmanager
@@ -89,16 +103,30 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="Aegis Agent Wallet API",
-    description=(
-        "Policy, risk, and approval workflow simulation. Execution is simulated; "
-        "no wallet signing or blockchain submission occurs."
-    ),
-    version="0.3.0",
+    description="Policy, risk, and approval workflow simulation. No signing or blockchain submission occurs.",
+    version="0.4.0",
     lifespan=lifespan,
 )
 
 
-def _proposal(request: EvaluationRequest) -> TransactionProposal:
+def _require_token(credentials: HTTPAuthorizationCredentials | None, env_name: str) -> None:
+    expected = os.environ.get(env_name, "")
+    if not expected:
+        raise HTTPException(status_code=503, detail=f"{env_name} is not configured; endpoint fails closed")
+    supplied = credentials.credentials if credentials else ""
+    if not hmac.compare_digest(supplied, expected):
+        raise HTTPException(status_code=401, detail="Missing or invalid bearer token")
+
+
+def require_agent(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> None:
+    _require_token(credentials, "AEGIS_AGENT_TOKEN")
+
+
+def require_owner(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> None:
+    _require_token(credentials, "AEGIS_APPROVAL_TOKEN")
+
+
+def _proposal(request: EvaluationRequest | ProposalRequest) -> TransactionProposal:
     if request.agent_id != DEMO_POLICY.agent_id:
         raise HTTPException(status_code=404, detail="Unknown demo agent")
     return TransactionProposal(
@@ -146,14 +174,24 @@ def assess_risk(request: EvaluationRequest) -> RiskResponse:
     )
 
 
-@app.post("/transactions/propose", response_model=TransactionResponse, status_code=201)
-def propose_transaction(request: EvaluationRequest) -> TransactionResponse:
+@app.post("/transactions/propose", response_model=TransactionResponse, status_code=201,
+          dependencies=[Depends(require_agent)])
+def propose_transaction(
+    request: ProposalRequest,
+    response: Response,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key", min_length=8, max_length=128),
+) -> TransactionResponse:
     proposal = _proposal(request)
-    record = controller.propose(proposal, request.daily_spent_base_units)
+    outcome, record = controller.propose(proposal, idempotency_key)
+    if outcome == "idempotency_conflict":
+        raise HTTPException(status_code=409, detail="Idempotency-Key was already used for a different proposal")
+    if outcome == "replayed":
+        response.status_code = 200
     return _record_response(record)
 
 
-@app.get("/transactions/{transaction_id}", response_model=TransactionResponse)
+@app.get("/transactions/{transaction_id}", response_model=TransactionResponse,
+         dependencies=[Depends(require_owner)])
 def get_transaction(transaction_id: str) -> TransactionResponse:
     record = store.get(transaction_id)
     if record is None:
@@ -161,10 +199,9 @@ def get_transaction(transaction_id: str) -> TransactionResponse:
     return _record_response(record)
 
 
-@app.post("/transactions/{transaction_id}/approve", response_model=TransactionResponse)
-def approve_transaction(
-    transaction_id: str, request: ApprovalRequest
-) -> TransactionResponse:
+@app.post("/transactions/{transaction_id}/approve", response_model=TransactionResponse,
+          dependencies=[Depends(require_owner)])
+def approve_transaction(transaction_id: str, request: ApprovalRequest) -> TransactionResponse:
     outcome, record = controller.approve(transaction_id, request.transaction_fingerprint)
     if outcome == "not_found":
         raise HTTPException(status_code=404, detail="Transaction not found")
@@ -181,7 +218,8 @@ def approve_transaction(
     return _record_response(record or {})
 
 
-@app.post("/transactions/{transaction_id}/execute", response_model=TransactionResponse)
+@app.post("/transactions/{transaction_id}/execute", response_model=TransactionResponse,
+          dependencies=[Depends(require_owner)])
 def execute_transaction(transaction_id: str) -> TransactionResponse:
     outcome, record = controller.execute(transaction_id)
     if outcome == "not_found":

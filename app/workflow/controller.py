@@ -24,37 +24,36 @@ class TransactionController:
         self.policy = policy
         self.store = store
 
-    def propose(self, proposal: TransactionProposal, daily_spent_base_units: int) -> dict[str, Any]:
-        policy_result = evaluate_transaction(proposal, self.policy, daily_spent_base_units)
-        risk_result = assess_transaction_risk(proposal, self.policy, daily_spent_base_units)
+    def propose(
+        self, proposal: TransactionProposal, idempotency_key: str | None = None
+    ) -> tuple[str, dict[str, Any]]:
         fingerprint = fingerprint_proposal(proposal)
 
-        if policy_result.decision == PolicyDecision.BLOCK:
-            status = "blocked"
-        elif (
-            policy_result.decision == PolicyDecision.REQUIRE_APPROVAL
-            or risk_result.level == RiskLevel.HIGH
-        ):
-            status = "awaiting_approval"
-        else:
-            status = "ready"
+        def build_record(daily_spent_base_units: int) -> dict[str, Any]:
+            policy_result = evaluate_transaction(proposal, self.policy, daily_spent_base_units)
+            risk_result = assess_transaction_risk(proposal, self.policy, daily_spent_base_units)
+            if policy_result.decision == PolicyDecision.BLOCK:
+                status = "blocked"
+            elif policy_result.decision == PolicyDecision.REQUIRE_APPROVAL or risk_result.level == RiskLevel.HIGH:
+                status = "awaiting_approval"
+            else:
+                status = "ready"
+            return {
+                "transaction_id": str(uuid.uuid4()),
+                "fingerprint": fingerprint,
+                "proposal": asdict(proposal),
+                "policy_decision": policy_result.decision.value,
+                "policy_reasons": policy_result.reasons,
+                "risk_score": risk_result.score,
+                "risk_level": risk_result.level.value,
+                "risk_reasons": risk_result.reasons,
+                "status": status,
+            }
 
-        transaction_id = str(uuid.uuid4())
-        self.store.create({
-            "transaction_id": transaction_id,
-            "fingerprint": fingerprint,
-            "proposal": asdict(proposal),
-            "policy_decision": policy_result.decision.value,
-            "policy_reasons": policy_result.reasons,
-            "risk_score": risk_result.score,
-            "risk_level": risk_result.level.value,
-            "risk_reasons": risk_result.reasons,
-            "status": status,
-        })
-        return self.store.get(transaction_id) or {}
+        return self.store.create_evaluated(asdict(proposal), idempotency_key, build_record)
 
     def approve(self, transaction_id: str, fingerprint: str) -> tuple[str, dict[str, Any] | None]:
         return self.store.approve(transaction_id, fingerprint)
 
     def execute(self, transaction_id: str) -> tuple[str, dict[str, Any] | None]:
-        return self.store.execute_simulated(transaction_id)
+        return self.store.execute_simulated(transaction_id, self.policy)

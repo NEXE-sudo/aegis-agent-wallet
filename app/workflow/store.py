@@ -1,27 +1,29 @@
-"""SQLite-backed transaction state with atomic transitions and replay protection."""
+"""SQLite-backed transaction state with atomic budget reservations and replay protection."""
 from __future__ import annotations
 
 import json
 import os
 import sqlite3
 from pathlib import Path
-from typing import Any
-
+from typing import Any, Callable
 
 DEFAULT_DB_PATH = os.environ.get("AEGIS_DB_PATH", "aegis-workflow.sqlite3")
+RESERVED_STATUSES = ("ready", "awaiting_approval", "approved", "executed_simulated")
 
 
 class WorkflowStore:
     def __init__(self, db_path: str | Path = DEFAULT_DB_PATH) -> None:
-        self.db_path = str(db_path)
+        raw_path = str(db_path)
+        self.db_path = str(Path(raw_path).expanduser()) if raw_path != ":memory:" else raw_path
         if self.db_path != ":memory:":
-            Path(self.db_path).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
+            Path(self.db_path).resolve().parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.db_path, timeout=10, isolation_level=None)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("PRAGMA busy_timeout = 10000")
         return connection
 
     def _init_db(self) -> None:
@@ -39,44 +41,140 @@ class WorkflowStore:
                     status TEXT NOT NULL,
                     approval_fingerprint TEXT,
                     execution_reference TEXT,
+                    idempotency_key TEXT,
+                    chain_id INTEGER NOT NULL DEFAULT 0,
+                    token_address TEXT NOT NULL DEFAULT '',
+                    amount_base_units INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            # Additive migration keeps existing local prototype databases intact.
+            existing = {row["name"] for row in db.execute("PRAGMA table_info(transactions)")}
+            migrations = {
+                "idempotency_key": "TEXT",
+                "chain_id": "INTEGER NOT NULL DEFAULT 0",
+                "token_address": "TEXT NOT NULL DEFAULT ''",
+                "amount_base_units": "INTEGER NOT NULL DEFAULT 0",
+            }
+            for name, declaration in migrations.items():
+                if name not in existing:
+                    db.execute(f"ALTER TABLE transactions ADD COLUMN {name} {declaration}")
+            # Backfill the new accounting columns for older records.
+            rows = db.execute(
+                "SELECT transaction_id, proposal_json FROM transactions "
+                "WHERE chain_id = 0 OR token_address = '' OR amount_base_units = 0"
+            ).fetchall()
+            for row in rows:
+                try:
+                    proposal = json.loads(row["proposal_json"])
+                    db.execute(
+                        """UPDATE transactions SET chain_id = ?, token_address = ?,
+                           amount_base_units = ? WHERE transaction_id = ?""",
+                        (int(proposal.get("chain_id", 0)), str(proposal.get("token_address", "")).lower(),
+                         int(proposal.get("amount_base_units", 0)), row["transaction_id"]),
+                    )
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    continue
+            db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_fingerprint ON transactions(fingerprint)")
             db.execute("""
-                CREATE INDEX IF NOT EXISTS idx_transactions_fingerprint
-                ON transactions(fingerprint)
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_idempotency
+                ON transactions(idempotency_key) WHERE idempotency_key IS NOT NULL
+            """)
+            db.execute("""
+                CREATE INDEX IF NOT EXISTS idx_transactions_daily_spend
+                ON transactions(chain_id, token_address, created_at, status)
             """)
 
-    def create(self, record: dict[str, Any]) -> None:
+    @staticmethod
+    def _daily_spend(db: sqlite3.Connection, chain_id: int, token_address: str,
+                     exclude_transaction_id: str | None = None) -> int:
+        statuses = ",".join("?" for _ in RESERVED_STATUSES)
+        query = (
+            f"SELECT COALESCE(SUM(amount_base_units), 0) AS total FROM transactions "
+            f"WHERE date(created_at) = date('now') AND chain_id = ? AND lower(token_address) = ? "
+            f"AND status IN ({statuses})"
+        )
+        args: list[Any] = [chain_id, token_address.lower(), *RESERVED_STATUSES]
+        if exclude_transaction_id is not None:
+            query += " AND transaction_id != ?"
+            args.append(exclude_transaction_id)
+        return int(db.execute(query, args).fetchone()["total"])
+
+    def create_evaluated(
+        self, proposal: dict[str, Any], idempotency_key: str | None,
+        build_record: Callable[[int], dict[str, Any]],
+    ) -> tuple[str, dict[str, Any]]:
+        """Serializes spend check + reservation so concurrent proposals cannot overspend."""
         with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            if idempotency_key:
+                prior = db.execute(
+                    "SELECT * FROM transactions WHERE idempotency_key = ?", (idempotency_key,)
+                ).fetchone()
+                if prior:
+                    record = self._decode(prior)
+                    if record["fingerprint"] != build_record(0)["fingerprint"]:
+                        db.execute("ROLLBACK")
+                        return "idempotency_conflict", record
+                    db.execute("COMMIT")
+                    return "replayed", record
+
+            spent = self._daily_spend(
+                db, int(proposal["chain_id"]), str(proposal["token_address"])
+            )
+            record = build_record(spent)
             db.execute(
                 """INSERT INTO transactions (
                     transaction_id, fingerprint, proposal_json, policy_decision,
-                    policy_reasons_json, risk_score, risk_level, risk_reasons_json, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    policy_reasons_json, risk_score, risk_level, risk_reasons_json, status,
+                    idempotency_key, chain_id, token_address, amount_base_units
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     record["transaction_id"], record["fingerprint"],
                     json.dumps(record["proposal"], sort_keys=True),
                     record["policy_decision"], json.dumps(record["policy_reasons"]),
-                    record["risk_score"], record["risk_level"],
-                    json.dumps(record["risk_reasons"]), record["status"],
+                    record["risk_score"], record["risk_level"], json.dumps(record["risk_reasons"]),
+                    record["status"], idempotency_key, int(proposal["chain_id"]),
+                    str(proposal["token_address"]).lower(), int(proposal["amount_base_units"]),
+                ),
+            )
+            db.execute("COMMIT")
+        return "created", self.get(record["transaction_id"]) or record
+
+    def create(self, record: dict[str, Any]) -> None:
+        proposal = record["proposal"]
+        with self._connect() as db:
+            db.execute(
+                """INSERT INTO transactions (
+                    transaction_id, fingerprint, proposal_json, policy_decision,
+                    policy_reasons_json, risk_score, risk_level, risk_reasons_json, status,
+                    chain_id, token_address, amount_base_units
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    record["transaction_id"], record["fingerprint"],
+                    json.dumps(proposal, sort_keys=True), record["policy_decision"],
+                    json.dumps(record["policy_reasons"]), record["risk_score"],
+                    record["risk_level"], json.dumps(record["risk_reasons"]), record["status"],
+                    int(proposal.get("chain_id", 0)), str(proposal.get("token_address", "")).lower(),
+                    int(proposal.get("amount_base_units", 0)),
                 ),
             )
 
+    def daily_spend(self, chain_id: int, token_address: str,
+                    exclude_transaction_id: str | None = None) -> int:
+        with self._connect() as db:
+            return self._daily_spend(db, chain_id, token_address, exclude_transaction_id)
+
     def get(self, transaction_id: str) -> dict[str, Any] | None:
         with self._connect() as db:
-            row = db.execute(
-                "SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)
-            ).fetchone()
+            row = db.execute("SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)).fetchone()
         return self._decode(row) if row else None
 
     def approve(self, transaction_id: str, fingerprint: str) -> tuple[str, dict[str, Any] | None]:
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            row = db.execute(
-                "SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)
-            ).fetchone()
+            row = db.execute("SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)).fetchone()
             if row is None:
                 db.execute("COMMIT")
                 return "not_found", None
@@ -104,12 +202,14 @@ class WorkflowStore:
             db.execute("COMMIT")
         return "approved", self.get(transaction_id)
 
-    def execute_simulated(self, transaction_id: str) -> tuple[str, dict[str, Any] | None]:
+    def execute_simulated(self, transaction_id: str, policy: Any) -> tuple[str, dict[str, Any] | None]:
+        """Revalidates policy and spend inside the same write lock as execution."""
+        from app.policy.engine import evaluate_transaction
+        from app.policy.models import PolicyDecision, TransactionProposal
+
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            row = db.execute(
-                "SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)
-            ).fetchone()
+            row = db.execute("SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)).fetchone()
             if row is None:
                 db.execute("COMMIT")
                 return "not_found", None
@@ -129,7 +229,39 @@ class WorkflowStore:
             if record["status"] == "approved" and record["approval_fingerprint"] != record["fingerprint"]:
                 db.execute("COMMIT")
                 return "approval_mismatch", record
-            # This milestone deliberately simulates execution. No signing or RPC calls occur.
+
+            proposal = TransactionProposal(**record["proposal"])
+            spent = self._daily_spend(
+                db, proposal.chain_id, proposal.token_address, exclude_transaction_id=transaction_id
+            )
+            result = evaluate_transaction(proposal, policy, spent)
+            if result.decision == PolicyDecision.BLOCK:
+                db.execute(
+                    """UPDATE transactions SET status = 'blocked', policy_decision = ?,
+                       policy_reasons_json = ?, approval_fingerprint = NULL,
+                       updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
+                    (result.decision.value, json.dumps(result.reasons), transaction_id),
+                )
+                db.execute("COMMIT")
+                return "blocked", self.get(transaction_id)
+            if result.decision == PolicyDecision.REQUIRE_APPROVAL:
+                # A still-valid approval may satisfy the same policy requirement that existed
+                # when the proposal was approved. A newly introduced requirement invalidates it.
+                previously_required = record["policy_decision"] == PolicyDecision.REQUIRE_APPROVAL.value
+                if record["status"] != "approved" or not previously_required:
+                    db.execute(
+                        """UPDATE transactions SET status = 'awaiting_approval', policy_decision = ?,
+                           policy_reasons_json = ?, approval_fingerprint = NULL,
+                           updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
+                        (result.decision.value, json.dumps(result.reasons), transaction_id),
+                    )
+                    db.execute("COMMIT")
+                    return "approval_required", self.get(transaction_id)
+            # A stored risk-based approval requirement is still enforced by the state machine.
+            if record["status"] == "awaiting_approval":
+                db.execute("COMMIT")
+                return "approval_required", record
+
             reference = "simulated:" + record["fingerprint"][:24]
             db.execute(
                 """UPDATE transactions SET status = 'executed_simulated',
