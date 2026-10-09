@@ -1,6 +1,7 @@
 import pytest
 
-from app.policy.models import AgentPolicy, TransactionProposal
+from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
+from app.policy.models import AgentPolicy, TransactionProposal, TrustedToken
 from app.risk.engine import assess_transaction_risk
 from app.risk.models import RiskLevel
 
@@ -12,6 +13,7 @@ def policy() -> AgentPolicy:
         allowed_chain_ids={84532},
         allowed_token_addresses={"0x" + "1" * 40},
         allowed_token_symbols={"USDC"},
+        trusted_tokens={BASE_SEPOLIA_USDC_ADDRESS: TrustedToken(chain_id=84532, symbol="USDC", decimals=6)},
         max_transaction_base_units=100,
         daily_limit_base_units=300,
         approval_threshold_base_units=80,
@@ -24,7 +26,7 @@ def proposal(amount: int = 10, recipient: str = "0x" + "2" * 40) -> TransactionP
         agent_id="agent-1",
         chain_id=84532,
         token_symbol="USDC",
-        token_address="0x" + "1" * 40,
+        token_address=BASE_SEPOLIA_USDC_ADDRESS,
         recipient=recipient,
         amount_base_units=amount,
         token_decimals=6,
