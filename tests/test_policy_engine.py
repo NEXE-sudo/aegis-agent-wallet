@@ -116,9 +116,8 @@ def test_recipient_address_validation_allows_mixed_case_evm_address(policy):
     result = evaluate_transaction(
         proposal(recipient="0x222222222222222222222222222222222222222A"), policy
     )
-    assert result.decision != PolicyDecision.BLOCK or not any(
-        "valid EVM address" in reason for reason in result.reasons
-    )
+    assert result.decision == PolicyDecision.REQUIRE_APPROVAL
+    assert not any("valid EVM address" in reason for reason in result.reasons)
 
 
 def test_recipient_address_validation_rejects_wrong_length(policy):
