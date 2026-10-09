@@ -8,6 +8,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
+from app.chain.router import router as base_sepolia_router
 from app.policy.engine import evaluate_transaction
 from app.policy.models import AgentPolicy, PolicyDecision, TransactionProposal
 from app.risk.engine import assess_transaction_risk
@@ -236,6 +237,4 @@ def execute_transaction(transaction_id: str) -> TransactionResponse:
 
 
 # Read-only chain inspection; this router exposes no signing or submission methods.
-from app.chain.router import router as base_sepolia_router
-
 app.include_router(base_sepolia_router)
