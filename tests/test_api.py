@@ -1,10 +1,10 @@
-import os
-
 import pytest
 from fastapi.testclient import TestClient
 
-import app.main as main
-from app.workflow.controller import TransactionController
+from app import main
+from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
+from app.policy.models import TransactionProposal
+from app.workflow.controller import TransactionController, fingerprint_proposal
 from app.workflow.store import WorkflowStore
 
 AGENT_TOKEN = "test-agent-token-with-enough-length"
@@ -28,7 +28,7 @@ def _payload(**overrides):
         "agent_id": "devops-01",
         "chain_id": 84532,
         "token_symbol": "USDC",
-        "token_address": "0x1111111111111111111111111111111111111111",
+        "token_address": BASE_SEPOLIA_USDC_ADDRESS,
         "recipient": "0x2222222222222222222222222222222222222222",
         "amount_base_units": 1_000_000,
         "token_decimals": 6,
@@ -49,6 +49,12 @@ def test_health():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+
+
+def test_demo_policy_uses_circle_base_sepolia_usdc():
+    assert main.DEMO_POLICY.allowed_token_addresses == {BASE_SEPOLIA_USDC_ADDRESS}
+    assert _payload()["token_address"] == BASE_SEPOLIA_USDC_ADDRESS
+    assert _payload()["token_decimals"] == 6
 
 
 def test_policy_endpoint_blocks_wrong_chain():
@@ -159,11 +165,10 @@ def test_idempotency_replay_returns_same_transaction_and_conflict_for_changed_pa
 def test_execution_rechecks_spending_and_blocks_stale_approval():
     # First reserve most of the daily budget; second proposal is initially evaluated against it.
     first = propose(_payload(amount_base_units=45_000_000)).json()
+    assert first["status"] in {"ready", "awaiting_approval"}
     second = propose(_payload(amount_base_units=45_000_000)).json()
     assert second["status"] in {"ready", "awaiting_approval"}
     # Simulate an externally inserted reservation to test execution-time revalidation.
-    from app.workflow.controller import fingerprint_proposal
-    from app.policy.models import TransactionProposal
     proposal = TransactionProposal(**_payload(amount_base_units=65_000_000))
     main.store.create({
         "transaction_id": "external-reservation", "fingerprint": fingerprint_proposal(proposal),

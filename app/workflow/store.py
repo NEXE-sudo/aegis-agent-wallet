@@ -4,8 +4,9 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 DEFAULT_DB_PATH = os.environ.get("AEGIS_DB_PATH", "aegis-workflow.sqlite3")
 RESERVED_STATUSES = ("ready", "awaiting_approval", "approved", "executed_simulated")
