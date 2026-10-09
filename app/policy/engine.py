@@ -52,10 +52,12 @@ def evaluate_transaction(
         return PolicyResult(PolicyDecision.BLOCK, reasons)
 
     approved = {_normalise_address(a) for a in policy.allowed_recipients}
-    if _normalise_address(proposal.recipient) not in approved:
-        if policy.unknown_recipient_requires_approval:
-            needs_approval = True
-            reasons.append("Recipient is not on the approved-recipient list.")
+    if (
+        _normalise_address(proposal.recipient) not in approved
+        and policy.unknown_recipient_requires_approval
+    ):
+        needs_approval = True
+        reasons.append("Recipient is not on the approved-recipient list.")
     if proposal.amount_base_units >= policy.approval_threshold_base_units:
         needs_approval = True
         reasons.append("Transaction meets or exceeds the approval threshold.")
