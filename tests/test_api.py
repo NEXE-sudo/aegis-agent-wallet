@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import main
+from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
 from app.policy.models import TransactionProposal
 from app.workflow.controller import TransactionController, fingerprint_proposal
 from app.workflow.store import WorkflowStore
@@ -27,7 +28,7 @@ def _payload(**overrides):
         "agent_id": "devops-01",
         "chain_id": 84532,
         "token_symbol": "USDC",
-        "token_address": "0x1111111111111111111111111111111111111111",
+        "token_address": BASE_SEPOLIA_USDC_ADDRESS,
         "recipient": "0x2222222222222222222222222222222222222222",
         "amount_base_units": 1_000_000,
         "token_decimals": 6,
