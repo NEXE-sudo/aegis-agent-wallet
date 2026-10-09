@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.0
+
+- Bind allow-listed token addresses to trusted chain ID, symbol, and decimals in policy configuration.
+- Block proposals whose caller-supplied token metadata does not match trusted configuration.
+- Add policy and API regression tests for metadata tampering.
+
 ## 0.6.0
 
 - Configure the demo policy with Circle's published Base Sepolia USDC contract and six decimals.
