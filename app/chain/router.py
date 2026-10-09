@@ -15,7 +15,8 @@ router = APIRouter(prefix="/chain/base-sepolia", tags=["read-only blockchain"], 
 @router.get("/status")
 def rpc_status() -> dict:
     try:
-        chain_id = BaseSepoliaRpc().chain_id()
+        with BaseSepoliaRpc() as rpc:
+            chain_id = rpc.chain_id()
     except RpcConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except RpcRequestError as exc:
@@ -32,7 +33,8 @@ def rpc_status() -> dict:
 @router.get("/token/{address}")
 def inspect_token(address: str) -> dict:
     try:
-        return BaseSepoliaRpc().verify_token(address)
+        with BaseSepoliaRpc() as rpc:
+            return rpc.verify_token(address)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RpcConfigurationError as exc:
