@@ -24,15 +24,15 @@ def policy():
 
 
 def proposal(**overrides):
-    values = dict(
-        agent_id="devops-01",
-        chain_id=84532,
-        token_symbol="USDC",
-        token_address=TOKEN,
-        recipient=RECIPIENT_A,
-        amount_base_units=20_000_000,
-        token_decimals=6,
-    )
+    values = {
+        "agent_id": "devops-01",
+        "chain_id": 84532,
+        "token_symbol": "USDC",
+        "token_address": TOKEN,
+        "recipient": RECIPIENT_A,
+        "amount_base_units": 20_000_000,
+        "token_decimals": 6,
+    }
     values.update(overrides)
     return TransactionProposal(**values)
 
