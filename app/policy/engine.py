@@ -34,7 +34,7 @@ def evaluate_transaction(
         for address, metadata in policy.trusted_tokens.items()
     }
     token = trusted_tokens.get(token_address)
-    if policy.trusted_tokens and token is None:
+    if token is None:
         hard_block = True
         reasons.append("Token contract is not in the trusted token configuration.")
     if proposal.chain_id not in policy.allowed_chain_ids:
