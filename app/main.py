@@ -3,11 +3,13 @@ from pydantic import BaseModel, Field
 
 from app.policy.engine import evaluate_transaction
 from app.policy.models import AgentPolicy, PolicyDecision, TransactionProposal
+from app.risk.engine import assess_transaction_risk
+from app.risk.models import RiskLevel
 
 app = FastAPI(
     title="Aegis Agent Wallet API",
-    description="Policy simulation only; no wallet signing or blockchain submission yet.",
-    version="0.1.0",
+    description="Policy and risk simulation only; no wallet signing or blockchain submission yet.",
+    version="0.2.0",
 )
 
 
@@ -24,6 +26,14 @@ class EvaluationRequest(BaseModel):
 
 class EvaluationResponse(BaseModel):
     decision: PolicyDecision
+    reasons: list[str]
+    amount_base_units: int
+    projected_daily_spend_base_units: int
+
+
+class RiskResponse(BaseModel):
+    score: int = Field(ge=0, le=100)
+    level: RiskLevel
     reasons: list[str]
     amount_base_units: int
     projected_daily_spend_base_units: int
@@ -68,6 +78,34 @@ def evaluate(request: EvaluationRequest) -> EvaluationResponse:
     result = evaluate_transaction(proposal, DEMO_POLICY, request.daily_spent_base_units)
     return EvaluationResponse(
         decision=result.decision,
+        reasons=result.reasons,
+        amount_base_units=request.amount_base_units,
+        projected_daily_spend_base_units=(
+            request.daily_spent_base_units + request.amount_base_units
+        ),
+    )
+
+
+@app.post("/risk/assess", response_model=RiskResponse)
+def assess_risk(request: EvaluationRequest) -> RiskResponse:
+    """Assess transaction risk independently of policy enforcement."""
+    if request.agent_id != DEMO_POLICY.agent_id:
+        raise HTTPException(status_code=404, detail="Unknown demo agent")
+    proposal = TransactionProposal(
+        agent_id=request.agent_id,
+        chain_id=request.chain_id,
+        token_symbol=request.token_symbol,
+        token_address=request.token_address,
+        recipient=request.recipient,
+        amount_base_units=request.amount_base_units,
+        token_decimals=request.token_decimals,
+    )
+    result = assess_transaction_risk(
+        proposal, DEMO_POLICY, request.daily_spent_base_units
+    )
+    return RiskResponse(
+        score=result.score,
+        level=result.level,
         reasons=result.reasons,
         amount_base_units=request.amount_base_units,
         projected_daily_spend_base_units=(
