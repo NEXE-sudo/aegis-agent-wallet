@@ -2,7 +2,7 @@
 import hmac
 import os
 from contextlib import asynccontextmanager
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -118,11 +118,11 @@ def _require_token(credentials: HTTPAuthorizationCredentials | None, env_name: s
         raise HTTPException(status_code=401, detail="Missing or invalid bearer token")
 
 
-def require_agent(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> None:
+def require_agent(credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]) -> None:
     _require_token(credentials, "AEGIS_AGENT_TOKEN")
 
 
-def require_owner(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> None:
+def require_owner(credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]) -> None:
     _require_token(credentials, "AEGIS_APPROVAL_TOKEN")
 
 
