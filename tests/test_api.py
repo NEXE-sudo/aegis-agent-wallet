@@ -51,6 +51,12 @@ def test_health():
     assert response.json()["status"] == "ok"
 
 
+def test_demo_policy_uses_circle_base_sepolia_usdc():
+    assert main.DEMO_POLICY.allowed_token_addresses == {BASE_SEPOLIA_USDC_ADDRESS}
+    assert _payload()["token_address"] == BASE_SEPOLIA_USDC_ADDRESS
+    assert _payload()["token_decimals"] == 6
+
+
 def test_policy_endpoint_blocks_wrong_chain():
     response = client.post("/policy/evaluate", json={**_payload(), "chain_id": 1, "daily_spent_base_units": 0})
     assert response.status_code == 200
