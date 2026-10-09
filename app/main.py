@@ -1,13 +1,14 @@
 """Aegis Agent Wallet API. Workflow execution is simulation-only."""
-import hmac
 import os
 from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Response
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
+from app.auth import require_agent, require_owner
+from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
+from app.chain.router import router as base_sepolia_router
 from app.policy.engine import evaluate_transaction
 from app.policy.models import AgentPolicy, PolicyDecision, TransactionProposal
 from app.risk.engine import assess_transaction_risk
@@ -78,7 +79,7 @@ class TransactionResponse(BaseModel):
 DEMO_POLICY = AgentPolicy(
     agent_id="devops-01",
     allowed_chain_ids={84532},
-    allowed_token_addresses={"0x1111111111111111111111111111111111111111"},
+    allowed_token_addresses={BASE_SEPOLIA_USDC_ADDRESS},
     allowed_token_symbols={"USDC"},
     max_transaction_base_units=50_000_000,
     daily_limit_base_units=150_000_000,
@@ -93,7 +94,6 @@ DEMO_POLICY = AgentPolicy(
 
 store = WorkflowStore(os.environ.get("AEGIS_DB_PATH", "aegis-workflow.sqlite3"))
 controller = TransactionController(DEMO_POLICY, store)
-bearer = HTTPBearer(auto_error=False)
 
 
 @asynccontextmanager
@@ -103,27 +103,10 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="Aegis Agent Wallet API",
-    description="Policy, risk, and approval workflow simulation. No signing or blockchain submission occurs.",
-    version="0.4.0",
+    description="Policy, risk, and approval workflow simulation with optional read-only Base Sepolia inspection. No signing or transaction submission occurs.",
+    version="0.6.0",
     lifespan=lifespan,
 )
-
-
-def _require_token(credentials: HTTPAuthorizationCredentials | None, env_name: str) -> None:
-    expected = os.environ.get(env_name, "")
-    if not expected:
-        raise HTTPException(status_code=503, detail=f"{env_name} is not configured; endpoint fails closed")
-    supplied = credentials.credentials if credentials else ""
-    if not hmac.compare_digest(supplied, expected):
-        raise HTTPException(status_code=401, detail="Missing or invalid bearer token")
-
-
-def require_agent(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> None:
-    _require_token(credentials, "AEGIS_AGENT_TOKEN")
-
-
-def require_owner(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> None:
-    _require_token(credentials, "AEGIS_APPROVAL_TOKEN")
 
 
 def _proposal(request: EvaluationRequest | ProposalRequest) -> TransactionProposal:
@@ -233,3 +216,7 @@ def execute_transaction(transaction_id: str) -> TransactionResponse:
     if outcome in {"invalid_state", "approval_mismatch"}:
         raise HTTPException(status_code=409, detail="Transaction is not in an executable state")
     return _record_response(record or {})
+
+
+# Read-only chain inspection; this router exposes no signing or submission methods.
+app.include_router(base_sepolia_router)
