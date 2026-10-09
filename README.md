@@ -18,6 +18,7 @@ Create local secrets and configure the environment before starting the API:
 export AEGIS_AGENT_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
 export AEGIS_APPROVAL_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
 export AEGIS_DB_PATH="./aegis-workflow.sqlite3"
+export BASE_SEPOLIA_RPC_URL="https://YOUR_BASE_SEPOLIA_RPC_PROVIDER_URL"
 python -m pytest -q
 uvicorn app.main:app --reload
 ```
@@ -25,6 +26,15 @@ uvicorn app.main:app --reload
 Keep both tokens private. The agent token and owner/approval token must be different. If a required token is missing, the protected endpoint fails closed with HTTP 503. A wrong or missing token returns HTTP 401. API docs: http://127.0.0.1:8000/docs
 
 For requests, send `Authorization: Bearer <AEGIS_AGENT_TOKEN>` to `POST /transactions/propose`. Use `Authorization: Bearer <AEGIS_APPROVAL_TOKEN>` for transaction retrieval, approval, and simulated execution. `/health`, `/policy/evaluate`, and `/risk/assess` are demo endpoints; the latter two accept caller-provided spend only for isolated evaluation and do not create transactions.
+
+## Base Sepolia integration (v0.6.0)
+
+Set `BASE_SEPOLIA_RPC_URL` to an HTTPS JSON-RPC endpoint from your RPC provider. Do not commit provider URLs containing private API keys. The following endpoints require the owner bearer token:
+
+- `GET /chain/base-sepolia/status` — reads `eth_chainId` and reports whether it is 84532.
+- `GET /chain/base-sepolia/token/{address}` — checks the selected chain, reads contract bytecode, and calls ERC-20 `symbol()`, `decimals()`, and optional `name()` using `eth_call`.
+
+These endpoints are read-only. They do not sign or submit transactions. The demo policy allowlists Circle's published Base Sepolia USDC contract (`0x036CbD53842c5426634e7929541eC2318f3dCF7e`; 6 decimals), cross-checked against [Circle's USDC on Base information](https://www.circle.com/multi-chain-usdc/base) and your live RPC metadata response. Bytecode and readable ERC-20 metadata alone do **not** establish token authenticity; check official sources before adding any other token. Requests fail closed if the RPC URL is missing, the endpoint is on the wrong chain, or the RPC returns an error.
 
 ## Workflow endpoints
 
@@ -39,7 +49,7 @@ The daily limit is calculated from persisted same-day transactions for the same 
 ## Safety boundaries and limitations
 
 - **Execution is simulated. No private key is loaded, no transaction is signed, and no RPC request is sent.** The simulated reference is not a transaction hash.
-- Demo token and recipient addresses are placeholders, not verified Base Sepolia contracts or accounts.
+- The demo token is Circle's published Base Sepolia USDC testnet contract. Demo recipient addresses remain placeholders and are not verified accounts.
 - Bearer-token authentication is a development guard, not a full identity/authorization system. Keep the API bound to localhost and do not expose it publicly.
 - The risk score is a transparent heuristic, not a validated fraud detector.
 - Hard policy blocks cannot be overridden by approval.
@@ -54,4 +64,4 @@ The daily limit is calculated from persisted same-day transactions for the same 
 3. Use the owner token to retrieve, approve, or simulate execution.
 4. A small payment to an allow-listed recipient may become `ready`. An unknown recipient or high-risk proposal needs approval. A policy violation is `blocked`.
 
-This remains a local, simulation-only prototype. Do not load real keys or use real funds.
+This remains a local prototype with read-only chain inspection and simulation-only transaction execution. Do not load real keys or use real funds.
