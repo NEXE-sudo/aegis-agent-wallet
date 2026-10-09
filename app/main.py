@@ -10,7 +10,7 @@ from app.auth import require_agent, require_owner
 from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
 from app.chain.router import router as base_sepolia_router
 from app.policy.engine import evaluate_transaction
-from app.policy.models import AgentPolicy, PolicyDecision, TransactionProposal
+from app.policy.models import AgentPolicy, PolicyDecision, TransactionProposal, TrustedToken
 from app.risk.engine import assess_transaction_risk
 from app.risk.models import RiskLevel
 from app.workflow.controller import TransactionController
@@ -81,6 +81,7 @@ DEMO_POLICY = AgentPolicy(
     allowed_chain_ids={84532},
     allowed_token_addresses={BASE_SEPOLIA_USDC_ADDRESS},
     allowed_token_symbols={"USDC"},
+    trusted_tokens={BASE_SEPOLIA_USDC_ADDRESS: TrustedToken(chain_id=84532, symbol="USDC", decimals=6)},
     max_transaction_base_units=50_000_000,
     daily_limit_base_units=150_000_000,
     approval_threshold_base_units=50_000_000,
@@ -104,7 +105,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title="Aegis Agent Wallet API",
     description="Policy, risk, and approval workflow simulation with optional read-only Base Sepolia inspection. No signing or transaction submission occurs.",
-    version="0.6.0",
+    version="0.7.0",
     lifespan=lifespan,
 )
 
