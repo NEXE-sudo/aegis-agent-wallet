@@ -215,7 +215,6 @@ def test_proposal_blocks_caller_supplied_token_symbol_tampering():
     assert any("symbol does not match" in reason.lower() for reason in response.json()["policy_reasons"])
 
 
-
 def test_malformed_recipient_is_blocked_and_cannot_be_approved_or_executed():
     response = propose(_payload(recipient="0x1234"))
     assert response.status_code == 201
