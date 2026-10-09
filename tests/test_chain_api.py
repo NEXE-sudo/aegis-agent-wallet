@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
-import app.chain.router as chain_router
-import app.main as main
+from app import main
+from app.chain import router as chain_router
 
 client = TestClient(main.app)
 OWNER_HEADERS = {"Authorization": "Bearer test-owner-token-with-enough-length"}
