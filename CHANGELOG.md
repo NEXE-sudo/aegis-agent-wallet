@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0
+
+- Configure the demo policy with Circle's published Base Sepolia USDC contract and six decimals.
+- Reuse one canonical address constant across policy configuration and tests.
+- Keep recipient addresses as placeholders and execution simulation-only.
+
 ## 0.5.0
 
 - Add authenticated, read-only Base Sepolia chain ID and ERC-20 metadata inspection.
