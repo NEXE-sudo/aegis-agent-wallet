@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Response
 from pydantic import BaseModel, Field
 
 from app.auth import require_agent, require_owner
+from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
 from app.chain.router import router as base_sepolia_router
 from app.policy.engine import evaluate_transaction
 from app.policy.models import AgentPolicy, PolicyDecision, TransactionProposal
@@ -78,7 +79,7 @@ class TransactionResponse(BaseModel):
 DEMO_POLICY = AgentPolicy(
     agent_id="devops-01",
     allowed_chain_ids={84532},
-    allowed_token_addresses={"0x1111111111111111111111111111111111111111"},
+    allowed_token_addresses={BASE_SEPOLIA_USDC_ADDRESS},
     allowed_token_symbols={"USDC"},
     max_transaction_base_units=50_000_000,
     daily_limit_base_units=150_000_000,
