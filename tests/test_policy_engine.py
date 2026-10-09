@@ -54,7 +54,7 @@ def test_small_approved_payment_is_allowed(policy):
         ({"amount_base_units": 20_000_000}, 140_000_001, "daily spending limit"),
         ({"agent_id": "other-agent"}, 0, "Agent ID"),
         ({"amount_base_units": 0}, 0, "greater than zero"),
-    ({"recipient": "not-an-address"}, 0, "valid EVM address"),
+        ({"recipient": "not-an-address"}, 0, "valid EVM address"),
     ],
 )
 def test_hard_violations_are_blocked(policy, overrides, daily_spent, reason):
@@ -109,7 +109,6 @@ def test_trusted_token_rejects_chain_mismatch(policy):
     result = evaluate_transaction(proposal(chain_id=1), policy)
     assert result.decision == PolicyDecision.BLOCK
     assert any("chain" in reason.lower() for reason in result.reasons)
-
 
 
 def test_recipient_address_validation_allows_mixed_case_evm_address(policy):
