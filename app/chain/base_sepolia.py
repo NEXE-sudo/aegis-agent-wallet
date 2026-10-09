@@ -8,6 +8,8 @@ from typing import Any, Self
 import httpx
 
 BASE_SEPOLIA_CHAIN_ID = 84532
+# Circle's published USDC contract address on Base Sepolia (testnet only).
+BASE_SEPOLIA_USDC_ADDRESS = "0x036cbd53842c5426634e7929541ec2318f3dcf7e"
 _ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 
 
