@@ -1,13 +1,13 @@
 """Read-only Base Sepolia RPC endpoints."""
 from fastapi import APIRouter, Depends, HTTPException
 
+from app.auth import require_owner
 from app.chain.base_sepolia import (
     BASE_SEPOLIA_CHAIN_ID,
     BaseSepoliaRpc,
     RpcConfigurationError,
     RpcRequestError,
 )
-from app.main import require_owner
 
 router = APIRouter(prefix="/chain/base-sepolia", tags=["read-only blockchain"], dependencies=[Depends(require_owner)])
 
