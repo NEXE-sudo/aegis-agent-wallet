@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Any
+from typing import Any, Self
 
 import httpx
 
@@ -59,7 +59,7 @@ class BaseSepoliaRpc:
     def close(self) -> None:
         self._client.close()
 
-    def __enter__(self) -> "BaseSepoliaRpc":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *_: object) -> None:
