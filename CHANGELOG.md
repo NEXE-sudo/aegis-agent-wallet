@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.0
+
+- Reject malformed EVM recipient addresses as hard policy violations before approval or simulated execution.
+- Add policy and workflow regression tests for malformed recipient addresses.
+
 ## 0.7.0
 
 - Bind allow-listed token addresses to trusted chain ID, symbol, and decimals in policy configuration.

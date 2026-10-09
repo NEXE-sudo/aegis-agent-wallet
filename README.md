@@ -48,6 +48,7 @@ The daily limit is calculated from persisted same-day transactions for the same 
 
 ## Safety boundaries and limitations
 
+- Recipient addresses must match the EVM format (`0x` followed by 40 hexadecimal characters); malformed recipients are blocked and cannot be approved. Format validation does not prove that an address belongs to the intended person or contract.
 - **Execution is simulated. No private key is loaded, no transaction is signed, and no RPC request is sent.** The simulated reference is not a transaction hash.
 - The demo token is Circle's published Base Sepolia USDC testnet contract. Demo recipient addresses remain placeholders and are not verified accounts.
 - Bearer-token authentication is a development guard, not a full identity/authorization system. Keep the API bound to localhost and do not expose it publicly.
