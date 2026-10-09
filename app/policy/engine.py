@@ -1,8 +1,14 @@
+import re
+
 from app.policy.models import AgentPolicy, PolicyDecision, PolicyResult, TransactionProposal
 
 
 def _normalise_address(address: str) -> str:
     return address.strip().lower()
+
+
+def _is_valid_evm_address(address: str) -> bool:
+    return re.fullmatch(r"0x[0-9a-fA-F]{40}", address.strip()) is not None
 
 
 def evaluate_transaction(
@@ -27,6 +33,9 @@ def evaluate_transaction(
     if not 0 <= proposal.token_decimals <= 36:
         hard_block = True
         reasons.append("Token decimals are outside the supported range.")
+    if not _is_valid_evm_address(proposal.recipient):
+        hard_block = True
+        reasons.append("Recipient must be a valid EVM address.")
 
     token_address = _normalise_address(proposal.token_address)
     trusted_tokens = {
