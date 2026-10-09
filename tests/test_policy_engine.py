@@ -1,9 +1,10 @@
 import pytest
 
+from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
 from app.policy.engine import evaluate_transaction
 from app.policy.models import AgentPolicy, PolicyDecision, TransactionProposal
 
-TOKEN = "0x1111111111111111111111111111111111111111"
+TOKEN = BASE_SEPOLIA_USDC_ADDRESS
 RECIPIENT_A = "0x2222222222222222222222222222222222222222"
 UNKNOWN = "0x4444444444444444444444444444444444444444"
 
