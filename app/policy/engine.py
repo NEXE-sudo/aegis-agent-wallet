@@ -10,7 +10,7 @@ def evaluate_transaction(
     policy: AgentPolicy,
     daily_spent_base_units: int = 0,
 ) -> PolicyResult:
-    """Deterministically evaluate a proposal using integer token base units."""
+    """Evaluate a proposal against policy and trusted token metadata."""
     reasons: list[str] = []
     hard_block = False
     needs_approval = False
@@ -27,17 +27,37 @@ def evaluate_transaction(
     if not 0 <= proposal.token_decimals <= 36:
         hard_block = True
         reasons.append("Token decimals are outside the supported range.")
+
+    token_address = _normalise_address(proposal.token_address)
+    trusted_tokens = {
+        _normalise_address(address): metadata
+        for address, metadata in policy.trusted_tokens.items()
+    }
+    token = trusted_tokens.get(token_address)
+    if policy.trusted_tokens and token is None:
+        hard_block = True
+        reasons.append("Token contract is not in the trusted token configuration.")
     if proposal.chain_id not in policy.allowed_chain_ids:
         hard_block = True
         reasons.append("Chain is not allowed by policy.")
     if proposal.token_symbol.upper() not in {s.upper() for s in policy.allowed_token_symbols}:
         hard_block = True
         reasons.append("Token symbol is not allowed by policy.")
-    if _normalise_address(proposal.token_address) not in {
-        _normalise_address(a) for a in policy.allowed_token_addresses
-    }:
+    if token_address not in {_normalise_address(a) for a in policy.allowed_token_addresses}:
         hard_block = True
         reasons.append("Token contract address is not allow-listed.")
+
+    if token is not None:
+        if proposal.chain_id != token.chain_id:
+            hard_block = True
+            reasons.append("Chain ID does not match the trusted token configuration.")
+        if proposal.token_symbol.casefold() != token.symbol.casefold():
+            hard_block = True
+            reasons.append("Token symbol does not match the trusted token configuration.")
+        if proposal.token_decimals != token.decimals:
+            hard_block = True
+            reasons.append("Token decimals do not match the trusted token configuration.")
+
     if proposal.amount_base_units > policy.max_transaction_base_units:
         hard_block = True
         reasons.append("Transaction exceeds the per-transaction limit.")
