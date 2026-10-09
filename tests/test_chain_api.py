@@ -7,7 +7,8 @@ client = TestClient(main.app)
 OWNER_HEADERS = {"Authorization": "Bearer test-owner-token-with-enough-length"}
 
 
-def test_chain_status_requires_owner_authentication():
+def test_chain_status_requires_owner_authentication(monkeypatch):
+    monkeypatch.setenv("AEGIS_APPROVAL_TOKEN", OWNER_HEADERS["Authorization"].split()[-1])
     response = client.get("/chain/base-sepolia/status")
     assert response.status_code == 401
 
