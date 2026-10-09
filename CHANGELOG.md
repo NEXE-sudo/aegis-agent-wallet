@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.0
+
+- Configure the demo policy with Circle's published Base Sepolia USDC contract and six decimals.
+- Reuse one canonical address constant across policy configuration and tests.
+- Keep recipient addresses as placeholders and execution simulation-only.
+
+## 0.5.0
+
+- Add authenticated, read-only Base Sepolia chain ID and ERC-20 metadata inspection.
+- Verify the RPC chain ID before reading token metadata; reject wrong-chain endpoints.
+- Add tests for RPC failures, invalid addresses, missing contract code, and token metadata reads.
+- Keep wallet signing and transaction submission disabled.
+
+
 ## 0.4.0
 
 - Calculate daily spending from persisted transactions instead of trusting the proposal caller.
