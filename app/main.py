@@ -104,7 +104,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title="Aegis Agent Wallet API",
     description="Policy, risk, and approval workflow simulation. No signing or blockchain submission occurs.",
-    version="0.4.0",
+    version="0.5.0",
     lifespan=lifespan,
 )
 
@@ -233,3 +233,9 @@ def execute_transaction(transaction_id: str) -> TransactionResponse:
     if outcome in {"invalid_state", "approval_mismatch"}:
         raise HTTPException(status_code=409, detail="Transaction is not in an executable state")
     return _record_response(record or {})
+
+
+# Read-only chain inspection; this router exposes no signing or submission methods.
+from app.chain.router import router as base_sepolia_router
+
+app.include_router(base_sepolia_router)
