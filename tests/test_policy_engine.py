@@ -2,7 +2,7 @@ import pytest
 
 from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
 from app.policy.engine import evaluate_transaction
-from app.policy.models import AgentPolicy, PolicyDecision, TransactionProposal
+from app.policy.models import AgentPolicy, PolicyDecision, TransactionProposal, TrustedToken
 
 TOKEN = BASE_SEPOLIA_USDC_ADDRESS
 RECIPIENT_A = "0x2222222222222222222222222222222222222222"
@@ -16,6 +16,7 @@ def policy():
         allowed_chain_ids={84532},
         allowed_token_addresses={TOKEN},
         allowed_token_symbols={"USDC"},
+        trusted_tokens={TOKEN: TrustedToken(chain_id=84532, symbol="USDC", decimals=6)},
         max_transaction_base_units=50_000_000,
         daily_limit_base_units=150_000_000,
         approval_threshold_base_units=50_000_000,
@@ -89,3 +90,21 @@ def test_disabled_agent_is_blocked(policy):
 def test_negative_daily_spend_is_blocked(policy):
     result = evaluate_transaction(proposal(), policy, -1)
     assert result.decision == PolicyDecision.BLOCK
+
+
+def test_trusted_token_rejects_tampered_decimals(policy):
+    result = evaluate_transaction(proposal(token_decimals=18), policy)
+    assert result.decision == PolicyDecision.BLOCK
+    assert any("decimals do not match" in reason.lower() for reason in result.reasons)
+
+
+def test_trusted_token_rejects_tampered_symbol(policy):
+    result = evaluate_transaction(proposal(token_symbol="USDC.e"), policy)
+    assert result.decision == PolicyDecision.BLOCK
+    assert any("symbol does not match" in reason.lower() for reason in result.reasons)
+
+
+def test_trusted_token_rejects_chain_mismatch(policy):
+    result = evaluate_transaction(proposal(chain_id=1), policy)
+    assert result.decision == PolicyDecision.BLOCK
+    assert any("chain" in reason.lower() for reason in result.reasons)

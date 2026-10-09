@@ -9,6 +9,13 @@ class PolicyDecision(StrEnum):
 
 
 @dataclass(frozen=True)
+class TrustedToken:
+    chain_id: int
+    symbol: str
+    decimals: int
+
+
+@dataclass(frozen=True)
 class AgentPolicy:
     agent_id: str
     allowed_chain_ids: set[int]
@@ -20,6 +27,7 @@ class AgentPolicy:
     allowed_recipients: set[str] = field(default_factory=set)
     unknown_recipient_requires_approval: bool = True
     enabled: bool = True
+    trusted_tokens: dict[str, TrustedToken] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

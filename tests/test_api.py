@@ -199,3 +199,17 @@ def test_transaction_state_survives_store_reopen(tmp_path):
     reopened = WorkflowStore(db_path)
     assert reopened.get("test-id")["status"] == "ready"
     assert reopened.daily_spend(84532, _payload()["token_address"]) == 1_000_000
+
+
+def test_proposal_blocks_caller_supplied_token_decimals_tampering():
+    response = propose(_payload(token_decimals=18))
+    assert response.status_code == 201
+    assert response.json()["policy_decision"] == "block"
+    assert any("decimals do not match" in reason.lower() for reason in response.json()["policy_reasons"])
+
+
+def test_proposal_blocks_caller_supplied_token_symbol_tampering():
+    response = propose(_payload(token_symbol="USDC.e"))
+    assert response.status_code == 201
+    assert response.json()["policy_decision"] == "block"
+    assert any("symbol does not match" in reason.lower() for reason in response.json()["policy_reasons"])
