@@ -53,7 +53,6 @@ def test_large_transaction_and_unknown_recipient_are_high_risk(policy: AgentPoli
         policy,
         daily_spent_base_units=180,
     )
-    # 35 unknown recipient + 25 large amount + 25 projected daily spend + 15 threshold.
     assert result.score == 100
     assert result.level == RiskLevel.HIGH
 

@@ -1,59 +1,42 @@
 # Aegis Agent Wallet
 
-Policy-engine foundation for an AI-agent wallet prototype. Testnet only.
+A testnet-only AI-agent wallet prototype. Current milestones include deterministic policy checks, explainable risk scoring, fingerprint-bound approval, persistent transaction state, and a simulated execution controller.
 
 ## macOS setup
 
 ```bash
 python3 --version
-mkdir -p ~/Developer
-cd ~/Developer
-# Extract aegis-agent-wallet.zip here, then:
-cd aegis-agent-wallet
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 pip install -e ".[dev]"
-pytest -q
+python -m pytest -q
 uvicorn app.main:app --reload
 ```
 
 API docs: http://127.0.0.1:8000/docs
 
-## Test the policy endpoint
+## Workflow endpoints
 
-```bash
-curl -s http://127.0.0.1:8000/policy/evaluate \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "agent_id": "devops-01",
-    "chain_id": 84532,
-    "token_symbol": "USDC",
-    "token_address": "0x1111111111111111111111111111111111111111",
-    "recipient": "0x2222222222222222222222222222222222222222",
-    "amount_base_units": 25000000,
-    "token_decimals": 6,
-    "daily_spent_base_units": 40000000
-  }'
-```
+- `POST /transactions/propose` — evaluates policy and risk, persists a transaction, and assigns its initial status.
+- `GET /transactions/{transaction_id}` — retrieves the persisted transaction state.
+- `POST /transactions/{transaction_id}/approve` — approves only when the submitted fingerprint exactly matches the stored transaction fingerprint and the body explicitly says `APPROVE`.
+- `POST /transactions/{transaction_id}/execute` — runs the simulated executor once. Retries return a conflict instead of repeating execution.
+- `POST /policy/evaluate` and `POST /risk/assess` — standalone policy and risk evaluations.
 
-This simulates a 25 USDC transaction with 40 USDC already spent today. It does not sign or send a transaction. Addresses in the demo are placeholders, not official token or service addresses.
+A proposal is fingerprinted using SHA-256 over its canonical JSON representation. Approval is bound to that fingerprint. SQLite state is persisted in `aegis-workflow.sqlite3` by default (override with `AEGIS_DB_PATH`).
 
-## Security
-- Never put a real private key or seed phrase in this repo, frontend, prompt, or `.env`.
-- The API currently uses an in-memory demo policy and has no authentication.
-- Hard policy violations cannot be overridden by the approval flow.
-- Do not treat the demo risk logic as a validated fraud detector.
+## Important limitations
 
+- **Execution is simulated. No private key is loaded, no transaction is signed, and no RPC request is sent.** The simulated execution reference is not a real transaction hash.
+- The sample token and recipient addresses are placeholders and must not be treated as verified Base Sepolia contracts or accounts.
+- The API currently has no authentication or authorization. Run it only on a trusted local development machine; do not expose it to the public internet.
+- The SQLite transitions prevent repeat execution in this prototype, but a production multi-worker system needs authenticated approval, robust key management, chain nonce/reconciliation logic, and a durable execution queue.
+- Risk scores are simple heuristics, not a validated fraud detector.
+- Hard policy blocks cannot be overridden by approval.
 
-## Milestone 2: Risk assessment
+## Demo request
 
-The deterministic risk engine is separate from policy enforcement. Run the API and open
-`http://127.0.0.1:8000/docs`, then try `POST /risk/assess`. It returns a score from 0 to 100,
-a low/medium/high level, and reasons for each score contribution. Current heuristic signals are
-unknown recipient, transaction size relative to the per-transaction limit, projected daily spend,
-and the approval threshold.
+Use the interactive API documentation to submit a transaction. A small payment to an approved recipient should become `ready`. A transaction to an unknown recipient, or one with high risk, should become `awaiting_approval`. A policy violation becomes `blocked`.
 
-This is a transparent demo heuristic, not a fraud detector. Its result never overrides the policy
-engine. The current demo addresses are placeholders, and no wallet signing or blockchain submission
-is implemented.
+For an approval-required transaction, copy its `fingerprint` from the response and pass it to the approval endpoint. Only then can the simulated executor run.

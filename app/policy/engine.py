@@ -2,8 +2,6 @@ from app.policy.models import AgentPolicy, PolicyDecision, PolicyResult, Transac
 
 
 def _normalise_address(address: str) -> str:
-    # EVM addresses are compared case-insensitively here. Full address validation belongs
-    # at the wallet boundary.
     return address.strip().lower()
 
 
@@ -50,7 +48,6 @@ def evaluate_transaction(
         hard_block = True
         reasons.append("Transaction would exceed the daily spending limit.")
 
-    # Hard blocks always take precedence over human approval.
     if hard_block:
         return PolicyResult(PolicyDecision.BLOCK, reasons)
 

@@ -1,16 +1,17 @@
+import os
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.policy.engine import evaluate_transaction
 from app.policy.models import AgentPolicy, PolicyDecision, TransactionProposal
 from app.risk.engine import assess_transaction_risk
 from app.risk.models import RiskLevel
-
-app = FastAPI(
-    title="Aegis Agent Wallet API",
-    description="Policy and risk simulation only; no wallet signing or blockchain submission yet.",
-    version="0.2.0",
-)
+from app.workflow.controller import TransactionController
+from app.workflow.store import WorkflowStore
 
 
 class EvaluationRequest(BaseModel):
@@ -39,14 +40,35 @@ class RiskResponse(BaseModel):
     projected_daily_spend_base_units: int
 
 
-# Demo-only policy. The addresses are placeholders and must be replaced with verified values.
+class ApprovalRequest(BaseModel):
+    transaction_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    confirmation: Literal["APPROVE"]
+
+
+class TransactionResponse(BaseModel):
+    transaction_id: str
+    fingerprint: str
+    proposal: dict
+    policy_decision: str
+    policy_reasons: list[str]
+    risk_score: int
+    risk_level: str
+    risk_reasons: list[str]
+    status: str
+    approval_fingerprint: str | None = None
+    execution_reference: str | None = None
+    created_at: str
+    updated_at: str
+
+
+# Demo-only policy. These are placeholders, not verified token contracts or user addresses.
 DEMO_POLICY = AgentPolicy(
     agent_id="devops-01",
-    allowed_chain_ids={84532},  # Base Sepolia
+    allowed_chain_ids={84532},
     allowed_token_addresses={"0x1111111111111111111111111111111111111111"},
     allowed_token_symbols={"USDC"},
-    max_transaction_base_units=50_000_000,  # 50 USDC, assuming 6 decimals
-    daily_limit_base_units=150_000_000,     # 150 USDC, assuming 6 decimals
+    max_transaction_base_units=50_000_000,
+    daily_limit_base_units=150_000_000,
     approval_threshold_base_units=50_000_000,
     allowed_recipients={
         "0x2222222222222222222222222222222222222222",
@@ -56,17 +78,30 @@ DEMO_POLICY = AgentPolicy(
     enabled=True,
 )
 
-
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "mode": "policy-simulation-only"}
+store = WorkflowStore(os.environ.get("AEGIS_DB_PATH", "aegis-workflow.sqlite3"))
+controller = TransactionController(DEMO_POLICY, store)
 
 
-@app.post("/policy/evaluate", response_model=EvaluationResponse)
-def evaluate(request: EvaluationRequest) -> EvaluationResponse:
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    yield
+
+
+app = FastAPI(
+    title="Aegis Agent Wallet API",
+    description=(
+        "Policy, risk, and approval workflow simulation. Execution is simulated; "
+        "no wallet signing or blockchain submission occurs."
+    ),
+    version="0.3.0",
+    lifespan=lifespan,
+)
+
+
+def _proposal(request: EvaluationRequest) -> TransactionProposal:
     if request.agent_id != DEMO_POLICY.agent_id:
         raise HTTPException(status_code=404, detail="Unknown demo agent")
-    proposal = TransactionProposal(
+    return TransactionProposal(
         agent_id=request.agent_id,
         chain_id=request.chain_id,
         token_symbol=request.token_symbol,
@@ -75,40 +110,88 @@ def evaluate(request: EvaluationRequest) -> EvaluationResponse:
         amount_base_units=request.amount_base_units,
         token_decimals=request.token_decimals,
     )
+
+
+def _record_response(record: dict) -> TransactionResponse:
+    return TransactionResponse(**record)
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok", "mode": "approval-workflow-simulation-only"}
+
+
+@app.post("/policy/evaluate", response_model=EvaluationResponse)
+def evaluate(request: EvaluationRequest) -> EvaluationResponse:
+    proposal = _proposal(request)
     result = evaluate_transaction(proposal, DEMO_POLICY, request.daily_spent_base_units)
     return EvaluationResponse(
         decision=result.decision,
         reasons=result.reasons,
         amount_base_units=request.amount_base_units,
-        projected_daily_spend_base_units=(
-            request.daily_spent_base_units + request.amount_base_units
-        ),
+        projected_daily_spend_base_units=request.daily_spent_base_units + request.amount_base_units,
     )
 
 
 @app.post("/risk/assess", response_model=RiskResponse)
 def assess_risk(request: EvaluationRequest) -> RiskResponse:
-    """Assess transaction risk independently of policy enforcement."""
-    if request.agent_id != DEMO_POLICY.agent_id:
-        raise HTTPException(status_code=404, detail="Unknown demo agent")
-    proposal = TransactionProposal(
-        agent_id=request.agent_id,
-        chain_id=request.chain_id,
-        token_symbol=request.token_symbol,
-        token_address=request.token_address,
-        recipient=request.recipient,
-        amount_base_units=request.amount_base_units,
-        token_decimals=request.token_decimals,
-    )
-    result = assess_transaction_risk(
-        proposal, DEMO_POLICY, request.daily_spent_base_units
-    )
+    proposal = _proposal(request)
+    result = assess_transaction_risk(proposal, DEMO_POLICY, request.daily_spent_base_units)
     return RiskResponse(
         score=result.score,
         level=result.level,
         reasons=result.reasons,
         amount_base_units=request.amount_base_units,
-        projected_daily_spend_base_units=(
-            request.daily_spent_base_units + request.amount_base_units
-        ),
+        projected_daily_spend_base_units=request.daily_spent_base_units + request.amount_base_units,
     )
+
+
+@app.post("/transactions/propose", response_model=TransactionResponse, status_code=201)
+def propose_transaction(request: EvaluationRequest) -> TransactionResponse:
+    proposal = _proposal(request)
+    record = controller.propose(proposal, request.daily_spent_base_units)
+    return _record_response(record)
+
+
+@app.get("/transactions/{transaction_id}", response_model=TransactionResponse)
+def get_transaction(transaction_id: str) -> TransactionResponse:
+    record = store.get(transaction_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    return _record_response(record)
+
+
+@app.post("/transactions/{transaction_id}/approve", response_model=TransactionResponse)
+def approve_transaction(
+    transaction_id: str, request: ApprovalRequest
+) -> TransactionResponse:
+    outcome, record = controller.approve(transaction_id, request.transaction_fingerprint)
+    if outcome == "not_found":
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    if outcome == "fingerprint_mismatch":
+        raise HTTPException(status_code=409, detail="Approval fingerprint does not match transaction")
+    if outcome == "blocked":
+        raise HTTPException(status_code=409, detail="Blocked transactions cannot be approved")
+    if outcome == "already_executed":
+        raise HTTPException(status_code=409, detail="Transaction has already been executed")
+    if outcome == "approval_not_required":
+        raise HTTPException(status_code=409, detail="Transaction is not awaiting approval")
+    if outcome == "already_approved":
+        raise HTTPException(status_code=409, detail="Transaction has already been approved")
+    return _record_response(record or {})
+
+
+@app.post("/transactions/{transaction_id}/execute", response_model=TransactionResponse)
+def execute_transaction(transaction_id: str) -> TransactionResponse:
+    outcome, record = controller.execute(transaction_id)
+    if outcome == "not_found":
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    if outcome == "blocked":
+        raise HTTPException(status_code=403, detail="Policy-blocked transactions cannot execute")
+    if outcome == "approval_required":
+        raise HTTPException(status_code=409, detail="Human approval is required before execution")
+    if outcome == "already_executed":
+        raise HTTPException(status_code=409, detail="Transaction has already been executed")
+    if outcome in {"invalid_state", "approval_mismatch"}:
+        raise HTTPException(status_code=409, detail="Transaction is not in an executable state")
+    return _record_response(record or {})
