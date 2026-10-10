@@ -96,7 +96,7 @@ Completed controls include:
 
 Remaining candidate work (inspect current implementation and tests before selecting a task; do not assume every item is a confirmed defect):
 - [ ] Review all workflow state transitions against a written state-transition table.
-- [ ] Add targeted negative tests for malformed/missing/future approval timestamps and expiry boundaries, if not already covered.
+- [x] Add targeted negative tests for malformed/missing/future approval timestamps and expiry boundaries.
 - [ ] Review idempotency-key validation, uniqueness behavior, and concurrent retries under SQLite write locking.
 - [ ] Review transaction reservation accounting across blocked, expired, simulated-executed, and same-day-boundary cases.
 - [ ] Review API error responses and audit events for consistent fail-closed behavior without leaking secrets.
