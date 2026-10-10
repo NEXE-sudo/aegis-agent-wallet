@@ -102,7 +102,7 @@ Remaining candidate work (inspect current implementation and tests before select
 - [x] Review transaction reservation accounting across blocked, expired, simulated-executed, and same-day-boundary cases (PR #21 regression coverage).
 - [ ] Review API error responses and audit events for consistent fail-closed behavior without leaking secrets.
 - [x] Review configuration parsing for malformed environment values and invalid combinations (blank database paths and identical agent/owner tokens are rejected).
-- [ ] Document the threat model, trust boundaries, assumptions, and explicit non-goals.
+- [x] Document the threat model, trust boundaries, assumptions, and explicit non-goals (`docs/threat-model.md`).
 - [ ] Close any additional gaps revealed by tests or review.
 
 **Exit criteria:** the important state transitions and failure paths are documented and regression-tested; the test suite and Ruff pass; remaining limitations are explicit. This is a prototype milestone, not a claim of production security.
@@ -219,6 +219,7 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #22 | Redact idempotency keys from replay audit events | Merged |
 | #23 | Document and test workflow state transitions | Merged |
 | #24 | Reject blank database paths and identical agent/owner authentication tokens | Merged |
+| #25 | Reject malformed JSON-RPC response shapes and test sanitized 502 errors | Merged |
 
 ## 6. Current architecture and useful code locations
 
