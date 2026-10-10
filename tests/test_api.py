@@ -263,7 +263,6 @@ def test_execution_rechecks_risk_and_requires_approval_if_risk_escalates():
     assert refreshed["risk_score"] == 50
 
 
-
 def test_execution_invalidates_approval_if_risk_increases_after_approval():
     record = propose(
         _payload(
