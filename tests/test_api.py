@@ -567,23 +567,28 @@ def test_recipient_daily_limit_blocks_proposal_after_prior_reservations(tmp_path
 
 def test_recipient_daily_limit_is_rechecked_before_execution(tmp_path):
     recipient = "0x2222222222222222222222222222222222222222"
-    policy = replace(
+    permissive_policy = replace(
         main.DEMO_POLICY,
-        recipient_daily_limits_base_units={recipient: 20_000_000},
+        recipient_daily_limits_base_units={recipient: 30_000_000},
     )
     local_store = WorkflowStore(tmp_path / "recipient-recheck.sqlite3")
-    controller = TransactionController(policy, local_store)
+    controller = TransactionController(permissive_policy, local_store)
     second_proposal = TransactionProposal(**_payload(recipient=recipient, amount_base_units=9_000_000))
     _, second = controller.propose(second_proposal)
     assert second["status"] == "ready"
 
-    # A different reservation appears after proposal creation, so execution must
-    # revalidate the recipient cap under the write lock.
     first_proposal = TransactionProposal(**_payload(recipient=recipient, amount_base_units=12_000_000))
     _, first = controller.propose(first_proposal)
     assert first["status"] == "ready"
 
-    outcome, record = controller.execute(second["transaction_id"])
+    # A stricter policy is applied after both reservations were created.
+    # Execution must revalidate the recipient cap under the write lock.
+    strict_policy = replace(
+        main.DEMO_POLICY,
+        recipient_daily_limits_base_units={recipient: 20_000_000},
+    )
+    strict_controller = TransactionController(strict_policy, local_store)
+    outcome, record = strict_controller.execute(second["transaction_id"])
     assert outcome == "blocked"
     assert record["status"] == "blocked"
     assert "Transaction would exceed the recipient daily spending limit." in record["policy_reasons"]
