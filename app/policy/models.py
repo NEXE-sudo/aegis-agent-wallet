@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+MAX_SQLITE_INTEGER = 2**63 - 1
+
 
 class PolicyDecision(StrEnum):
     ALLOW = "allow"
@@ -15,7 +17,7 @@ class TrustedToken:
     decimals: int
 
     def __post_init__(self) -> None:
-        if self.chain_id <= 0:
+        if not 0 < self.chain_id <= MAX_SQLITE_INTEGER:
             raise ValueError("trusted token chain_id must be positive")
         if not self.symbol.strip():
             raise ValueError("trusted token symbol cannot be empty")
@@ -44,22 +46,30 @@ class AgentPolicy:
     def __post_init__(self) -> None:
         if not self.agent_id.strip():
             raise ValueError("agent_id cannot be empty")
-        if self.max_transaction_base_units <= 0:
+        if not 0 < self.max_transaction_base_units <= MAX_SQLITE_INTEGER:
             raise ValueError("max_transaction_base_units must be positive")
-        if self.daily_limit_base_units <= 0:
+        if not 0 < self.daily_limit_base_units <= MAX_SQLITE_INTEGER:
             raise ValueError("daily_limit_base_units must be positive")
-        if self.approval_threshold_base_units < 0:
+        if not 0 <= self.approval_threshold_base_units <= MAX_SQLITE_INTEGER:
             raise ValueError("approval_threshold_base_units cannot be negative")
-        if not self.allowed_chain_ids or any(chain_id <= 0 for chain_id in self.allowed_chain_ids):
+        if not self.allowed_chain_ids or any(
+            not 0 < chain_id <= MAX_SQLITE_INTEGER for chain_id in self.allowed_chain_ids
+        ):
             raise ValueError("allowed_chain_ids must contain positive chain IDs")
         if any(not symbol.strip() for symbol in self.allowed_token_symbols):
             raise ValueError("allowed token symbols cannot be empty")
         if self.approval_expires_seconds <= 0:
             raise ValueError("approval_expires_seconds must be positive")
-        if any(limit < 0 for limit in self.recipient_daily_limits_base_units.values()):
-            raise ValueError("recipient daily limits cannot be negative")
-        if any(limit < 0 for limit in self.recipient_transaction_limits_base_units.values()):
-            raise ValueError("recipient transaction limits cannot be negative")
+        if any(
+            not 0 <= limit <= MAX_SQLITE_INTEGER
+            for limit in self.recipient_daily_limits_base_units.values()
+        ):
+            raise ValueError("recipient daily limits cannot be negative or exceed the SQLite integer range")
+        if any(
+            not 0 <= limit <= MAX_SQLITE_INTEGER
+            for limit in self.recipient_transaction_limits_base_units.values()
+        ):
+            raise ValueError("recipient transaction limits cannot be negative or exceed the SQLite integer range")
 
 
 @dataclass(frozen=True)

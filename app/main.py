@@ -10,7 +10,13 @@ from app.auth import require_agent, require_owner
 from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
 from app.chain.router import router as base_sepolia_router
 from app.policy.engine import evaluate_transaction
-from app.policy.models import AgentPolicy, PolicyDecision, TransactionProposal, TrustedToken
+from app.policy.models import (
+    MAX_SQLITE_INTEGER,
+    AgentPolicy,
+    PolicyDecision,
+    TransactionProposal,
+    TrustedToken,
+)
 from app.risk.engine import assess_transaction_risk
 from app.risk.models import RiskLevel
 from app.workflow.controller import TransactionController
@@ -19,24 +25,24 @@ from app.workflow.store import WorkflowStore
 
 class EvaluationRequest(BaseModel):
     agent_id: str = "devops-01"
-    chain_id: int
+    chain_id: int = Field(gt=0, le=MAX_SQLITE_INTEGER)
     token_symbol: str
     token_address: str
     recipient: str
-    amount_base_units: int = Field(gt=0)
+    amount_base_units: int = Field(gt=0, le=MAX_SQLITE_INTEGER)
     token_decimals: int = Field(ge=0, le=36)
     # Only the standalone evaluation endpoints accept caller-supplied simulated spend.
     # The transaction workflow never trusts this value.
-    daily_spent_base_units: int = Field(default=0, ge=0)
+    daily_spent_base_units: int = Field(default=0, ge=0, le=MAX_SQLITE_INTEGER)
 
 
 class ProposalRequest(BaseModel):
     agent_id: str = "devops-01"
-    chain_id: int
+    chain_id: int = Field(gt=0, le=MAX_SQLITE_INTEGER)
     token_symbol: str
     token_address: str
     recipient: str
-    amount_base_units: int = Field(gt=0)
+    amount_base_units: int = Field(gt=0, le=MAX_SQLITE_INTEGER)
     token_decimals: int = Field(ge=0, le=36)
 
 
@@ -111,7 +117,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title="Aegis Agent Wallet API",
     description="Policy, risk, and approval workflow simulation with optional read-only Base Sepolia inspection. No signing or transaction submission occurs.",
-    version="1.5.0",
+    version="1.6.0",
     lifespan=lifespan,
 )
 

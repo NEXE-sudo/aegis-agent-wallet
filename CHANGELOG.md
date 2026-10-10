@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.0
+
+- Reject API amounts, spend values, and chain IDs outside supported positive SQLite integer bounds before persistence.
+- Validate global and recipient-specific policy limits against SQLite's signed 64-bit integer range to avoid overflow failures.
+
+
 ## 1.5.0
 
 - Validate global policy spending limits, approval thresholds, chain IDs, agent identifiers, and token symbols at construction time.
