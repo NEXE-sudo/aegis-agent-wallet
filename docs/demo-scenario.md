@@ -126,11 +126,11 @@ uvicorn app.main:app --reload
 In the client terminal, use the same tokens as the server and submit a proposal to the unknown placeholder recipient:
 
 ```bash
-curl -sS -X POST "$API/transactions/propose" \\
-  -H "Authorization: Bearer $AGENT_TOKEN" \\
-  -H "Content-Type: application/json" \\
-  -H "Idempotency-Key: demo-expiry-001" \\
-  -d "{\\"chain_id\\":84532,\\"token_symbol\\":\\"USDC\\",\\"token_address\\":\\"$TOKEN\\",\\"recipient\\":\\"$UNKNOWN_RECIPIENT\\",\\"amount_base_units\\":1000000,\\"token_decimals\\":6}"
+curl -sS -X POST "$API/transactions/propose" \
+  -H "Authorization: Bearer $AGENT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: demo-expiry-001" \
+  -d "{\"chain_id\":84532,\"token_symbol\":\"USDC\",\"token_address\":\"$TOKEN\",\"recipient\":\"$UNKNOWN_RECIPIENT\",\"amount_base_units\":1000000,\"token_decimals\":6}"
 ```
 
 Copy the returned `transaction_id` and `fingerprint` into the variables below, then approve using the owner token:
@@ -138,17 +138,17 @@ Copy the returned `transaction_id` and `fingerprint` into the variables below, t
 ```bash
 export TX_ID="paste-the-expiry-demo-transaction-id"
 export TX_FINGERPRINT="paste-the-exact-64-character-fingerprint"
-curl -sS -X POST "$API/transactions/$TX_ID/approve" \\
-  -H "Authorization: Bearer $OWNER_TOKEN" \\
-  -H "Content-Type: application/json" \\
-  -d "{\\"transaction_fingerprint\\":\\"$TX_FINGERPRINT\\",\\"confirmation\\":\\"APPROVE\\"}"
+curl -sS -X POST "$API/transactions/$TX_ID/approve" \
+  -H "Authorization: Bearer $OWNER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"transaction_fingerprint\":\"$TX_FINGERPRINT\",\"confirmation\":\"APPROVE\"}"
 ```
 
 Wait longer than the configured three-second lifetime, then attempt simulated execution:
 
 ```bash
 python -c "import time; time.sleep(4)"
-curl -sS -i -X POST "$API/transactions/$TX_ID/execute" \\
+curl -sS -i -X POST "$API/transactions/$TX_ID/execute" \
   -H "Authorization: Bearer $OWNER_TOKEN"
 ```
 
