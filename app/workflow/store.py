@@ -610,7 +610,7 @@ class WorkflowStore:
         try:
             from app.policy.models import TransactionProposal
 
-            TransactionProposal.model_validate(proposal)
+            TransactionProposal(**proposal)
         except (TypeError, ValueError) as exc:
             raise WorkflowDataError("Stored workflow data is invalid") from exc
         record["proposal"] = proposal
