@@ -42,6 +42,25 @@ def test_auth_rejects_blank_configured_tokens(monkeypatch, env_name, token_value
     assert f"{env_name} is not configured" in exc_info.value.detail
 
 
+@pytest.mark.parametrize(
+    ("env_name", "missing_name"),
+    [
+        ("AEGIS_AGENT_TOKEN", "AEGIS_APPROVAL_TOKEN"),
+        ("AEGIS_APPROVAL_TOKEN", "AEGIS_AGENT_TOKEN"),
+    ],
+)
+def test_auth_fails_closed_when_other_token_is_missing(monkeypatch, env_name, missing_name):
+    monkeypatch.setenv(env_name, "configured-token")
+    monkeypatch.delenv(missing_name, raising=False)
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="configured-token")
+
+    with pytest.raises(HTTPException) as exc_info:
+        _require_token(credentials, env_name)
+
+    assert exc_info.value.status_code == 503
+    assert "Both AEGIS_AGENT_TOKEN and AEGIS_APPROVAL_TOKEN must be configured" in exc_info.value.detail
+
+
 def test_auth_allows_distinct_configured_tokens(monkeypatch):
     monkeypatch.setenv("AEGIS_AGENT_TOKEN", "agent-token")
     monkeypatch.setenv("AEGIS_APPROVAL_TOKEN", "owner-token")
