@@ -563,6 +563,42 @@ def test_approval_expiry_requires_fresh_approval_and_is_audited(monkeypatch):
     assert executed.json()["status"] == "executed_simulated"
 
 
+def test_reapproval_attempt_expires_stale_approval_before_requiring_fresh_approval(monkeypatch):
+    now = [datetime(2026, 10, 10, 12, 0, tzinfo=UTC)]
+    monkeypatch.setattr(store_module, "_utc_now", lambda: now[0])
+    record = propose(
+        _payload(recipient="0x4444444444444444444444444444444444444444")
+    ).json()
+    tx_id = record["transaction_id"]
+    approval_body = {
+        "transaction_fingerprint": record["fingerprint"],
+        "confirmation": "APPROVE",
+    }
+
+    approved = owner_post(f"/transactions/{tx_id}/approve", json=approval_body)
+    assert approved.status_code == 200
+
+    now[0] += timedelta(seconds=301)
+    stale_retry = owner_post(f"/transactions/{tx_id}/approve", json=approval_body)
+    assert stale_retry.status_code == 409
+    assert stale_retry.json()["detail"] == "Approval has expired; submit a fresh approval"
+
+    refreshed = client.get(f"/transactions/{tx_id}", headers=OWNER_HEADERS).json()
+    assert refreshed["status"] == "awaiting_approval"
+    assert refreshed["approval_fingerprint"] is None
+    assert refreshed["approved_at"] is None
+
+    events = client.get(f"/transactions/{tx_id}/audit", headers=OWNER_HEADERS).json()
+    expiry_events = [event for event in events if event["event_type"] == "approval_expired"]
+    assert len(expiry_events) == 1
+    assert expiry_events[0]["details"]["operation"] == "approve"
+
+    renewed = owner_post(f"/transactions/{tx_id}/approve", json=approval_body)
+    assert renewed.status_code == 200
+    assert renewed.json()["status"] == "approved"
+    assert renewed.json()["approved_at"] == now[0].isoformat()
+
+
 def test_approval_expiry_configuration_must_be_positive():
     from dataclasses import replace
 
