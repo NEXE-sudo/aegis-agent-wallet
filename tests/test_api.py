@@ -711,6 +711,43 @@ def test_api_rejects_amounts_outside_sqlite_integer_range():
     assert evaluation.status_code == 422
 
 
+def test_spend_aggregation_does_not_overflow_sqlite_integer_range(tmp_path):
+    recipient = "0x2222222222222222222222222222222222222222"
+    amount = 2**62
+    policy = replace(
+        main.DEMO_POLICY,
+        max_transaction_base_units=2**63 - 1,
+        daily_limit_base_units=2**63 - 1,
+        recipient_daily_limits_base_units={recipient: 2**63 - 1},
+    )
+    local_store = WorkflowStore(tmp_path / "large-spend.sqlite3")
+
+    for index in range(2):
+        payload = _payload(recipient=recipient, amount_base_units=amount)
+        proposal = TransactionProposal(**payload)
+        local_store.create({
+            "transaction_id": f"large-reservation-{index}",
+            "fingerprint": fingerprint_proposal(proposal),
+            "proposal": payload,
+            "policy_decision": "allow",
+            "policy_reasons": ["test reservation"],
+            "risk_score": 0,
+            "risk_level": "low",
+            "risk_reasons": [],
+            "status": "ready",
+        })
+
+    controller = TransactionController(policy, local_store)
+    outcome, record = controller.propose(
+        TransactionProposal(**_payload(recipient=recipient, amount_base_units=1))
+    )
+
+    assert outcome == "created"
+    assert record["status"] == "blocked"
+    assert "Transaction would exceed the daily spending limit." in record["policy_reasons"]
+    assert "Transaction would exceed the recipient daily spending limit." in record["policy_reasons"]
+
+
 def test_policy_rejects_limits_outside_sqlite_integer_range():
     with pytest.raises(ValueError, match="must be positive"):
         replace(main.DEMO_POLICY, max_transaction_base_units=2**63)
