@@ -107,6 +107,11 @@ def test_workflow_store_migration_skips_non_object_persisted_proposals(tmp_path)
              "block", "[]", 0, "low", "[]", "blocked"),
         )
 
-    store = WorkflowStore(db_path)
+    WorkflowStore(db_path)
 
-    assert store.get("corrupt-legacy-row")["transaction_id"] == "corrupt-legacy-row"
+    with sqlite3.connect(db_path) as db:
+        chain_id = db.execute(
+            "SELECT chain_id FROM transactions WHERE transaction_id = ?",
+            ("corrupt-legacy-row",),
+        ).fetchone()[0]
+    assert chain_id == 0
