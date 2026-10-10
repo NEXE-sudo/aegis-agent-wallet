@@ -8,8 +8,8 @@ from app import main
 from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
 from app.policy.models import TransactionProposal
 from app.workflow.controller import TransactionController, fingerprint_proposal
-from app.workflow.store import WorkflowStore
 import app.workflow.store as store_module
+from app.workflow.store import WorkflowStore
 
 AGENT_TOKEN = "test-agent-token-with-enough-length"
 OWNER_TOKEN = "test-owner-token-with-enough-length"
@@ -433,7 +433,6 @@ def test_risk_escalation_is_recorded_in_audit_trail():
     assert escalation[0]["from_status"] == "ready"
     assert escalation[0]["to_status"] == "awaiting_approval"
     assert escalation[0]["details"]["risk_level"] == "high"
-
 
 
 def test_approval_expiry_requires_fresh_approval_and_is_audited(monkeypatch):
