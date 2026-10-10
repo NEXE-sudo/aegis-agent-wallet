@@ -1023,6 +1023,8 @@ def test_malformed_persisted_audit_details_return_sanitized_server_error():
     record = propose().json()
     secret_marker = "must-not-leak-from-corrupt-audit"
     with sqlite3.connect(main.store.db_path) as db:
+        # Simulate out-of-band database-file tampering, not an ordinary application update.
+        db.execute("DROP TRIGGER audit_events_no_update")
         db.execute(
             "UPDATE audit_events SET details_json = ? WHERE transaction_id = ?",
             (json.dumps(secret_marker), record["transaction_id"]),
