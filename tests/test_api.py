@@ -573,17 +573,20 @@ def test_recipient_daily_limit_is_rechecked_before_execution(tmp_path):
     )
     local_store = WorkflowStore(tmp_path / "recipient-recheck.sqlite3")
     controller = TransactionController(policy, local_store)
-    first_proposal = TransactionProposal(**_payload(recipient=recipient, amount_base_units=12_000_000))
-    _, first = controller.propose(first_proposal)
     second_proposal = TransactionProposal(**_payload(recipient=recipient, amount_base_units=9_000_000))
     _, second = controller.propose(second_proposal)
+    assert second["status"] == "ready"
 
-    # The first transaction reserves spend. Even if the second record was inserted
-    # through a separate workflow path, execution must revalidate the recipient cap.
-    assert second["status"] == "blocked"
+    # A different reservation appears after proposal creation, so execution must
+    # revalidate the recipient cap under the write lock.
+    first_proposal = TransactionProposal(**_payload(recipient=recipient, amount_base_units=12_000_000))
+    _, first = controller.propose(first_proposal)
+    assert first["status"] == "ready"
+
     outcome, record = controller.execute(second["transaction_id"])
     assert outcome == "blocked"
     assert record["status"] == "blocked"
+    assert "Transaction would exceed the recipient daily spending limit." in record["policy_reasons"]
 
 
 def test_recipient_daily_limit_configuration_cannot_be_negative():
