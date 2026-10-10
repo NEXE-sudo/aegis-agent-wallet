@@ -112,7 +112,51 @@ Repeat the exact request from section 2 with the same `Idempotency-Key: demo-all
 
 Then reuse that key with a different payload, such as changing `amount_base_units` to `2000000`. Expected: HTTP `409` because the same idempotency key cannot identify two different proposals. Use a new key for a new proposal.
 
-## 6. Inspect the audit trail
+
+## 6. Expired approval and reapproval
+
+This path is intentionally time-based. Use a separate demo database and restart the API with a short approval lifetime so the walkthrough does not require waiting five minutes. Stop the existing API first. In the server terminal, keep the same distinct agent and owner tokens, then set:
+
+```bash
+export AEGIS_DB_PATH="./aegis-expiry-demo.sqlite3"
+export AEGIS_APPROVAL_EXPIRES_SECONDS="3"
+uvicorn app.main:app --reload
+```
+
+In the client terminal, use the same tokens as the server and submit a proposal to the unknown placeholder recipient:
+
+```bash
+curl -sS -X POST "$API/transactions/propose" \
+  -H "Authorization: Bearer $AGENT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: demo-expiry-001" \
+  -d "{\"chain_id\":84532,\"token_symbol\":\"USDC\",\"token_address\":\"$TOKEN\",\"recipient\":\"$UNKNOWN_RECIPIENT\",\"amount_base_units\":1000000,\"token_decimals\":6}"
+```
+
+Copy the returned `transaction_id` and `fingerprint` into the variables below, then approve using the owner token:
+
+```bash
+export TX_ID="paste-the-expiry-demo-transaction-id"
+export TX_FINGERPRINT="paste-the-exact-64-character-fingerprint"
+curl -sS -X POST "$API/transactions/$TX_ID/approve" \
+  -H "Authorization: Bearer $OWNER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"transaction_fingerprint\":\"$TX_FINGERPRINT\",\"confirmation\":\"APPROVE\"}"
+```
+
+Wait longer than the configured three-second lifetime, then attempt simulated execution:
+
+```bash
+python -c "import time; time.sleep(4)"
+curl -sS -i -X POST "$API/transactions/$TX_ID/execute" \
+  -H "Authorization: Bearer $OWNER_TOKEN"
+```
+
+Expected: HTTP `409` with `Human approval is required before execution`. The API invalidates the stale approval and returns the transaction to `awaiting_approval`; inspect `GET /transactions/$TX_ID` with the owner token to verify. Approve again with the same transaction fingerprint and repeat execution promptly. The renewed approval should allow the workflow to reach `simulated_executed`, but it still does not sign or submit a transaction.
+
+The timing step is intentionally approximate: if the approval expires before the first execution request, that is the expected outcome. Do not use this short expiry setting for any environment beyond the local demo.
+
+## 7. Inspect the audit trail
 
 For a transaction ID, use the owner token to inspect persisted state and ordered audit events:
 

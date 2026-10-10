@@ -108,15 +108,15 @@ Remaining candidate work (inspect current implementation and tests before select
 **Exit criteria:** the important state transitions and failure paths are documented and regression-tested; the test suite and Ruff pass; remaining limitations are explicit. This is a prototype milestone, not a claim of production security.
 
 ### Milestone 3 — Agent and Demo
-**Status: PLANNED**
+**Status: IN PROGRESS**
 
 Goal: make the workflow easy to understand and demonstrate end to end.
 - [x] Define a reproducible demo scenario and expected outcomes (`docs/demo-scenario.md`; added in PR #32).
-- [ ] Add a minimal agent/client example that proposes transactions through the authenticated API.
-- [ ] Demonstrate allowed, hard-blocked, approval-required, expired-approval, and replay/conflict paths.
-- [ ] Keep the demo deterministic and simulation-only.
-- [ ] Add a concise demo script or documented command sequence and expected output.
-- [ ] Ensure secrets and provider credentials are supplied via environment variables and never committed.
+- [x] Add a minimal agent/client example that proposes transactions through the authenticated API (PR #33).
+- [ ] Demonstrate allowed, hard-blocked, approval-required, expired-approval, and replay/conflict paths (`docs/demo-scenario.md`; expiry walkthrough is under review).
+- [x] Keep the demo deterministic and simulation-only.
+- [x] Add a concise documented command sequence and expected outcomes.
+- [x] Ensure secrets and provider credentials are supplied via environment variables and never committed.
 
 **Exit criteria:** a new developer can run the app and reproduce the documented happy path and important rejection paths.
 
@@ -226,6 +226,8 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #29 | Sanitize errors from malformed persisted workflow data | Merged |
 | #30 | Mark Milestone 2 complete in project tracker | Merged |
 | #31 | Close repository review validation gaps | Merged |
+| #32 | Document reproducible simulation demo scenario | Merged |
+| #33 | Add authenticated Python proposal client example | Merged |
 
 ## 6. Current architecture and useful code locations
 
