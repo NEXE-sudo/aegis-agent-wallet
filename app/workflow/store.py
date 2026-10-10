@@ -86,6 +86,75 @@ class WorkflowStore:
                 CREATE INDEX IF NOT EXISTS idx_transactions_daily_spend
                 ON transactions(chain_id, token_address, created_at, status)
             """)
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS audit_events (
+                    event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    transaction_id TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    actor_role TEXT NOT NULL,
+                    from_status TEXT,
+                    to_status TEXT,
+                    fingerprint TEXT,
+                    details_json TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            db.execute("""
+                CREATE INDEX IF NOT EXISTS idx_audit_events_transaction
+                ON audit_events(transaction_id, event_id)
+            """)
+            db.execute("""
+                CREATE TRIGGER IF NOT EXISTS audit_events_no_update
+                BEFORE UPDATE ON audit_events
+                BEGIN
+                    SELECT RAISE(ABORT, 'audit events are append-only');
+                END
+            """)
+            db.execute("""
+                CREATE TRIGGER IF NOT EXISTS audit_events_no_delete
+                BEFORE DELETE ON audit_events
+                BEGIN
+                    SELECT RAISE(ABORT, 'audit events are append-only');
+                END
+            """)
+
+    @staticmethod
+    def _append_audit(
+        db: sqlite3.Connection,
+        transaction_id: str,
+        event_type: str,
+        actor_role: str,
+        from_status: str | None,
+        to_status: str | None,
+        fingerprint: str | None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Append an audit event inside the caller's existing SQLite transaction."""
+        db.execute(
+            """INSERT INTO audit_events (
+                transaction_id, event_type, actor_role, from_status, to_status,
+                fingerprint, details_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                transaction_id, event_type, actor_role, from_status, to_status, fingerprint,
+                json.dumps(details or {}, sort_keys=True),
+            ),
+        )
+
+    def audit_events(self, transaction_id: str) -> list[dict[str, Any]]:
+        with self._connect() as db:
+            rows = db.execute(
+                """SELECT event_id, transaction_id, event_type, actor_role, from_status,
+                          to_status, fingerprint, details_json, created_at
+                   FROM audit_events WHERE transaction_id = ? ORDER BY event_id""",
+                (transaction_id,),
+            ).fetchall()
+        events = []
+        for row in rows:
+            event = dict(row)
+            event["details"] = json.loads(event.pop("details_json"))
+            events.append(event)
+        return events
 
     @staticmethod
     def _daily_spend(db: sqlite3.Connection, chain_id: int, token_address: str,
@@ -105,6 +174,7 @@ class WorkflowStore:
     def create_evaluated(
         self, proposal: dict[str, Any], idempotency_key: str | None,
         build_record: Callable[[int], dict[str, Any]],
+        actor_role: str = "agent",
     ) -> tuple[str, dict[str, Any]]:
         """Serializes spend check + reservation so concurrent proposals cannot overspend."""
         with self._connect() as db:
@@ -116,8 +186,18 @@ class WorkflowStore:
                 if prior:
                     record = self._decode(prior)
                     if record["fingerprint"] != build_record(0)["fingerprint"]:
-                        db.execute("ROLLBACK")
+                        self._append_audit(
+                            db, record["transaction_id"], "idempotency_conflict", actor_role,
+                            record["status"], record["status"], record["fingerprint"],
+                            {"reason": "key reused with a different proposal"},
+                        )
+                        db.execute("COMMIT")
                         return "idempotency_conflict", record
+                    self._append_audit(
+                        db, record["transaction_id"], "proposal_replayed", actor_role,
+                        record["status"], record["status"], record["fingerprint"],
+                        {"idempotency_key": idempotency_key},
+                    )
                     db.execute("COMMIT")
                     return "replayed", record
 
@@ -140,12 +220,22 @@ class WorkflowStore:
                     str(proposal["token_address"]).lower(), int(proposal["amount_base_units"]),
                 ),
             )
+            self._append_audit(
+                db, record["transaction_id"], "proposal_created", actor_role,
+                None, record["status"], record["fingerprint"],
+                {
+                    "policy_decision": record["policy_decision"],
+                    "risk_level": record["risk_level"],
+                    "idempotency_key_present": bool(idempotency_key),
+                },
+            )
             db.execute("COMMIT")
         return "created", self.get(record["transaction_id"]) or record
 
-    def create(self, record: dict[str, Any]) -> None:
+    def create(self, record: dict[str, Any], actor_role: str = "system") -> None:
         proposal = record["proposal"]
         with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
             db.execute(
                 """INSERT INTO transactions (
                     transaction_id, fingerprint, proposal_json, policy_decision,
@@ -161,6 +251,12 @@ class WorkflowStore:
                     int(proposal.get("amount_base_units", 0)),
                 ),
             )
+            self._append_audit(
+                db, record["transaction_id"], "proposal_created", actor_role,
+                None, record["status"], record["fingerprint"],
+                {"policy_decision": record["policy_decision"], "risk_level": record["risk_level"]},
+            )
+            db.execute("COMMIT")
 
     def daily_spend(self, chain_id: int, token_address: str,
                     exclude_transaction_id: str | None = None) -> int:
@@ -172,7 +268,9 @@ class WorkflowStore:
             row = db.execute("SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)).fetchone()
         return self._decode(row) if row else None
 
-    def approve(self, transaction_id: str, fingerprint: str) -> tuple[str, dict[str, Any] | None]:
+    def approve(
+        self, transaction_id: str, fingerprint: str, actor_role: str = "owner"
+    ) -> tuple[str, dict[str, Any] | None]:
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)).fetchone()
@@ -200,10 +298,16 @@ class WorkflowStore:
                    updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
                 (fingerprint, transaction_id),
             )
+            self._append_audit(
+                db, transaction_id, "approval_granted", actor_role, record["status"], "approved",
+                fingerprint, {"confirmation": "APPROVE"},
+            )
             db.execute("COMMIT")
         return "approved", self.get(transaction_id)
 
-    def execute_simulated(self, transaction_id: str, policy: Any) -> tuple[str, dict[str, Any] | None]:
+    def execute_simulated(
+        self, transaction_id: str, policy: Any, actor_role: str = "owner"
+    ) -> tuple[str, dict[str, Any] | None]:
         """Revalidates policy and spend inside the same write lock as execution."""
         from app.policy.engine import evaluate_transaction
         from app.policy.models import PolicyDecision, TransactionProposal
@@ -245,6 +349,11 @@ class WorkflowStore:
                        updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
                     (result.decision.value, json.dumps(result.reasons), transaction_id),
                 )
+                self._append_audit(
+                    db, transaction_id, "policy_revalidation_blocked", actor_role,
+                    record["status"], "blocked", record["fingerprint"],
+                    {"policy_reasons": result.reasons},
+                )
                 db.execute("COMMIT")
                 return "blocked", self.get(transaction_id)
             risk_result = assess_transaction_risk(proposal, policy, spent)
@@ -267,6 +376,12 @@ class WorkflowStore:
                         risk_result.level.value, json.dumps(risk_result.reasons), transaction_id,
                     ),
                 )
+                self._append_audit(
+                    db, transaction_id, "risk_escalation_requires_approval", actor_role,
+                    record["status"], "awaiting_approval", record["fingerprint"],
+                    {"risk_score": risk_result.score, "risk_level": risk_result.level.value,
+                     "risk_reasons": risk_result.reasons},
+                )
                 db.execute("COMMIT")
                 return "approval_required", self.get(transaction_id)
             if result.decision == PolicyDecision.REQUIRE_APPROVAL:
@@ -279,6 +394,11 @@ class WorkflowStore:
                            policy_reasons_json = ?, approval_fingerprint = NULL,
                            updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
                         (result.decision.value, json.dumps(result.reasons), transaction_id),
+                    )
+                    self._append_audit(
+                        db, transaction_id, "policy_revalidation_requires_approval", actor_role,
+                        record["status"], "awaiting_approval", record["fingerprint"],
+                        {"policy_reasons": result.reasons},
                     )
                     db.execute("COMMIT")
                     return "approval_required", self.get(transaction_id)
@@ -293,6 +413,11 @@ class WorkflowStore:
                    execution_reference = ?, updated_at = CURRENT_TIMESTAMP
                    WHERE transaction_id = ?""",
                 (reference, transaction_id),
+            )
+            self._append_audit(
+                db, transaction_id, "simulated_execution", actor_role,
+                record["status"], "executed_simulated", record["fingerprint"],
+                {"execution_reference": reference},
             )
             db.execute("COMMIT")
         return "executed", self.get(transaction_id)
