@@ -5,6 +5,7 @@ import json
 import os
 import sqlite3
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -41,6 +42,7 @@ class WorkflowStore:
                     risk_reasons_json TEXT NOT NULL,
                     status TEXT NOT NULL,
                     approval_fingerprint TEXT,
+                    approved_at TEXT,
                     execution_reference TEXT,
                     idempotency_key TEXT,
                     chain_id INTEGER NOT NULL DEFAULT 0,
@@ -54,6 +56,7 @@ class WorkflowStore:
             existing = {row["name"] for row in db.execute("PRAGMA table_info(transactions)")}
             migrations = {
                 "idempotency_key": "TEXT",
+                "approved_at": "TEXT",
                 "chain_id": "INTEGER NOT NULL DEFAULT 0",
                 "token_address": "TEXT NOT NULL DEFAULT ''",
                 "amount_base_units": "INTEGER NOT NULL DEFAULT 0",
@@ -269,7 +272,8 @@ class WorkflowStore:
         return self._decode(row) if row else None
 
     def approve(
-        self, transaction_id: str, fingerprint: str, actor_role: str = "owner"
+        self, transaction_id: str, fingerprint: str, actor_role: str = "owner",
+        approval_expires_seconds: int = 300,
     ) -> tuple[str, dict[str, Any] | None]:
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -293,14 +297,15 @@ class WorkflowStore:
             if record["status"] != "awaiting_approval":
                 db.execute("COMMIT")
                 return "approval_not_required", record
+            approved_at = _utc_now().isoformat()
             db.execute(
                 """UPDATE transactions SET status = 'approved', approval_fingerprint = ?,
-                   updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
-                (fingerprint, transaction_id),
+                   approved_at = ?, updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
+                (fingerprint, approved_at, transaction_id),
             )
             self._append_audit(
                 db, transaction_id, "approval_granted", actor_role, record["status"], "approved",
-                fingerprint, {"confirmation": "APPROVE"},
+                fingerprint, {"confirmation": "APPROVE", "approval_expires_seconds": approval_expires_seconds},
             )
             db.execute("COMMIT")
         return "approved", self.get(transaction_id)
@@ -336,6 +341,37 @@ class WorkflowStore:
             if record["status"] == "approved" and record["approval_fingerprint"] != record["fingerprint"]:
                 db.execute("COMMIT")
                 return "approval_mismatch", record
+            if record["status"] == "approved":
+                now = _utc_now()
+                approved_at = record.get("approved_at")
+                expired = approved_at is None
+                if approved_at is not None:
+                    try:
+                        approval_time = datetime.fromisoformat(approved_at)
+                        if approval_time.tzinfo is None:
+                            approval_time = approval_time.replace(tzinfo=UTC)
+                        elapsed = (now - approval_time).total_seconds()
+                        expired = elapsed < 0 or elapsed >= int(policy.approval_expires_seconds)
+                    except (TypeError, ValueError):
+                        expired = True
+                if expired:
+                    db.execute(
+                        """UPDATE transactions SET status = 'awaiting_approval',
+                           approval_fingerprint = NULL, approved_at = NULL,
+                           updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
+                        (transaction_id,),
+                    )
+                    self._append_audit(
+                        db, transaction_id, "approval_expired", actor_role,
+                        "approved", "awaiting_approval", record["fingerprint"],
+                        {
+                            "approved_at": approved_at,
+                            "expired_at": now.isoformat(),
+                            "approval_expires_seconds": int(policy.approval_expires_seconds),
+                        },
+                    )
+                    db.execute("COMMIT")
+                    return "approval_required", self.get(transaction_id)
 
             proposal = TransactionProposal(**record["proposal"])
             spent = self._daily_spend(
@@ -345,7 +381,7 @@ class WorkflowStore:
             if result.decision == PolicyDecision.BLOCK:
                 db.execute(
                     """UPDATE transactions SET status = 'blocked', policy_decision = ?,
-                       policy_reasons_json = ?, approval_fingerprint = NULL,
+                       policy_reasons_json = ?, approval_fingerprint = NULL, approved_at = NULL,
                        updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
                     (result.decision.value, json.dumps(result.reasons), transaction_id),
                 )
@@ -370,7 +406,7 @@ class WorkflowStore:
                     """UPDATE transactions SET status = 'awaiting_approval',
                        policy_decision = ?, policy_reasons_json = ?, risk_score = ?,
                        risk_level = ?, risk_reasons_json = ?, approval_fingerprint = NULL,
-                       updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
+                       approved_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
                     (
                         result.decision.value, json.dumps(result.reasons), risk_result.score,
                         risk_result.level.value, json.dumps(risk_result.reasons), transaction_id,
@@ -391,7 +427,7 @@ class WorkflowStore:
                 if record["status"] != "approved" or not previously_required:
                     db.execute(
                         """UPDATE transactions SET status = 'awaiting_approval', policy_decision = ?,
-                           policy_reasons_json = ?, approval_fingerprint = NULL,
+                           policy_reasons_json = ?, approval_fingerprint = NULL, approved_at = NULL,
                            updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
                         (result.decision.value, json.dumps(result.reasons), transaction_id),
                     )
@@ -429,3 +465,8 @@ class WorkflowStore:
         record["policy_reasons"] = json.loads(record.pop("policy_reasons_json"))
         record["risk_reasons"] = json.loads(record.pop("risk_reasons_json"))
         return record
+
+
+def _utc_now() -> datetime:
+    """Clock seam for deterministic approval-expiry tests."""
+    return datetime.now(UTC)

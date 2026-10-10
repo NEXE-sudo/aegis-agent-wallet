@@ -28,6 +28,11 @@ class AgentPolicy:
     unknown_recipient_requires_approval: bool = True
     enabled: bool = True
     trusted_tokens: dict[str, TrustedToken] = field(default_factory=dict)
+    approval_expires_seconds: int = 300
+
+    def __post_init__(self) -> None:
+        if self.approval_expires_seconds <= 0:
+            raise ValueError("approval_expires_seconds must be positive")
 
 
 @dataclass(frozen=True)

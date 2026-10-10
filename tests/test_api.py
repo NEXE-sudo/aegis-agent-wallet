@@ -1,8 +1,10 @@
 import sqlite3
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 
+import app.workflow.store as store_module
 from app import main
 from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
 from app.policy.models import TransactionProposal
@@ -431,3 +433,54 @@ def test_risk_escalation_is_recorded_in_audit_trail():
     assert escalation[0]["from_status"] == "ready"
     assert escalation[0]["to_status"] == "awaiting_approval"
     assert escalation[0]["details"]["risk_level"] == "high"
+
+
+def test_approval_expiry_requires_fresh_approval_and_is_audited(monkeypatch):
+    now = [datetime(2026, 10, 10, 12, 0, tzinfo=UTC)]
+    monkeypatch.setattr(store_module, "_utc_now", lambda: now[0])
+    record = propose(
+        _payload(recipient="0x4444444444444444444444444444444444444444")
+    ).json()
+    tx_id = record["transaction_id"]
+    approval_body = {
+        "transaction_fingerprint": record["fingerprint"],
+        "confirmation": "APPROVE",
+    }
+
+    approved = owner_post(f"/transactions/{tx_id}/approve", json=approval_body)
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "approved"
+    assert approved.json()["approved_at"] == now[0].isoformat()
+
+    now[0] += timedelta(seconds=301)
+    expired_execution = owner_post(f"/transactions/{tx_id}/execute")
+    assert expired_execution.status_code == 409
+    assert expired_execution.json()["detail"] == "Human approval is required before execution"
+
+    refreshed = client.get(f"/transactions/{tx_id}", headers=OWNER_HEADERS).json()
+    assert refreshed["status"] == "awaiting_approval"
+    assert refreshed["approval_fingerprint"] is None
+    assert refreshed["approved_at"] is None
+
+    events = client.get(f"/transactions/{tx_id}/audit", headers=OWNER_HEADERS).json()
+    expiry_events = [event for event in events if event["event_type"] == "approval_expired"]
+    assert len(expiry_events) == 1
+    assert expiry_events[0]["from_status"] == "approved"
+    assert expiry_events[0]["to_status"] == "awaiting_approval"
+    assert expiry_events[0]["details"]["approval_expires_seconds"] == 300
+
+    renewed = owner_post(f"/transactions/{tx_id}/approve", json=approval_body)
+    assert renewed.status_code == 200
+    assert renewed.json()["status"] == "approved"
+    assert renewed.json()["approved_at"] == now[0].isoformat()
+
+    executed = owner_post(f"/transactions/{tx_id}/execute")
+    assert executed.status_code == 200
+    assert executed.json()["status"] == "executed_simulated"
+
+
+def test_approval_expiry_configuration_must_be_positive():
+    from dataclasses import replace
+
+    with pytest.raises(ValueError, match="must be positive"):
+        replace(main.DEMO_POLICY, approval_expires_seconds=0)
