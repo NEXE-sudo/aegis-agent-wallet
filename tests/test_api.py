@@ -418,6 +418,38 @@ def test_execution_rejects_persisted_proposal_tampering():
     assert events[-1]["details"]["operation"] == "execute"
 
 
+def test_idempotency_replay_rejects_tampered_persisted_proposal():
+    payload = _payload()
+    first = client.post(
+        "/transactions/propose",
+        json=payload,
+        headers={**AGENT_HEADERS, "Idempotency-Key": "integrity-replay-01"},
+    )
+    assert first.status_code == 201
+    record = first.json()
+    changed_proposal = dict(record["proposal"])
+    changed_proposal["amount_base_units"] += 1
+    with main.store._connect() as db:
+        db.execute(
+            "UPDATE transactions SET proposal_json = ? WHERE transaction_id = ?",
+            (json.dumps(changed_proposal, sort_keys=True), record["transaction_id"]),
+        )
+
+    replay = client.post(
+        "/transactions/propose",
+        json=payload,
+        headers={**AGENT_HEADERS, "Idempotency-Key": "integrity-replay-01"},
+    )
+
+    assert replay.status_code == 409
+    assert replay.json()["detail"] == "Idempotency-Key was already used for a different proposal"
+    events = client.get(
+        f"/transactions/{record['transaction_id']}/audit", headers=OWNER_HEADERS
+    ).json()
+    assert events[-1]["event_type"] == "proposal_integrity_mismatch"
+    assert events[-1]["details"]["operation"] == "idempotency_replay"
+
+
 def test_idempotency_replay_is_audited_without_duplicate_creation():
     headers = {**AGENT_HEADERS, "Idempotency-Key": "audit-replay-key"}
     first = client.post("/transactions/propose", headers=headers, json=_payload())
