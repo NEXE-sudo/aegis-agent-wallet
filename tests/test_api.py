@@ -979,3 +979,23 @@ def test_policy_rejects_limits_outside_sqlite_integer_range():
                 "0x2222222222222222222222222222222222222222": 2**63
             },
         )
+
+
+
+def test_idempotency_key_is_not_exposed_in_audit_event():
+    idempotency_key = "opaque-client-idempotency-key-2026-10-10"
+    headers = {**AGENT_HEADERS, "Idempotency-Key": idempotency_key}
+
+    first = client.post("/transactions/propose", headers=headers, json=_payload())
+    replay = client.post("/transactions/propose", headers=headers, json=_payload())
+
+    assert first.status_code == 201
+    assert replay.status_code == 200
+    events = client.get(
+        f"/transactions/{first.json()['transaction_id']}/audit",
+        headers=OWNER_HEADERS,
+    ).json()
+    replay_event = next(event for event in events if event["event_type"] == "proposal_replayed")
+
+    assert replay_event["details"] == {"idempotency_key_present": True}
+    assert idempotency_key not in json.dumps(events)
