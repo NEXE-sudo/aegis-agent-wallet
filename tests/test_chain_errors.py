@@ -113,3 +113,49 @@ def test_token_inspection_maps_malformed_metadata_result_to_sanitized_502(
         "Contract has bytecode but standard ERC-20 symbol/decimals calls failed"
     )
     assert "must-not-leak" not in response.text
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_detail"),
+    [
+        (
+            {"jsonrpc": "2.0", "id": 1, "error": {}, "result": "0x14a34"},
+            "RPC method eth_chainId returned an error",
+        ),
+        (
+            {"jsonrpc": "2.0", "id": 2, "result": "0x14a34"},
+            "RPC response has an invalid JSON-RPC envelope",
+        ),
+        (
+            {"jsonrpc": "1.0", "id": 1, "result": "0x14a34"},
+            "RPC response has an invalid JSON-RPC envelope",
+        ),
+    ],
+)
+def test_rpc_rejects_invalid_response_envelopes(payload, expected_detail):
+    with (
+        _rpc_with_payload(payload) as rpc,
+        pytest.raises(RpcRequestError, match=expected_detail),
+    ):
+        rpc.chain_id()
+
+
+def test_rpc_status_returns_sanitized_502_for_empty_error_object(monkeypatch):
+    monkeypatch.setenv("AEGIS_APPROVAL_TOKEN", OWNER_TOKEN)
+    monkeypatch.setenv("AEGIS_AGENT_TOKEN", "different-agent-token")
+    monkeypatch.setattr(
+        chain_router,
+        "BaseSepoliaRpc",
+        lambda: _rpc_with_payload(
+            {"jsonrpc": "2.0", "id": 1, "error": {}, "result": "0x14a34"}
+        ),
+    )
+
+    response = TestClient(app).get(
+        "/chain/base-sepolia/status",
+        headers={"Authorization": f"Bearer {OWNER_TOKEN}"},
+    )
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "RPC method eth_chainId returned an error"
+    assert "must-not-leak" not in response.text

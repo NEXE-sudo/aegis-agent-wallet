@@ -79,7 +79,9 @@ class BaseSepoliaRpc:
             raise RpcRequestError("Base Sepolia RPC request failed") from exc
         if not isinstance(payload, dict):
             raise RpcRequestError("RPC response must be a JSON object")
-        if payload.get("error"):
+        if payload.get("jsonrpc") != "2.0" or payload.get("id") != 1:
+            raise RpcRequestError("RPC response has an invalid JSON-RPC envelope")
+        if "error" in payload:
             raise RpcRequestError(f"RPC method {method} returned an error")
         if "result" not in payload:
             raise RpcRequestError("RPC response did not include a result")
