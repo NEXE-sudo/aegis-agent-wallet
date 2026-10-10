@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.0
+
+- Recalculate risk during the atomic pre-execution check using current persisted daily spend.
+- Move ready transactions to human approval if their risk escalates to high; invalidate stale approvals when risk materially changes to high.
+- Add workflow regression coverage for execution-time risk escalation.
+
 ## 0.8.0
 
 - Reject malformed EVM recipient addresses as hard policy violations before approval or simulated execution.
