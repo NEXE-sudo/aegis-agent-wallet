@@ -1,3 +1,5 @@
+import sqlite3
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -305,3 +307,127 @@ def test_execution_invalidates_approval_if_risk_increases_after_approval():
     assert refreshed["status"] == "awaiting_approval"
     assert refreshed["approval_fingerprint"] is None
     assert refreshed["risk_score"] == 85
+
+
+
+def test_audit_records_proposal_approval_and_simulated_execution():
+    record = propose(
+        _payload(recipient="0x4444444444444444444444444444444444444444")
+    ).json()
+    tx_id = record["transaction_id"]
+
+    unauthenticated = client.get(f"/transactions/{tx_id}/audit")
+    assert unauthenticated.status_code == 401
+
+    initial = client.get(f"/transactions/{tx_id}/audit", headers=OWNER_HEADERS)
+    assert initial.status_code == 200
+    assert [event["event_type"] for event in initial.json()] == ["proposal_created"]
+    assert initial.json()[0]["actor_role"] == "agent"
+    assert initial.json()[0]["from_status"] is None
+    assert initial.json()[0]["to_status"] == "awaiting_approval"
+    assert initial.json()[0]["fingerprint"] == record["fingerprint"]
+
+    approved = owner_post(
+        f"/transactions/{tx_id}/approve",
+        json={"transaction_fingerprint": record["fingerprint"], "confirmation": "APPROVE"},
+    )
+    assert approved.status_code == 200
+    executed = owner_post(f"/transactions/{tx_id}/execute")
+    assert executed.status_code == 200
+
+    events = client.get(f"/transactions/{tx_id}/audit", headers=OWNER_HEADERS).json()
+    assert [event["event_type"] for event in events] == [
+        "proposal_created", "approval_granted", "simulated_execution"
+    ]
+    assert [event["actor_role"] for event in events] == ["agent", "owner", "owner"]
+    assert [(event["from_status"], event["to_status"]) for event in events] == [
+        (None, "awaiting_approval"),
+        ("awaiting_approval", "approved"),
+        ("approved", "executed_simulated"),
+    ]
+    assert events[-1]["details"]["execution_reference"].startswith("simulated:")
+
+
+def test_duplicate_approval_does_not_create_second_approval_event():
+    record = propose(
+        _payload(recipient="0x4444444444444444444444444444444444444444")
+    ).json()
+    body = {"transaction_fingerprint": record["fingerprint"], "confirmation": "APPROVE"}
+    path = f"/transactions/{record['transaction_id']}/approve"
+
+    assert owner_post(path, json=body).status_code == 200
+    assert owner_post(path, json=body).status_code == 409
+
+    events = client.get(
+        f"/transactions/{record['transaction_id']}/audit", headers=OWNER_HEADERS
+    ).json()
+    assert sum(event["event_type"] == "approval_granted" for event in events) == 1
+
+
+def test_idempotency_replay_is_audited_without_duplicate_creation():
+    headers = {**AGENT_HEADERS, "Idempotency-Key": "audit-replay-key"}
+    first = client.post("/transactions/propose", headers=headers, json=_payload())
+    replay = client.post("/transactions/propose", headers=headers, json=_payload())
+    assert first.status_code == 201
+    assert replay.status_code == 200
+    tx_id = first.json()["transaction_id"]
+
+    events = client.get(f"/transactions/{tx_id}/audit", headers=OWNER_HEADERS).json()
+    assert [event["event_type"] for event in events] == [
+        "proposal_created", "proposal_replayed"
+    ]
+
+
+def test_audit_events_reject_update_and_delete(tmp_path):
+    local_store = WorkflowStore(tmp_path / "audit.sqlite3")
+    record = {
+        "transaction_id": "audit-immutable-test",
+        "fingerprint": "a" * 64,
+        "proposal": _payload(),
+        "policy_decision": "allow",
+        "policy_reasons": ["ok"],
+        "risk_score": 0,
+        "risk_level": "low",
+        "risk_reasons": [],
+        "status": "ready",
+    }
+    local_store.create(record, actor_role="agent")
+
+    with local_store._connect() as db:
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            db.execute("UPDATE audit_events SET actor_role = 'owner' WHERE transaction_id = ?",
+                       (record["transaction_id"],))
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            db.execute("DELETE FROM audit_events WHERE transaction_id = ?",
+                       (record["transaction_id"],))
+
+    assert len(local_store.audit_events(record["transaction_id"])) == 1
+
+
+def test_risk_escalation_is_recorded_in_audit_trail():
+    record = propose(_payload(amount_base_units=40_000_000)).json()
+    for index in range(2):
+        external_payload = _payload(amount_base_units=40_000_000)
+        external_proposal = TransactionProposal(**external_payload)
+        main.store.create({
+            "transaction_id": f"audit-risk-reservation-{index}",
+            "fingerprint": fingerprint_proposal(external_proposal),
+            "proposal": external_payload,
+            "policy_decision": "allow",
+            "policy_reasons": ["test reservation"],
+            "risk_score": 25,
+            "risk_level": "medium",
+            "risk_reasons": [],
+            "status": "ready",
+        })
+
+    response = owner_post(f"/transactions/{record['transaction_id']}/execute")
+    assert response.status_code == 409
+    events = client.get(
+        f"/transactions/{record['transaction_id']}/audit", headers=OWNER_HEADERS
+    ).json()
+    escalation = [event for event in events if event["event_type"] == "risk_escalation_requires_approval"]
+    assert len(escalation) == 1
+    assert escalation[0]["from_status"] == "ready"
+    assert escalation[0]["to_status"] == "awaiting_approval"
+    assert escalation[0]["details"]["risk_level"] == "high"
