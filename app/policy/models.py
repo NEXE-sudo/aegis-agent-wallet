@@ -29,6 +29,7 @@ class AgentPolicy:
     enabled: bool = True
     trusted_tokens: dict[str, TrustedToken] = field(default_factory=dict)
     approval_expires_seconds: int = 300
+    recipient_token_allowlist: dict[str, set[str]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.approval_expires_seconds <= 0:

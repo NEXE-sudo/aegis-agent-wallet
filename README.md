@@ -48,6 +48,12 @@ These endpoints are read-only. They do not sign or submit transactions. The demo
 
 The daily limit is calculated from persisted same-day transactions for the same chain and token. Ready, awaiting-approval, approved, and simulated-executed transactions count against the daily limit; blocked proposals do not. Pending transactions reserve budget to reduce overspending from concurrent proposals. This is a local prototype accounting model, not a substitute for confirmed on-chain balances/receipts in a production wallet.
 
+## Recipient-specific token policy
+
+The policy can bind a recipient address to the exact token contract addresses that recipient may receive through `recipient_token_allowlist`. When a recipient has an entry in this mapping, a token contract absent from that recipient's set is a hard policy block and cannot be overridden by owner approval. Recipient and token addresses are normalized case-insensitively. Recipients without a mapping entry continue to follow the existing unknown-recipient rule (approval required by default); they are not implicitly granted a token-specific allowlist. The demo policy explicitly permits the configured Base Sepolia USDC contract for its two configured recipients.
+
+This constrains the token/recipient combination, but does not establish the real-world identity of a recipient or guarantee a token's authenticity.
+
 ## Approval expiry
 
 Owner approvals are timestamped in UTC and expire after `AEGIS_APPROVAL_EXPIRES_SECONDS` seconds (default `300`). Expiry is checked under the workflow write lock before simulated execution; an expired or timestamp-less legacy approval is invalidated, returned to `awaiting_approval`, and recorded as an `approval_expired` audit event. Set the value to a positive integer. The API exposes `approved_at` for approved transactions and retains it after simulated execution for history.

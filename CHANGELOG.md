@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0
+
+- Add recipient-specific token allowlists; disallowed token/recipient combinations are hard-blocked before approval.
+- Normalize recipient and token addresses for case-insensitive matching.
+- Preserve the existing approval requirement for recipients without an explicit token mapping.
+- Add regression coverage for allowed, blocked, normalized, and unmapped recipient behavior.
+
+
 ## 1.1.0
 
 - Timestamp owner approvals and require fresh approval after a configurable expiry (default 300 seconds).

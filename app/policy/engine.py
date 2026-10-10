@@ -67,6 +67,21 @@ def evaluate_transaction(
             hard_block = True
             reasons.append("Token decimals do not match the trusted token configuration.")
 
+    recipient = _normalise_address(proposal.recipient)
+    recipient_token_allowlist = {
+        _normalise_address(allowed_recipient): {
+            _normalise_address(address) for address in allowed_addresses
+        }
+        for allowed_recipient, allowed_addresses in policy.recipient_token_allowlist.items()
+    }
+    allowed_tokens_for_recipient = recipient_token_allowlist.get(recipient)
+    if (
+        allowed_tokens_for_recipient is not None
+        and token_address not in allowed_tokens_for_recipient
+    ):
+        hard_block = True
+        reasons.append("Token contract is not allowed for this recipient.")
+
     if proposal.amount_base_units > policy.max_transaction_base_units:
         hard_block = True
         reasons.append("Transaction exceeds the per-transaction limit.")
