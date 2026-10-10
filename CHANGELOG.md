@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.0
+
+- Verify the stored proposal fingerprint before returning an idempotent replay, and fail closed if persisted proposal details have changed.
+- Audit replay integrity failures and add a regression test for tampering before retry.
+
+
 ## 1.8.0
 
 - Recompute the canonical fingerprint of the persisted proposal before approval and simulated execution.
