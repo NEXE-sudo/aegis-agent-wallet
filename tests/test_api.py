@@ -696,7 +696,6 @@ def test_trusted_token_rejects_invalid_metadata():
         TrustedToken(chain_id=84532, symbol="USDC", decimals=37)
 
 
-
 def test_api_rejects_amounts_outside_sqlite_integer_range():
     oversized = 2**63
     response = client.post(
