@@ -179,7 +179,6 @@ def test_idempotency_key_rejects_whitespace_only_values(key):
     assert response.json()["detail"] == "Idempotency-Key must not be blank"
 
 
-
 def test_concurrent_idempotency_retries_create_one_transaction(tmp_path):
     local_store = WorkflowStore(tmp_path / "concurrent-idempotency.sqlite3")
     controller = TransactionController(main.DEMO_POLICY, local_store)
