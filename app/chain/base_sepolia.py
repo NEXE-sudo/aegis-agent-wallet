@@ -11,6 +11,7 @@ BASE_SEPOLIA_CHAIN_ID = 84532
 # Circle's published USDC contract address on Base Sepolia (testnet only).
 BASE_SEPOLIA_USDC_ADDRESS = "0x036cbd53842c5426634e7929541ec2318f3dcf7e"
 _ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
+_QUANTITY_RE = re.compile(r"^0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)$")
 
 
 class RpcConfigurationError(RuntimeError):
@@ -79,7 +80,11 @@ class BaseSepoliaRpc:
             raise RpcRequestError("Base Sepolia RPC request failed") from exc
         if not isinstance(payload, dict):
             raise RpcRequestError("RPC response must be a JSON object")
-        if payload.get("jsonrpc") != "2.0" or payload.get("id") != 1:
+        if (
+            payload.get("jsonrpc") != "2.0"
+            or type(payload.get("id")) is not int
+            or payload["id"] != 1
+        ):
             raise RpcRequestError("RPC response has an invalid JSON-RPC envelope")
         if "error" in payload:
             raise RpcRequestError(f"RPC method {method} returned an error")
@@ -89,9 +94,11 @@ class BaseSepoliaRpc:
 
     def chain_id(self) -> int:
         result = self._rpc("eth_chainId", [])
+        if not isinstance(result, str) or not _QUANTITY_RE.fullmatch(result):
+            raise RpcRequestError("RPC returned an invalid chain ID")
         try:
             return int(result, 16)
-        except (TypeError, ValueError) as exc:
+        except ValueError as exc:
             raise RpcRequestError("RPC returned an invalid chain ID") from exc
 
     def get_code(self, address: str) -> str:

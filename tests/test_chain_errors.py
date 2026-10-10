@@ -130,6 +130,10 @@ def test_token_inspection_maps_malformed_metadata_result_to_sanitized_502(
             {"jsonrpc": "1.0", "id": 1, "result": "0x14a34"},
             "RPC response has an invalid JSON-RPC envelope",
         ),
+        (
+            {"jsonrpc": "2.0", "id": True, "result": "0x14a34"},
+            "RPC response has an invalid JSON-RPC envelope",
+        ),
     ],
 )
 def test_rpc_rejects_invalid_response_envelopes(payload, expected_detail):
@@ -159,3 +163,13 @@ def test_rpc_status_returns_sanitized_502_for_empty_error_object(monkeypatch):
     assert response.status_code == 502
     assert response.json()["detail"] == "RPC method eth_chainId returned an error"
     assert "must-not-leak" not in response.text
+
+
+
+@pytest.mark.parametrize("malformed_chain_id", ["14a34", "0X14a34", "0x014a34", 84532])
+def test_rpc_rejects_malformed_chain_id_quantity(malformed_chain_id):
+    with (
+        _rpc_with_payload({"jsonrpc": "2.0", "id": 1, "result": malformed_chain_id}) as rpc,
+        pytest.raises(RpcRequestError, match="RPC returned an invalid chain ID"),
+    ):
+        rpc.chain_id()

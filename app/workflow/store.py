@@ -86,6 +86,8 @@ class WorkflowStore:
             for row in rows:
                 try:
                     proposal = json.loads(row["proposal_json"])
+                    if not isinstance(proposal, dict):
+                        continue
                     db.execute(
                         """UPDATE transactions SET chain_id = ?, token_address = ?,
                            amount_base_units = ? WHERE transaction_id = ?""",
@@ -209,19 +211,26 @@ class WorkflowStore:
     ) -> int:
         statuses = ",".join("?" for _ in RESERVED_STATUSES)
         query = (
-            "SELECT amount_base_units FROM transactions "
+            "SELECT transaction_id, proposal_json, amount_base_units FROM transactions "
             "WHERE date(created_at) = date('now') AND chain_id = ? "
             "AND lower(token_address) = ? "
-            "AND lower(json_extract(proposal_json, '$.recipient')) = ? "
             f"AND status IN ({statuses})"
         )
-        args: list[Any] = [
-            chain_id, token_address.lower(), recipient.strip().lower(), *RESERVED_STATUSES
-        ]
+        args: list[Any] = [chain_id, token_address.lower(), *RESERVED_STATUSES]
         if exclude_transaction_id is not None:
             query += " AND transaction_id != ?"
             args.append(exclude_transaction_id)
-        return sum(int(row["amount_base_units"]) for row in db.execute(query, args).fetchall())
+        total = 0
+        for row in db.execute(query, args).fetchall():
+            try:
+                proposal = json.loads(row["proposal_json"])
+            except (TypeError, ValueError) as exc:
+                raise WorkflowDataError("Stored workflow data is invalid") from exc
+            if not isinstance(proposal, dict) or not isinstance(proposal.get("recipient"), str):
+                raise WorkflowDataError("Stored workflow data is invalid")
+            if proposal["recipient"].strip().lower() == recipient.strip().lower():
+                total += int(row["amount_base_units"])
+        return total
 
     def create_evaluated(
         self, proposal: dict[str, Any], idempotency_key: str | None,
@@ -598,6 +607,12 @@ class WorkflowStore:
             or not all(isinstance(reason, str) for reason in risk_reasons)
         ):
             raise WorkflowDataError("Stored workflow data is invalid")
+        try:
+            from app.policy.models import TransactionProposal
+
+            TransactionProposal(**proposal)
+        except (TypeError, ValueError) as exc:
+            raise WorkflowDataError("Stored workflow data is invalid") from exc
         record["proposal"] = proposal
         record["policy_reasons"] = policy_reasons
         record["risk_reasons"] = risk_reasons
