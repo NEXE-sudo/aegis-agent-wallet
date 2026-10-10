@@ -694,3 +694,31 @@ def test_trusted_token_rejects_invalid_metadata():
         TrustedToken(chain_id=84532, symbol=" ", decimals=6)
     with pytest.raises(ValueError, match="decimals must be between 0 and 36"):
         TrustedToken(chain_id=84532, symbol="USDC", decimals=37)
+
+
+
+def test_api_rejects_amounts_outside_sqlite_integer_range():
+    oversized = 2**63
+    response = client.post(
+        "/transactions/propose", headers=AGENT_HEADERS,
+        json=_payload(amount_base_units=oversized),
+    )
+    assert response.status_code == 422
+
+    evaluation = client.post(
+        "/policy/evaluate",
+        json={**_payload(), "daily_spent_base_units": oversized},
+    )
+    assert evaluation.status_code == 422
+
+
+def test_policy_rejects_limits_outside_sqlite_integer_range():
+    with pytest.raises(ValueError, match="must be positive"):
+        replace(main.DEMO_POLICY, max_transaction_base_units=2**63)
+    with pytest.raises(ValueError, match="SQLite integer range"):
+        replace(
+            main.DEMO_POLICY,
+            recipient_daily_limits_base_units={
+                "0x2222222222222222222222222222222222222222": 2**63
+            },
+        )
