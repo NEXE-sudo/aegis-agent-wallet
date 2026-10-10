@@ -58,15 +58,12 @@ def test_daily_reservations_cover_workflow_states_and_utc_day_boundary(tmp_path)
                SET created_at = date('now', '-1 day') || ' 23:59:59'
                WHERE transaction_id = 'yesterday'"""
         )
+        recipient_spend = store._recipient_daily_spend(
+            db, CHAIN_ID, BASE_SEPOLIA_USDC_ADDRESS, RECIPIENT
+        )
 
     expected_today = 10 + 20 + 30 + 40 + 50
     assert store.daily_spend(CHAIN_ID, BASE_SEPOLIA_USDC_ADDRESS) == expected_today
-    assert (
-        store._recipient_daily_spend(
-            CHAIN_ID, BASE_SEPOLIA_USDC_ADDRESS, RECIPIENT
-        )
-        == expected_today
-    )
-
+    assert recipient_spend == expected_today
     assert store.get("expired-approval")["status"] == "awaiting_approval"
     assert store.get("expired-approval")["approved_at"] is None
