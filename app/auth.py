@@ -1,4 +1,4 @@
-""""Shared bearer-token authentication dependencies."""
+"""Shared bearer-token authentication dependencies."""
 import hmac
 import os
 from typing import Annotated
