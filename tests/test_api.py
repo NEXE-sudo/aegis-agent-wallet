@@ -1037,3 +1037,35 @@ def test_malformed_persisted_audit_details_return_sanitized_server_error():
     assert response.status_code == 500
     assert response.json() == {"detail": "Stored workflow data is invalid"}
     assert secret_marker not in response.text
+
+
+
+def test_malformed_persisted_proposal_object_returns_sanitized_server_error():
+    record = propose().json()
+    with sqlite3.connect(main.store.db_path) as db:
+        db.execute(
+            "UPDATE transactions SET proposal_json = ? WHERE transaction_id = ?",
+            (json.dumps({"recipient": "invalid-but-secret"}), record["transaction_id"]),
+        )
+
+    response = client.get(
+        f"/transactions/{record['transaction_id']}", headers=OWNER_HEADERS
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Stored workflow data is invalid"}
+    assert "invalid-but-secret" not in response.text
+
+
+def test_malformed_persisted_proposal_fails_closed_during_recipient_spend_check():
+    record = propose().json()
+    with sqlite3.connect(main.store.db_path) as db:
+        db.execute(
+            "UPDATE transactions SET proposal_json = ? WHERE transaction_id = ?",
+            (json.dumps(["corrupt"]), record["transaction_id"]),
+        )
+
+    response = propose(_payload(amount_base_units=2_000_000))
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Stored workflow data is invalid"}
