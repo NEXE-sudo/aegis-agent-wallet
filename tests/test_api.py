@@ -607,6 +607,60 @@ def test_reapproval_attempt_expires_stale_approval_before_requiring_fresh_approv
     assert renewed.json()["approved_at"] == now[0].isoformat()
 
 
+@pytest.mark.parametrize(
+    "timestamp_case",
+    ["missing", "malformed", "future", "expiry_boundary"],
+)
+def test_execution_invalidates_invalid_or_expired_approval_timestamps(
+    monkeypatch, timestamp_case
+):
+    now = [datetime(2026, 10, 10, 12, 0, tzinfo=UTC)]
+    monkeypatch.setattr(store_module, "_utc_now", lambda: now[0])
+    record = propose(
+        _payload(recipient="0x4444444444444444444444444444444444444444")
+    ).json()
+    tx_id = record["transaction_id"]
+    approval_body = {
+        "transaction_fingerprint": record["fingerprint"],
+        "confirmation": "APPROVE",
+    }
+
+    approved = owner_post(f"/transactions/{tx_id}/approve", json=approval_body)
+    assert approved.status_code == 200
+
+    if timestamp_case == "missing":
+        stored_timestamp = None
+    elif timestamp_case == "malformed":
+        stored_timestamp = "not-a-timestamp"
+    elif timestamp_case == "future":
+        stored_timestamp = (now[0] + timedelta(seconds=1)).isoformat()
+    else:
+        # Expiry is inclusive: an approval exactly at the configured age is stale.
+        stored_timestamp = (now[0] - timedelta(seconds=300)).isoformat()
+
+    with main.store._connect() as db:
+        db.execute(
+            "UPDATE transactions SET approved_at = ? WHERE transaction_id = ?",
+            (stored_timestamp, tx_id),
+        )
+
+    response = owner_post(f"/transactions/{tx_id}/execute")
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Human approval is required before execution"
+
+    refreshed = client.get(f"/transactions/{tx_id}", headers=OWNER_HEADERS).json()
+    assert refreshed["status"] == "awaiting_approval"
+    assert refreshed["approval_fingerprint"] is None
+    assert refreshed["approved_at"] is None
+
+    events = client.get(f"/transactions/{tx_id}/audit", headers=OWNER_HEADERS).json()
+    expiry_events = [event for event in events if event["event_type"] == "approval_expired"]
+    assert len(expiry_events) == 1
+    assert expiry_events[0]["from_status"] == "approved"
+    assert expiry_events[0]["to_status"] == "awaiting_approval"
+    assert expiry_events[0]["details"]["approval_expires_seconds"] == 300
+
+
 def test_approval_expiry_configuration_must_be_positive():
     from dataclasses import replace
 
