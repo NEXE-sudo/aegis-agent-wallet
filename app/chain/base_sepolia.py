@@ -29,7 +29,7 @@ def validate_address(address: str) -> str:
 
 def _decode_abi_string(value: str) -> str:
     """Decode standard ABI string return data, with bytes32 compatibility."""
-    if not value.startswith("0x"):
+    if not isinstance(value, str) or not value.startswith("0x"):
         raise RpcRequestError("RPC returned malformed ABI data")
     raw = bytes.fromhex(value[2:])
     if len(raw) == 32:
@@ -121,6 +121,8 @@ class BaseSepoliaRpc:
         try:
             symbol = _decode_abi_string(self._call(normalized, "0x95d89b41"))
             decimals_result = self._call(normalized, "0x313ce567")
+            if not isinstance(decimals_result, str) or not decimals_result.startswith("0x"):
+                raise RpcRequestError("RPC returned malformed token decimals data")
             decimals = int(decimals_result, 16)
             if not 0 <= decimals <= 36:
                 raise RpcRequestError("Token decimals are outside the supported range")
