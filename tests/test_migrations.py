@@ -88,7 +88,9 @@ def test_legacy_database_migration_preserves_transaction_and_backfills_accountin
             ("legacy-transaction",),
         ).fetchone()
 
-    assert {"idempotency_key", "approved_at", "chain_id", "token_address", "amount_base_units"} <= columns
+    assert {
+        "idempotency_key", "approved_at", "chain_id", "token_address", "amount_base_units"
+    } <= columns
     assert accounting == (
         84532,
         proposal["token_address"].lower(),
