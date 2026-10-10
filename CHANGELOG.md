@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.0
+
+- Timestamp owner approvals and require fresh approval after a configurable expiry (default 300 seconds).
+- Invalidate expired or timestamp-less legacy approvals before simulated execution and record expiry in the audit trail.
+- Expose the active approval timestamp and add regression tests for expiry, re-approval, and configuration validation.
+
+
 ## 1.0.0
 
 - Add a persistent append-only SQLite audit trail for proposal creation, idempotency replays/conflicts, approvals, execution-time policy blocks, risk escalation, and simulated execution.
