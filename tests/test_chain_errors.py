@@ -25,8 +25,10 @@ def _rpc_with_payload(payload):
 
 def _abi_string(value):
     encoded = value.encode("utf-8")
-    padded = encoded + b"\\x00" * ((32 - len(encoded) % 32) % 32)
-    return "0x" + (32).to_bytes(32, "big").hex() + len(encoded).to_bytes(32, "big").hex() + padded.hex()
+    padded = encoded + b"\x00" * ((32 - len(encoded) % 32) % 32)
+    offset = (32).to_bytes(32, "big").hex()
+    length = len(encoded).to_bytes(32, "big").hex()
+    return "0x" + offset + length + padded.hex()
 
 
 def _rpc_with_token_result(selector, malformed_result):
@@ -49,7 +51,9 @@ def _rpc_with_token_result(selector, malformed_result):
                 result = _abi_string("USD Coin")
         else:
             raise AssertionError(f"Unexpected JSON-RPC method: {method}")
-        return httpx.Response(200, json={"jsonrpc": "2.0", "id": body["id"], "result": result})
+        return httpx.Response(
+            200, json={"jsonrpc": "2.0", "id": body["id"], "result": result}
+        )
 
     transport = httpx.MockTransport(respond)
     return BaseSepoliaRpc(
