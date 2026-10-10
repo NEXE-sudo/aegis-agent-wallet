@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.5.0
+
+- Validate global policy spending limits, approval thresholds, chain IDs, agent identifiers, and token symbols at construction time.
+- Validate trusted token chain IDs, symbols, and decimals.
+- Add regression tests for invalid configurations while preserving zero as a valid approval threshold.
+
+
 ## 1.4.0
 
 - Add optional per-recipient single-transaction amount caps alongside the global transaction limit.

@@ -654,3 +654,43 @@ def test_recipient_transaction_limit_configuration_cannot_be_negative():
                 "0x2222222222222222222222222222222222222222": -1
             },
         )
+
+
+def test_policy_rejects_nonpositive_global_spending_limits():
+    with pytest.raises(ValueError, match="max_transaction_base_units must be positive"):
+        replace(main.DEMO_POLICY, max_transaction_base_units=0)
+    with pytest.raises(ValueError, match="daily_limit_base_units must be positive"):
+        replace(main.DEMO_POLICY, daily_limit_base_units=-1)
+
+
+def test_policy_rejects_negative_approval_threshold_but_allows_zero():
+    with pytest.raises(ValueError, match="cannot be negative"):
+        replace(main.DEMO_POLICY, approval_threshold_base_units=-1)
+
+    policy = replace(main.DEMO_POLICY, approval_threshold_base_units=0)
+    assert policy.approval_threshold_base_units == 0
+
+
+def test_policy_rejects_invalid_chain_configuration():
+    with pytest.raises(ValueError, match="positive chain IDs"):
+        replace(main.DEMO_POLICY, allowed_chain_ids={0})
+    with pytest.raises(ValueError, match="positive chain IDs"):
+        replace(main.DEMO_POLICY, allowed_chain_ids=set())
+
+
+def test_policy_rejects_empty_agent_id_and_token_symbols():
+    with pytest.raises(ValueError, match="agent_id cannot be empty"):
+        replace(main.DEMO_POLICY, agent_id=" ")
+    with pytest.raises(ValueError, match="token symbols cannot be empty"):
+        replace(main.DEMO_POLICY, allowed_token_symbols={"USDC", " "})
+
+
+def test_trusted_token_rejects_invalid_metadata():
+    from app.policy.models import TrustedToken
+
+    with pytest.raises(ValueError, match="chain_id must be positive"):
+        TrustedToken(chain_id=0, symbol="USDC", decimals=6)
+    with pytest.raises(ValueError, match="symbol cannot be empty"):
+        TrustedToken(chain_id=84532, symbol=" ", decimals=6)
+    with pytest.raises(ValueError, match="decimals must be between 0 and 36"):
+        TrustedToken(chain_id=84532, symbol="USDC", decimals=37)
