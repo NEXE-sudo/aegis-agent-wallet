@@ -21,9 +21,11 @@ def _rpc_with_payload(payload):
 
 
 def test_rpc_rejects_non_object_json_response():
-    with _rpc_with_payload([]) as rpc:
-        with pytest.raises(RpcRequestError, match="RPC response must be a JSON object"):
-            rpc.chain_id()
+    with (
+        _rpc_with_payload([]) as rpc,
+        pytest.raises(RpcRequestError, match="RPC response must be a JSON object"),
+    ):
+        rpc.chain_id()
 
 
 def test_rpc_api_maps_malformed_response_to_sanitized_502(monkeypatch):
