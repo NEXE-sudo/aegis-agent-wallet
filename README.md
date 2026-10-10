@@ -39,7 +39,7 @@ These endpoints are read-only. They do not sign or submit transactions. The demo
 
 ## Policy configuration validation
 
-API amounts, supplied evaluation spend, chain IDs, and configured global/recipient spending limits are bounded to SQLite's signed 64-bit integer range. Oversized API values are rejected with HTTP 422 before they can reach persistence; invalid policy bounds fail during policy construction.
+API amounts, supplied evaluation spend, chain IDs, and configured global/recipient spending limits are bounded to SQLite's signed 64-bit integer range. Oversized API values are rejected with HTTP 422 before they can reach persistence; invalid policy bounds fail during policy construction. Persisted amounts remain individually bounded, while global and recipient spend totals are summed with Python integers so unusually large aggregate reservations are evaluated and hard-blocked without SQLite integer-overflow errors.
 
 Policy construction fails fast when global transaction or daily limits are non-positive, the approval threshold is negative, the agent ID or configured token symbols are empty, or chain IDs are missing/non-positive. Trusted token metadata requires a positive chain ID, a non-empty symbol, and decimals between 0 and 36. An approval threshold of zero is valid and means every positive transaction meets the approval threshold. Invalid recipient-specific limits and approval-expiry settings are also rejected.
 
