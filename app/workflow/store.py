@@ -5,7 +5,7 @@ import json
 import os
 import sqlite3
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -349,7 +349,7 @@ class WorkflowStore:
                     try:
                         approval_time = datetime.fromisoformat(approved_at)
                         if approval_time.tzinfo is None:
-                            approval_time = approval_time.replace(tzinfo=timezone.utc)
+                            approval_time = approval_time.replace(tzinfo=UTC)
                         elapsed = (now - approval_time).total_seconds()
                         expired = elapsed < 0 or elapsed >= int(policy.approval_expires_seconds)
                     except (TypeError, ValueError):
@@ -469,4 +469,4 @@ class WorkflowStore:
 
 def _utc_now() -> datetime:
     """Clock seam for deterministic approval-expiry tests."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
