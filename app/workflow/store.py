@@ -207,6 +207,8 @@ class WorkflowStore:
         """Revalidates policy and spend inside the same write lock as execution."""
         from app.policy.engine import evaluate_transaction
         from app.policy.models import PolicyDecision, TransactionProposal
+        from app.risk.engine import assess_transaction_risk
+        from app.risk.models import RiskLevel
 
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -245,6 +247,28 @@ class WorkflowStore:
                 )
                 db.execute("COMMIT")
                 return "blocked", self.get(transaction_id)
+            risk_result = assess_transaction_risk(proposal, policy, spent)
+            risk_changed = (
+                risk_result.score != record["risk_score"]
+                or risk_result.level.value != record["risk_level"]
+                or risk_result.reasons != record["risk_reasons"]
+            )
+            if risk_result.level == RiskLevel.HIGH and (
+                record["status"] == "ready"
+                or (record["status"] == "approved" and risk_changed)
+            ):
+                db.execute(
+                    """UPDATE transactions SET status = 'awaiting_approval',
+                       policy_decision = ?, policy_reasons_json = ?, risk_score = ?,
+                       risk_level = ?, risk_reasons_json = ?, approval_fingerprint = NULL,
+                       updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
+                    (
+                        result.decision.value, json.dumps(result.reasons), risk_result.score,
+                        risk_result.level.value, json.dumps(risk_result.reasons), transaction_id,
+                    ),
+                )
+                db.execute("COMMIT")
+                return "approval_required", self.get(transaction_id)
             if result.decision == PolicyDecision.REQUIRE_APPROVAL:
                 # A still-valid approval may satisfy the same policy requirement that existed
                 # when the proposal was approved. A newly introduced requirement invalidates it.

@@ -228,3 +228,80 @@ def test_malformed_recipient_is_blocked_and_cannot_be_approved_or_executed():
     )
     assert approve.status_code == 409
     assert owner_post(f"/transactions/{record['transaction_id']}/execute").status_code == 403
+
+
+def test_execution_rechecks_risk_and_requires_approval_if_risk_escalates():
+    record = propose(_payload(amount_base_units=40_000_000)).json()
+    assert record["status"] == "ready"
+    assert record["risk_level"] == "medium"
+
+    # New reservations raise projected daily spend to 80% of the daily limit.
+    for index in range(2):
+        external_payload = _payload(amount_base_units=40_000_000)
+        external_proposal = TransactionProposal(**external_payload)
+        main.store.create({
+            "transaction_id": f"risk-reservation-{index}",
+            "fingerprint": fingerprint_proposal(external_proposal),
+            "proposal": external_payload,
+            "policy_decision": "allow",
+            "policy_reasons": ["test reservation"],
+            "risk_score": 25,
+            "risk_level": "medium",
+            "risk_reasons": [],
+            "status": "ready",
+        })
+
+    execution = owner_post(f"/transactions/{record['transaction_id']}/execute")
+    assert execution.status_code == 409
+    assert execution.json()["detail"] == "Human approval is required before execution"
+
+    refreshed = client.get(
+        f"/transactions/{record['transaction_id']}", headers=OWNER_HEADERS
+    ).json()
+    assert refreshed["status"] == "awaiting_approval"
+    assert refreshed["risk_level"] == "high"
+    assert refreshed["risk_score"] == 50
+
+
+def test_execution_invalidates_approval_if_risk_increases_after_approval():
+    record = propose(
+        _payload(
+            recipient="0x4444444444444444444444444444444444444444",
+            amount_base_units=40_000_000,
+        )
+    ).json()
+    assert record["status"] == "awaiting_approval"
+    assert record["risk_level"] == "high"
+
+    approved = owner_post(
+        f"/transactions/{record['transaction_id']}/approve",
+        json={"transaction_fingerprint": record["fingerprint"], "confirmation": "APPROVE"},
+    )
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "approved"
+
+    for index in range(2):
+        external_payload = _payload(amount_base_units=40_000_000)
+        external_proposal = TransactionProposal(**external_payload)
+        main.store.create({
+            "transaction_id": f"approved-risk-reservation-{index}",
+            "fingerprint": fingerprint_proposal(external_proposal),
+            "proposal": external_payload,
+            "policy_decision": "allow",
+            "policy_reasons": ["test reservation"],
+            "risk_score": 25,
+            "risk_level": "medium",
+            "risk_reasons": [],
+            "status": "ready",
+        })
+
+    execution = owner_post(f"/transactions/{record['transaction_id']}/execute")
+    assert execution.status_code == 409
+    assert execution.json()["detail"] == "Human approval is required before execution"
+
+    refreshed = client.get(
+        f"/transactions/{record['transaction_id']}", headers=OWNER_HEADERS
+    ).json()
+    assert refreshed["status"] == "awaiting_approval"
+    assert refreshed["approval_fingerprint"] is None
+    assert refreshed["risk_score"] == 85

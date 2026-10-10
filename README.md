@@ -41,7 +41,7 @@ These endpoints are read-only. They do not sign or submit transactions. The demo
 - `POST /transactions/propose` — atomically calculates today's persisted spend, reserves the proposed amount, evaluates policy/risk, and saves the proposal. Supports the optional `Idempotency-Key` header (8–128 characters). Reusing a key with the same proposal returns the original record; reusing it with a different proposal returns HTTP 409.
 - `GET /transactions/{transaction_id}` — retrieves persisted state; owner token required.
 - `POST /transactions/{transaction_id}/approve` — requires the owner token, the exact stored SHA-256 fingerprint, and body confirmation `APPROVE`.
-- `POST /transactions/{transaction_id}/execute` — requires the owner token and re-evaluates policy and daily spending under the same SQLite write lock used for the simulated state transition.
+- `POST /transactions/{transaction_id}/execute` — requires the owner token and re-evaluates policy, daily spending, and heuristic risk under the same SQLite write lock used for the simulated state transition. If risk escalates to high, human approval is required before simulation.
 - `POST /policy/evaluate` and `POST /risk/assess` — standalone evaluation endpoints; their caller-provided spend is not trusted by the transaction workflow.
 
 The daily limit is calculated from persisted same-day transactions for the same chain and token. Ready, awaiting-approval, approved, and simulated-executed transactions count against the daily limit; blocked proposals do not. Pending transactions reserve budget to reduce overspending from concurrent proposals. This is a local prototype accounting model, not a substitute for confirmed on-chain balances/receipts in a production wallet.
