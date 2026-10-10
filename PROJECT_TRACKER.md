@@ -6,7 +6,7 @@
 > **Repository:** [NEXE-sudo/aegis-agent-wallet](https://github.com/NEXE-sudo/aegis-agent-wallet)  
 > **Current package/API version:** 1.10.0  
 > **Current phase:** Milestone 3 — Agent and Demo  
-> **Current status:** Milestones 1–3 complete; Milestones 4–7 planned; Milestone 8 is optional and out of current scope.
+> **Current status:** Milestones 1–2 complete; Milestone 3 in progress; 4–7 planned; Milestone 8 is optional and out of current scope.
 
 ## 1. Project mission and non-negotiable boundary
 
@@ -108,12 +108,12 @@ Remaining candidate work (inspect current implementation and tests before select
 **Exit criteria:** the important state transitions and failure paths are documented and regression-tested; the test suite and Ruff pass; remaining limitations are explicit. This is a prototype milestone, not a claim of production security.
 
 ### Milestone 3 — Agent and Demo
-**Status: COMPLETE**
+**Status: IN PROGRESS**
 
 Goal: make the workflow easy to understand and demonstrate end to end.
 - [x] Define a reproducible demo scenario and expected outcomes (`docs/demo-scenario.md`; added in PR #32).
 - [x] Add a minimal agent/client example that proposes transactions through the authenticated API (PR #33).
-- [x] Demonstrate allowed, hard-blocked, approval-required, expired-approval, and replay/conflict paths (`docs/demo-scenario.md`; expiry path documented in PR #34).
+- [ ] Demonstrate allowed, hard-blocked, approval-required, expired-approval, and replay/conflict paths (`docs/demo-scenario.md`; expiry walkthrough is under review).
 - [x] Keep the demo deterministic and simulation-only.
 - [x] Add a concise documented command sequence and expected outcomes.
 - [x] Ensure secrets and provider credentials are supplied via environment variables and never committed.
@@ -228,7 +228,6 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #31 | Close repository review validation gaps | Merged |
 | #32 | Document reproducible simulation demo scenario | Merged |
 | #33 | Add authenticated Python proposal client example | Merged |
-| #34 | Document expired approval and reapproval demo path | Merged |
 
 ## 6. Current architecture and useful code locations
 
