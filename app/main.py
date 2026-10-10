@@ -177,6 +177,9 @@ def propose_transaction(
     response: Response,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key", min_length=8, max_length=128),
 ) -> TransactionResponse:
+    if idempotency_key is not None and not idempotency_key.strip():
+        raise HTTPException(status_code=422, detail="Idempotency-Key must not be blank")
+
     proposal = _proposal(request)
     outcome, record = controller.propose(proposal, idempotency_key)
     if outcome == "idempotency_conflict":
