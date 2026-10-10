@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.0
+
+- Recompute the canonical fingerprint of the persisted proposal before approval and simulated execution.
+- Fail closed with HTTP 409 and append an audit event if persisted proposal details no longer match the approval-bound fingerprint.
+- Add regression tests for proposal tampering between creation and approval or execution.
+
+
 ## 1.7.0
 
 - Aggregate global and recipient daily reservations with Python integers to avoid SQLite `SUM(INTEGER)` overflow when individually valid amounts total beyond the signed 64-bit range.
