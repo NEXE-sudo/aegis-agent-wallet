@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -365,6 +366,56 @@ def test_duplicate_approval_does_not_create_second_approval_event():
         f"/transactions/{record['transaction_id']}/audit", headers=OWNER_HEADERS
     ).json()
     assert sum(event["event_type"] == "approval_granted" for event in events) == 1
+
+
+def test_approval_rejects_persisted_proposal_tampering():
+    record = propose(
+        _payload(recipient="0x4444444444444444444444444444444444444444")
+    ).json()
+    changed_proposal = dict(record["proposal"])
+    changed_proposal["recipient"] = "0x3333333333333333333333333333333333333333"
+    with main.store._connect() as db:
+        db.execute(
+            "UPDATE transactions SET proposal_json = ? WHERE transaction_id = ?",
+            (json.dumps(changed_proposal, sort_keys=True), record["transaction_id"]),
+        )
+
+    response = owner_post(
+        f"/transactions/{record['transaction_id']}/approve",
+        json={
+            "transaction_fingerprint": record["fingerprint"],
+            "confirmation": "APPROVE",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Persisted proposal failed integrity verification"
+    events = client.get(
+        f"/transactions/{record['transaction_id']}/audit", headers=OWNER_HEADERS
+    ).json()
+    assert events[-1]["event_type"] == "proposal_integrity_mismatch"
+    assert events[-1]["details"]["operation"] == "approve"
+
+
+def test_execution_rejects_persisted_proposal_tampering():
+    record = propose().json()
+    changed_proposal = dict(record["proposal"])
+    changed_proposal["amount_base_units"] += 1
+    with main.store._connect() as db:
+        db.execute(
+            "UPDATE transactions SET proposal_json = ? WHERE transaction_id = ?",
+            (json.dumps(changed_proposal, sort_keys=True), record["transaction_id"]),
+        )
+
+    response = owner_post(f"/transactions/{record['transaction_id']}/execute")
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Persisted proposal failed integrity verification"
+    events = client.get(
+        f"/transactions/{record['transaction_id']}/audit", headers=OWNER_HEADERS
+    ).json()
+    assert events[-1]["event_type"] == "proposal_integrity_mismatch"
+    assert events[-1]["details"]["operation"] == "execute"
 
 
 def test_idempotency_replay_is_audited_without_duplicate_creation():

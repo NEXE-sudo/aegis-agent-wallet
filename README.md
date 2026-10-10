@@ -1,6 +1,6 @@
 # Aegis Agent Wallet
 
-A testnet-only AI-agent wallet prototype. This build includes deterministic policy checks, explainable heuristic risk scoring, persistent transaction state, atomic daily-spend reservations, time-limited fingerprint-bound approval, an append-only approval/execution audit trail, bearer-token separation for agent and owner operations, idempotent proposal retries, and a simulated executor.
+A testnet-only AI-agent wallet prototype. This build includes deterministic policy checks, explainable heuristic risk scoring, persistent transaction state, atomic daily-spend reservations, time-limited fingerprint-bound approval with persisted-proposal integrity verification, an append-only approval/execution audit trail, bearer-token separation for agent and owner operations, idempotent proposal retries, and a simulated executor.
 
 ## macOS setup
 

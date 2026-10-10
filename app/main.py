@@ -210,6 +210,8 @@ def approve_transaction(transaction_id: str, request: ApprovalRequest) -> Transa
         raise HTTPException(status_code=404, detail="Transaction not found")
     if outcome == "fingerprint_mismatch":
         raise HTTPException(status_code=409, detail="Approval fingerprint does not match transaction")
+    if outcome == "proposal_integrity_mismatch":
+        raise HTTPException(status_code=409, detail="Persisted proposal failed integrity verification")
     if outcome == "blocked":
         raise HTTPException(status_code=409, detail="Blocked transactions cannot be approved")
     if outcome == "already_executed":
@@ -229,6 +231,8 @@ def execute_transaction(transaction_id: str) -> TransactionResponse:
         raise HTTPException(status_code=404, detail="Transaction not found")
     if outcome == "blocked":
         raise HTTPException(status_code=403, detail="Policy-blocked transactions cannot execute")
+    if outcome == "proposal_integrity_mismatch":
+        raise HTTPException(status_code=409, detail="Persisted proposal failed integrity verification")
     if outcome == "approval_required":
         raise HTTPException(status_code=409, detail="Human approval is required before execution")
     if outcome == "already_executed":
