@@ -71,6 +71,7 @@ class TransactionResponse(BaseModel):
     risk_reasons: list[str]
     status: str
     approval_fingerprint: str | None = None
+    approved_at: str | None = None
     execution_reference: str | None = None
     created_at: str
     updated_at: str
@@ -91,6 +92,7 @@ DEMO_POLICY = AgentPolicy(
     },
     unknown_recipient_requires_approval=True,
     enabled=True,
+    approval_expires_seconds=int(os.environ.get("AEGIS_APPROVAL_EXPIRES_SECONDS", "300")),
 )
 
 store = WorkflowStore(os.environ.get("AEGIS_DB_PATH", "aegis-workflow.sqlite3"))
@@ -105,7 +107,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title="Aegis Agent Wallet API",
     description="Policy, risk, and approval workflow simulation with optional read-only Base Sepolia inspection. No signing or transaction submission occurs.",
-    version="1.0.0",
+    version="1.1.0",
     lifespan=lifespan,
 )
 
