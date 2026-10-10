@@ -95,13 +95,13 @@ Completed controls include:
 - Idempotency conflict handling and audit events.
 
 Remaining candidate work (inspect current implementation and tests before selecting a task; do not assume every item is a confirmed defect):
-- [ ] Review all workflow state transitions against a written state-transition table.
+- [x] Review all workflow state transitions against a written state-transition table (PR #23 documentation and regression tests).
 - [x] Add targeted negative tests for malformed/missing/future approval timestamps and expiry boundaries.
 - [x] Review idempotency-key uniqueness behavior and concurrent retries under SQLite write locking.
 - [x] Reject whitespace-only idempotency keys at the API boundary.
 - [x] Review transaction reservation accounting across blocked, expired, simulated-executed, and same-day-boundary cases (PR #21 regression coverage).
 - [ ] Review API error responses and audit events for consistent fail-closed behavior without leaking secrets.
-- [ ] Review configuration parsing for malformed environment values and invalid combinations.
+- [x] Review configuration parsing for malformed environment values and invalid combinations (blank database paths and identical agent/owner tokens are rejected).
 - [ ] Document the threat model, trust boundaries, assumptions, and explicit non-goals.
 - [ ] Close any additional gaps revealed by tests or review.
 
@@ -216,6 +216,9 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #19 | Reject whitespace-only idempotency keys | Merged |
 | #20 | Test concurrent idempotency retries under SQLite write locking | Merged |
 | #21 | Test transaction reservation accounting across workflow states and UTC day boundaries | Merged |
+| #22 | Redact idempotency keys from replay audit events | Merged |
+| #23 | Document and test workflow state transitions | Merged |
+| #24 | Reject blank database paths and identical agent/owner authentication tokens | Merged |
 
 ## 6. Current architecture and useful code locations
 

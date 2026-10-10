@@ -24,7 +24,7 @@ python -m pytest -q
 uvicorn app.main:app --reload
 ```
 
-Keep both tokens private. The agent token and owner/approval token must be different. If a required token is missing, the protected endpoint fails closed with HTTP 503. A wrong or missing token returns HTTP 401. API docs: http://127.0.0.1:8000/docs
+Keep both tokens private. The agent token and owner/approval token must be different; protected endpoints fail closed with HTTP 503 if either token is blank or both configured tokens are identical. A wrong or missing request token returns HTTP 401. An empty or whitespace-only `AEGIS_DB_PATH` is rejected at startup rather than silently using a temporary SQLite database. API docs: http://127.0.0.1:8000/docs
 
 For requests, send `Authorization: Bearer <AEGIS_AGENT_TOKEN>` to `POST /transactions/propose`. Use `Authorization: Bearer <AEGIS_APPROVAL_TOKEN>` for transaction retrieval, approval, and simulated execution. `/health`, `/policy/evaluate`, and `/risk/assess` are demo endpoints; the latter two accept caller-provided spend only for isolated evaluation and do not create transactions.
 
