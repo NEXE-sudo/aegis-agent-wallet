@@ -21,6 +21,10 @@ def _proposal_fingerprint(proposal: dict[str, Any]) -> str:
 
 
 
+class WorkflowDataError(RuntimeError):
+    """Raised when persisted workflow JSON is malformed or has an invalid shape."""
+
+
 class WorkflowStore:
     def __init__(self, db_path: str | Path = DEFAULT_DB_PATH) -> None:
         raw_path = str(db_path)
@@ -165,7 +169,13 @@ class WorkflowStore:
         events = []
         for row in rows:
             event = dict(row)
-            event["details"] = json.loads(event.pop("details_json"))
+            try:
+                details = json.loads(event.pop("details_json"))
+            except (TypeError, ValueError) as exc:
+                raise WorkflowDataError("Stored workflow data is invalid") from exc
+            if not isinstance(details, dict):
+                raise WorkflowDataError("Stored workflow data is invalid")
+            event["details"] = details
             events.append(event)
         return events
 
@@ -574,9 +584,23 @@ class WorkflowStore:
     @staticmethod
     def _decode(row: sqlite3.Row) -> dict[str, Any]:
         record = dict(row)
-        record["proposal"] = json.loads(record.pop("proposal_json"))
-        record["policy_reasons"] = json.loads(record.pop("policy_reasons_json"))
-        record["risk_reasons"] = json.loads(record.pop("risk_reasons_json"))
+        try:
+            proposal = json.loads(record.pop("proposal_json"))
+            policy_reasons = json.loads(record.pop("policy_reasons_json"))
+            risk_reasons = json.loads(record.pop("risk_reasons_json"))
+        except (TypeError, ValueError) as exc:
+            raise WorkflowDataError("Stored workflow data is invalid") from exc
+        if (
+            not isinstance(proposal, dict)
+            or not isinstance(policy_reasons, list)
+            or not all(isinstance(reason, str) for reason in policy_reasons)
+            or not isinstance(risk_reasons, list)
+            or not all(isinstance(reason, str) for reason in risk_reasons)
+        ):
+            raise WorkflowDataError("Stored workflow data is invalid")
+        record["proposal"] = proposal
+        record["policy_reasons"] = policy_reasons
+        record["risk_reasons"] = risk_reasons
         return record
 
 

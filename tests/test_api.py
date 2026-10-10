@@ -999,3 +999,41 @@ def test_idempotency_key_is_not_exposed_in_audit_event():
 
     assert replay_event["details"] == {"idempotency_key_present": True}
     assert idempotency_key not in json.dumps(events)
+
+
+def test_malformed_persisted_proposal_returns_sanitized_server_error():
+    record = propose().json()
+    secret_marker = "must-not-leak-from-corrupt-db"
+    with sqlite3.connect(main.store.db_path) as db:
+        db.execute(
+            "UPDATE transactions SET proposal_json = ? WHERE transaction_id = ?",
+            (json.dumps([secret_marker]), record["transaction_id"]),
+        )
+
+    response = client.get(
+        f"/transactions/{record['transaction_id']}", headers=OWNER_HEADERS
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Stored workflow data is invalid"}
+    assert secret_marker not in response.text
+
+
+def test_malformed_persisted_audit_details_return_sanitized_server_error():
+    record = propose().json()
+    secret_marker = "must-not-leak-from-corrupt-audit"
+    with sqlite3.connect(main.store.db_path) as db:
+        # Simulate out-of-band database-file tampering, not an ordinary application update.
+        db.execute("DROP TRIGGER audit_events_no_update")
+        db.execute(
+            "UPDATE audit_events SET details_json = ? WHERE transaction_id = ?",
+            (json.dumps(secret_marker), record["transaction_id"]),
+        )
+
+    response = client.get(
+        f"/transactions/{record['transaction_id']}/audit", headers=OWNER_HEADERS
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Stored workflow data is invalid"}
+    assert secret_marker not in response.text
