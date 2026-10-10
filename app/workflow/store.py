@@ -203,29 +203,6 @@ class WorkflowStore:
             args.append(exclude_transaction_id)
         return sum(int(row["amount_base_units"]) for row in db.execute(query, args).fetchall())
 
-    @staticmethod
-    def _recipient_daily_spend(
-        db: sqlite3.Connection,
-        chain_id: int,
-        token_address: str,
-        recipient: str,
-        exclude_transaction_id: str | None = None,
-    ) -> int:
-        statuses = ",".join("?" for _ in RESERVED_STATUSES)
-        query = (
-            f"SELECT COALESCE(SUM(amount_base_units), 0) AS total FROM transactions "
-            f"WHERE date(created_at) = date('now') AND chain_id = ? "
-            f"AND lower(token_address) = ? AND lower(json_extract(proposal_json, '$.recipient')) = ? "
-            f"AND status IN ({statuses})"
-        )
-        args: list[Any] = [
-            chain_id, token_address.lower(), recipient.strip().lower(), *RESERVED_STATUSES
-        ]
-        if exclude_transaction_id is not None:
-            query += " AND transaction_id != ?"
-            args.append(exclude_transaction_id)
-        return int(db.execute(query, args).fetchone()["total"])
-
     def create_evaluated(
         self, proposal: dict[str, Any], idempotency_key: str | None,
         build_record: Callable[[int, int], dict[str, Any]],
