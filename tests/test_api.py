@@ -1,4 +1,5 @@
 import sqlite3
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -484,3 +485,60 @@ def test_approval_expiry_configuration_must_be_positive():
 
     with pytest.raises(ValueError, match="must be positive"):
         replace(main.DEMO_POLICY, approval_expires_seconds=0)
+
+
+
+def test_recipient_token_allowlist_allows_configured_combination():
+    recipient = "0x2222222222222222222222222222222222222222"
+    policy = replace(
+        main.DEMO_POLICY,
+        recipient_token_allowlist={recipient: {BASE_SEPOLIA_USDC_ADDRESS}},
+    )
+    proposal = TransactionProposal(**_payload(recipient=recipient))
+
+    result = main.evaluate_transaction(proposal, policy)
+
+    assert result.decision == main.PolicyDecision.ALLOW
+
+
+def test_recipient_token_allowlist_hard_blocks_unconfigured_token():
+    recipient = "0x2222222222222222222222222222222222222222"
+    policy = replace(main.DEMO_POLICY, recipient_token_allowlist={recipient: set()})
+    proposal = TransactionProposal(**_payload(recipient=recipient))
+
+    result = main.evaluate_transaction(proposal, policy)
+
+    assert result.decision == main.PolicyDecision.BLOCK
+    assert "Token contract is not allowed for this recipient." in result.reasons
+
+
+def test_recipient_token_allowlist_normalizes_addresses():
+    recipient = "0x2222222222222222222222222222222222222222"
+    policy = replace(
+        main.DEMO_POLICY,
+        recipient_token_allowlist={
+            recipient.upper().replace("0X", "0x"): {BASE_SEPOLIA_USDC_ADDRESS.upper()}
+        },
+    )
+    proposal = TransactionProposal(**_payload(recipient=recipient))
+
+    result = main.evaluate_transaction(proposal, policy)
+
+    assert result.decision == main.PolicyDecision.ALLOW
+
+
+def test_unconfigured_recipient_keeps_existing_approval_behavior():
+    recipient = "0x4444444444444444444444444444444444444444"
+    policy = replace(
+        main.DEMO_POLICY,
+        recipient_token_allowlist={
+            "0x2222222222222222222222222222222222222222": {BASE_SEPOLIA_USDC_ADDRESS}
+        },
+        allowed_recipients=set(),
+        unknown_recipient_requires_approval=True,
+    )
+    proposal = TransactionProposal(**_payload(recipient=recipient))
+
+    result = main.evaluate_transaction(proposal, policy)
+
+    assert result.decision == main.PolicyDecision.REQUIRE_APPROVAL
