@@ -1,4 +1,6 @@
 import json
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 import sqlite3
 import tomllib
 from dataclasses import replace
@@ -175,6 +177,33 @@ def test_idempotency_key_rejects_whitespace_only_values(key):
 
     assert response.status_code == 422
     assert response.json()["detail"] == "Idempotency-Key must not be blank"
+
+
+
+def test_concurrent_idempotency_retries_create_one_transaction(tmp_path):
+    local_store = WorkflowStore(tmp_path / "concurrent-idempotency.sqlite3")
+    controller = TransactionController(main.DEMO_POLICY, local_store)
+    proposal = TransactionProposal(**_payload())
+    retry_count = 8
+    barrier = Barrier(retry_count)
+
+    def submit_same_request():
+        barrier.wait(timeout=5)
+        return controller.propose(proposal, "concurrent-retry-key")
+
+    with ThreadPoolExecutor(max_workers=retry_count) as executor:
+        outcomes = list(executor.map(lambda _: submit_same_request(), range(retry_count)))
+
+    assert sum(outcome == "created" for outcome, _ in outcomes) == 1
+    assert sum(outcome == "replayed" for outcome, _ in outcomes) == retry_count - 1
+    transaction_ids = {record["transaction_id"] for _, record in outcomes}
+    assert len(transaction_ids) == 1
+
+    transaction_id = transaction_ids.pop()
+    events = local_store.audit_events(transaction_id)
+    event_types = [event["event_type"] for event in events]
+    assert event_types.count("proposal_created") == 1
+    assert event_types.count("proposal_replayed") == retry_count - 1
 
 
 def test_idempotency_replay_returns_same_transaction_and_conflict_for_changed_payload():
