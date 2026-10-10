@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.0
+
+- Aggregate global and recipient daily reservations with Python integers to avoid SQLite `SUM(INTEGER)` overflow when individually valid amounts total beyond the signed 64-bit range.
+- Add a regression test proving oversized totals are hard-blocked by policy rather than causing a persistence error.
+
+
 ## 1.6.0
 
 - Reject API amounts, spend values, and chain IDs outside supported positive SQLite integer bounds before persistence.
