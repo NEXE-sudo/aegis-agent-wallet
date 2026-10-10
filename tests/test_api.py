@@ -1007,7 +1007,7 @@ def test_malformed_persisted_proposal_returns_sanitized_server_error():
     with sqlite3.connect(main.store.db_path) as db:
         db.execute(
             "UPDATE transactions SET proposal_json = ? WHERE transaction_id = ?",
-            (json.dumps({"recipient": secret_marker}), record["transaction_id"]),
+            (json.dumps([secret_marker]), record["transaction_id"]),
         )
 
     response = client.get(
