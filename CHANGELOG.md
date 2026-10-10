@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0
+
+- Add a persistent append-only SQLite audit trail for proposal creation, idempotency replays/conflicts, approvals, execution-time policy blocks, risk escalation, and simulated execution.
+- Record actor roles, state transitions, fingerprints, timestamps, and structured event details atomically with workflow state changes.
+- Prevent audit event updates and deletes with SQLite triggers; expose audit history through an owner-authenticated endpoint.
+- Add workflow audit and state-transition regression coverage while keeping execution simulation-only.
+
+
 ## 0.9.0
 
 - Recalculate risk during the atomic pre-execution check using current persisted daily spend.
