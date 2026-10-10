@@ -38,11 +38,11 @@ class EvaluationRequest(BaseModel):
 
 class ProposalRequest(BaseModel):
     agent_id: str = "devops-01"
-    chain_id: int
+    chain_id: int = Field(gt=0, le=MAX_SQLITE_INTEGER)
     token_symbol: str
     token_address: str
     recipient: str
-    amount_base_units: int = Field(gt=0)
+    amount_base_units: int = Field(gt=0, le=MAX_SQLITE_INTEGER)
     token_decimals: int = Field(ge=0, le=36)
 
 
