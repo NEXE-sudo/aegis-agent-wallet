@@ -124,7 +124,7 @@ app = FastAPI(
 
 
 @app.exception_handler(WorkflowDataError)
-async def workflow_data_error_handler(_: Request, exc: WorkflowDataError) -> JSONResponse:
+async def workflow_data_error_handler(_: Request, _exc: WorkflowDataError) -> JSONResponse:
     """Return a stable, sanitized error for malformed persisted workflow data."""
     return JSONResponse(status_code=500, content={"detail": "Stored workflow data is invalid"})
 
