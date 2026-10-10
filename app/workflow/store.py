@@ -24,6 +24,8 @@ def _proposal_fingerprint(proposal: dict[str, Any]) -> str:
 class WorkflowStore:
     def __init__(self, db_path: str | Path = DEFAULT_DB_PATH) -> None:
         raw_path = str(db_path)
+        if not raw_path.strip():
+            raise ValueError("db_path cannot be empty")
         self.db_path = str(Path(raw_path).expanduser()) if raw_path != ":memory:" else raw_path
         if self.db_path != ":memory:":
             Path(self.db_path).resolve().parent.mkdir(parents=True, exist_ok=True)
