@@ -48,6 +48,10 @@ These endpoints are read-only. They do not sign or submit transactions. The demo
 
 The daily limit is calculated from persisted same-day transactions for the same chain and token. Ready, awaiting-approval, approved, and simulated-executed transactions count against the daily limit; blocked proposals do not. Pending transactions reserve budget to reduce overspending from concurrent proposals. This is a local prototype accounting model, not a substitute for confirmed on-chain balances/receipts in a production wallet.
 
+## Recipient daily spending limits
+
+Policies may configure `recipient_daily_limits_base_units`, mapping a recipient address to a maximum daily amount. The limit is evaluated separately for each chain and token contract because base units are token-specific. The workflow computes persisted same-day spend for that recipient inside its SQLite write lock both when proposing a transaction and immediately before simulated execution. Ready, awaiting-approval, approved, and simulated-executed transactions reserve recipient budget, matching the global daily-limit accounting model. A transaction that would exceed the recipient cap is hard-blocked and cannot be approved. Omit a recipient from the mapping to leave it governed only by the global daily limit and other policy checks. Configure limits in base units (for the demo USDC token, 1 USDC = 1,000,000 base units).
+
 ## Recipient-specific token policy
 
 The policy can bind a recipient address to the exact token contract addresses that recipient may receive through `recipient_token_allowlist`. When a recipient has an entry in this mapping, a token contract absent from that recipient's set is a hard policy block and cannot be overridden by owner approval. Recipient and token addresses are normalized case-insensitively. Recipients without a mapping entry continue to follow the existing unknown-recipient rule (approval required by default); they are not implicitly granted a token-specific allowlist. The demo policy explicitly permits the configured Base Sepolia USDC contract for its two configured recipients.

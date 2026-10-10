@@ -174,9 +174,32 @@ class WorkflowStore:
             args.append(exclude_transaction_id)
         return int(db.execute(query, args).fetchone()["total"])
 
+    @staticmethod
+    def _recipient_daily_spend(
+        db: sqlite3.Connection,
+        chain_id: int,
+        token_address: str,
+        recipient: str,
+        exclude_transaction_id: str | None = None,
+    ) -> int:
+        statuses = ",".join("?" for _ in RESERVED_STATUSES)
+        query = (
+            f"SELECT COALESCE(SUM(amount_base_units), 0) AS total FROM transactions "
+            f"WHERE date(created_at) = date('now') AND chain_id = ? "
+            f"AND lower(token_address) = ? AND lower(json_extract(proposal_json, '$.recipient')) = ? "
+            f"AND status IN ({statuses})"
+        )
+        args: list[Any] = [
+            chain_id, token_address.lower(), recipient.strip().lower(), *RESERVED_STATUSES
+        ]
+        if exclude_transaction_id is not None:
+            query += " AND transaction_id != ?"
+            args.append(exclude_transaction_id)
+        return int(db.execute(query, args).fetchone()["total"])
+
     def create_evaluated(
         self, proposal: dict[str, Any], idempotency_key: str | None,
-        build_record: Callable[[int], dict[str, Any]],
+        build_record: Callable[[int, int], dict[str, Any]],
         actor_role: str = "agent",
     ) -> tuple[str, dict[str, Any]]:
         """Serializes spend check + reservation so concurrent proposals cannot overspend."""
@@ -188,7 +211,7 @@ class WorkflowStore:
                 ).fetchone()
                 if prior:
                     record = self._decode(prior)
-                    if record["fingerprint"] != build_record(0)["fingerprint"]:
+                    if record["fingerprint"] != build_record(0, 0)["fingerprint"]:
                         self._append_audit(
                             db, record["transaction_id"], "idempotency_conflict", actor_role,
                             record["status"], record["status"], record["fingerprint"],
@@ -207,7 +230,11 @@ class WorkflowStore:
             spent = self._daily_spend(
                 db, int(proposal["chain_id"]), str(proposal["token_address"])
             )
-            record = build_record(spent)
+            recipient_spent = self._recipient_daily_spend(
+                db, int(proposal["chain_id"]), str(proposal["token_address"]),
+                str(proposal["recipient"]),
+            )
+            record = build_record(spent, recipient_spent)
             db.execute(
                 """INSERT INTO transactions (
                     transaction_id, fingerprint, proposal_json, policy_decision,
@@ -377,7 +404,11 @@ class WorkflowStore:
             spent = self._daily_spend(
                 db, proposal.chain_id, proposal.token_address, exclude_transaction_id=transaction_id
             )
-            result = evaluate_transaction(proposal, policy, spent)
+            recipient_spent = self._recipient_daily_spend(
+                db, proposal.chain_id, proposal.token_address, proposal.recipient,
+                exclude_transaction_id=transaction_id,
+            )
+            result = evaluate_transaction(proposal, policy, spent, recipient_spent)
             if result.decision == PolicyDecision.BLOCK:
                 db.execute(
                     """UPDATE transactions SET status = 'blocked', policy_decision = ?,

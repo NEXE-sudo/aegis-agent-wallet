@@ -29,8 +29,13 @@ class TransactionController:
     ) -> tuple[str, dict[str, Any]]:
         fingerprint = fingerprint_proposal(proposal)
 
-        def build_record(daily_spent_base_units: int) -> dict[str, Any]:
-            policy_result = evaluate_transaction(proposal, self.policy, daily_spent_base_units)
+        def build_record(
+            daily_spent_base_units: int,
+            recipient_daily_spent_base_units: int,
+        ) -> dict[str, Any]:
+            policy_result = evaluate_transaction(
+                proposal, self.policy, daily_spent_base_units, recipient_daily_spent_base_units
+            )
             risk_result = assess_transaction_risk(proposal, self.policy, daily_spent_base_units)
             if policy_result.decision == PolicyDecision.BLOCK:
                 status = "blocked"

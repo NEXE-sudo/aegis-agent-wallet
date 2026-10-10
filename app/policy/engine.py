@@ -15,6 +15,7 @@ def evaluate_transaction(
     proposal: TransactionProposal,
     policy: AgentPolicy,
     daily_spent_base_units: int = 0,
+    recipient_daily_spent_base_units: int = 0,
 ) -> PolicyResult:
     """Evaluate a proposal against policy and trusted token metadata."""
     reasons: list[str] = []
@@ -91,6 +92,22 @@ def evaluate_transaction(
     elif daily_spent_base_units + proposal.amount_base_units > policy.daily_limit_base_units:
         hard_block = True
         reasons.append("Transaction would exceed the daily spending limit.")
+
+    recipient_limits = {
+        _normalise_address(address): limit
+        for address, limit in policy.recipient_daily_limits_base_units.items()
+    }
+    recipient = _normalise_address(proposal.recipient)
+    recipient_limit = recipient_limits.get(recipient)
+    if recipient_daily_spent_base_units < 0:
+        hard_block = True
+        reasons.append("Recorded recipient daily spend cannot be negative.")
+    elif (
+        recipient_limit is not None
+        and recipient_daily_spent_base_units + proposal.amount_base_units > recipient_limit
+    ):
+        hard_block = True
+        reasons.append("Transaction would exceed the recipient daily spending limit.")
 
     if hard_block:
         return PolicyResult(PolicyDecision.BLOCK, reasons)
