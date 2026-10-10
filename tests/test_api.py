@@ -1,7 +1,9 @@
 import json
 import sqlite3
+import tomllib
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -49,6 +51,12 @@ def propose(payload=None, **overrides):
 
 def owner_post(path, **kwargs):
     return client.post(path, headers=OWNER_HEADERS, **kwargs)
+
+
+def test_api_version_matches_package_version():
+    project_file = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    project_version = tomllib.loads(project_file.read_text())["project"]["version"]
+    assert main.app.version == project_version
 
 
 def test_health():
