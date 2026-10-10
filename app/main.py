@@ -218,6 +218,11 @@ def approve_transaction(transaction_id: str, request: ApprovalRequest) -> Transa
         raise HTTPException(status_code=409, detail="Transaction has already been executed")
     if outcome == "approval_not_required":
         raise HTTPException(status_code=409, detail="Transaction is not awaiting approval")
+    if outcome == "approval_expired":
+        raise HTTPException(
+            status_code=409,
+            detail="Approval has expired; submit a fresh approval",
+        )
     if outcome == "already_approved":
         raise HTTPException(status_code=409, detail="Transaction has already been approved")
     return _record_response(record or {})
