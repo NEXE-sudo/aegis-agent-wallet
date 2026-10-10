@@ -90,6 +90,10 @@ DEMO_POLICY = AgentPolicy(
         "0x2222222222222222222222222222222222222222",
         "0x3333333333333333333333333333333333333333",
     },
+    recipient_token_allowlist={
+        "0x2222222222222222222222222222222222222222": {BASE_SEPOLIA_USDC_ADDRESS},
+        "0x3333333333333333333333333333333333333333": {BASE_SEPOLIA_USDC_ADDRESS},
+    },
     unknown_recipient_requires_approval=True,
     enabled=True,
     approval_expires_seconds=int(os.environ.get("AEGIS_APPROVAL_EXPIRES_SECONDS", "300")),
