@@ -50,7 +50,7 @@ The daily limit is calculated from persisted same-day transactions for the same 
 
 ## Approval expiry
 
-Owner approvals are timestamped in UTC and expire after `AEGIS_APPROVAL_EXPIRES_SECONDS` seconds (default `300`). Expiry is checked under the workflow write lock before simulated execution; an expired or timestamp-less legacy approval is invalidated, returned to `awaiting_approval`, and recorded as an `approval_expired` audit event. Set the value to a positive integer. The API exposes `approved_at` while approval is active.
+Owner approvals are timestamped in UTC and expire after `AEGIS_APPROVAL_EXPIRES_SECONDS` seconds (default `300`). Expiry is checked under the workflow write lock before simulated execution; an expired or timestamp-less legacy approval is invalidated, returned to `awaiting_approval`, and recorded as an `approval_expired` audit event. Set the value to a positive integer. The API exposes `approved_at` for approved transactions and retains it after simulated execution for history.
 
 ## Safety boundaries and limitations
 
