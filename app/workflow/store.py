@@ -360,6 +360,37 @@ class WorkflowStore:
                 db.execute("COMMIT")
                 return "already_executed", record
             if record["status"] == "approved":
+                now = _utc_now()
+                approved_at = record.get("approved_at")
+                expired = approved_at is None
+                if approved_at is not None:
+                    try:
+                        approval_time = datetime.fromisoformat(approved_at)
+                        if approval_time.tzinfo is None:
+                            approval_time = approval_time.replace(tzinfo=UTC)
+                        elapsed = (now - approval_time).total_seconds()
+                        expired = elapsed < 0 or elapsed >= int(approval_expires_seconds)
+                    except (TypeError, ValueError):
+                        expired = True
+                if expired:
+                    db.execute(
+                        """UPDATE transactions SET status = 'awaiting_approval',
+                           approval_fingerprint = NULL, approved_at = NULL,
+                           updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
+                        (transaction_id,),
+                    )
+                    self._append_audit(
+                        db, transaction_id, "approval_expired", actor_role,
+                        "approved", "awaiting_approval", record["fingerprint"],
+                        {
+                            "operation": "approve",
+                            "approved_at": approved_at,
+                            "expired_at": now.isoformat(),
+                            "approval_expires_seconds": int(approval_expires_seconds),
+                        },
+                    )
+                    db.execute("COMMIT")
+                    return "approval_expired", self.get(transaction_id)
                 db.execute("COMMIT")
                 return "already_approved", record
             if record["status"] != "awaiting_approval":
