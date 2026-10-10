@@ -1,5 +1,6 @@
 """Regression tests for safe handling of malformed JSON-RPC responses."""
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 import app.chain.router as chain_router
@@ -21,12 +22,8 @@ def _rpc_with_payload(payload):
 
 def test_rpc_rejects_non_object_json_response():
     with _rpc_with_payload([]) as rpc:
-        try:
+        with pytest.raises(RpcRequestError, match="RPC response must be a JSON object"):
             rpc.chain_id()
-        except RpcRequestError as exc:
-            assert str(exc) == "RPC response must be a JSON object"
-        else:
-            raise AssertionError("non-object JSON-RPC response must be rejected")
 
 
 def test_rpc_api_maps_malformed_response_to_sanitized_502(monkeypatch):
