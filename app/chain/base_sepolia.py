@@ -33,7 +33,7 @@ def _decode_abi_string(value: str) -> str:
         raise RpcRequestError("RPC returned malformed ABI data")
     raw = bytes.fromhex(value[2:])
     if len(raw) == 32:
-        return raw.rstrip(b"\\x00").decode("utf-8", errors="replace")
+        return raw.rstrip(b"\x00").decode("utf-8", errors="replace")
     if len(raw) < 64:
         raise RpcRequestError("RPC returned truncated ABI string data")
     offset = int.from_bytes(raw[:32], "big")
