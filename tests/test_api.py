@@ -1,14 +1,15 @@
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
+
+import app.workflow.store as store_module
 
 from app import main
 from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
 from app.policy.models import TransactionProposal
 from app.workflow.controller import TransactionController, fingerprint_proposal
-import app.workflow.store as store_module
 from app.workflow.store import WorkflowStore
 
 AGENT_TOKEN = "test-agent-token-with-enough-length"
@@ -436,7 +437,7 @@ def test_risk_escalation_is_recorded_in_audit_trail():
 
 
 def test_approval_expiry_requires_fresh_approval_and_is_audited(monkeypatch):
-    now = [datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)]
+    now = [datetime(2026, 10, 10, 12, 0, tzinfo=UTC)]
     monkeypatch.setattr(store_module, "_utc_now", lambda: now[0])
     record = propose(
         _payload(recipient="0x4444444444444444444444444444444444444444")
