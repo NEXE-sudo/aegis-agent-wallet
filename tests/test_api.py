@@ -1069,3 +1069,32 @@ def test_malformed_persisted_proposal_fails_closed_during_recipient_spend_check(
 
     assert response.status_code == 500
     assert response.json() == {"detail": "Stored workflow data is invalid"}
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "kwargs"),
+    [
+        ("get", "/transactions/{transaction_id}", {}),
+        ("get", "/transactions/{transaction_id}/audit", {}),
+        (
+            "post",
+            "/transactions/{transaction_id}/approve",
+            {
+                "json": {
+                    "transaction_fingerprint": "a" * 64,
+                    "confirmation": "APPROVE",
+                }
+            },
+        ),
+        ("post", "/transactions/{transaction_id}/execute", {}),
+    ],
+)
+def test_agent_authentication_cannot_access_owner_only_transaction_endpoints(
+    method, path, kwargs
+):
+    record = propose().json()
+    url = path.format(transaction_id=record["transaction_id"])
+
+    response = getattr(client, method)(url, headers=AGENT_HEADERS, **kwargs)
+
+    assert response.status_code == 401
