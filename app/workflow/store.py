@@ -255,7 +255,7 @@ class WorkflowStore:
                     self._append_audit(
                         db, record["transaction_id"], "proposal_replayed", actor_role,
                         record["status"], record["status"], record["fingerprint"],
-                        {"idempotency_key": idempotency_key},
+                        {"idempotency_key_present": True},
                     )
                     db.execute("COMMIT")
                     return "replayed", record
