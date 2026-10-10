@@ -12,10 +12,10 @@ uvicorn app.main:app --reload
 
 ## 2. Configure and run the client
 
-In another terminal using the same environment, set the agent token and run:
+In another terminal, set `AEGIS_AGENT_TOKEN` to the **exact same value configured for the running API** (a different shell may not inherit it). Do not generate a different token for the client. Then run:
 
 ```bash
-export AEGIS_AGENT_TOKEN="your-local-agent-token"
+export AEGIS_AGENT_TOKEN="paste-the-same-agent-token-used-by-the-server"
 python examples/propose_transaction.py
 ```
 
