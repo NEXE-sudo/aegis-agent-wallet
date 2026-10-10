@@ -1,6 +1,7 @@
 """SQLite-backed transaction state with atomic budget reservations and replay protection."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sqlite3
@@ -11,6 +12,13 @@ from typing import Any
 
 DEFAULT_DB_PATH = os.environ.get("AEGIS_DB_PATH", "aegis-workflow.sqlite3")
 RESERVED_STATUSES = ("ready", "awaiting_approval", "approved", "executed_simulated")
+
+def _proposal_fingerprint(proposal: dict[str, Any]) -> str:
+    """Recompute the canonical fingerprint from the persisted proposal payload."""
+    canonical = json.dumps(proposal, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 
 
 class WorkflowStore:
@@ -315,6 +323,14 @@ class WorkflowStore:
                 db.execute("COMMIT")
                 return "not_found", None
             record = self._decode(row)
+            if _proposal_fingerprint(record["proposal"]) != record["fingerprint"]:
+                self._append_audit(
+                    db, transaction_id, "proposal_integrity_mismatch", actor_role,
+                    record["status"], record["status"], record["fingerprint"],
+                    {"operation": "approve", "reason": "persisted proposal does not match fingerprint"},
+                )
+                db.execute("COMMIT")
+                return "proposal_integrity_mismatch", record
             if record["fingerprint"] != fingerprint:
                 db.execute("COMMIT")
                 return "fingerprint_mismatch", record
@@ -359,6 +375,14 @@ class WorkflowStore:
                 db.execute("COMMIT")
                 return "not_found", None
             record = self._decode(row)
+            if _proposal_fingerprint(record["proposal"]) != record["fingerprint"]:
+                self._append_audit(
+                    db, transaction_id, "proposal_integrity_mismatch", actor_role,
+                    record["status"], record["status"], record["fingerprint"],
+                    {"operation": "execute", "reason": "persisted proposal does not match fingerprint"},
+                )
+                db.execute("COMMIT")
+                return "proposal_integrity_mismatch", record
             if record["status"] == "blocked":
                 db.execute("COMMIT")
                 return "blocked", record
