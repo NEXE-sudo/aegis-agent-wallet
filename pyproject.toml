@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aegis-agent-wallet"
-version = "0.8.0"
+version = "0.9.0"
 description = "Policy, risk, and approval workflow simulation for an AI agent wallet"
 requires-python = ">=3.11"
 dependencies = ["fastapi>=0.115,<1.0", "uvicorn[standard]>=0.30,<1.0", "pydantic>=2.8,<3.0", "httpx>=0.27,<1.0"]
