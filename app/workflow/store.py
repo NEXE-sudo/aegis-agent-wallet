@@ -225,6 +225,25 @@ class WorkflowStore:
                 ).fetchone()
                 if prior:
                     record = self._decode(prior)
+                    if _proposal_fingerprint(record["proposal"]) != record["fingerprint"]:
+                        self._append_audit(
+                            db, record["transaction_id"], "proposal_integrity_mismatch", actor_role,
+                            record["status"], record["status"], record["fingerprint"],
+                            {
+                                "operation": "idempotency_replay",
+                                "reason": "persisted proposal does not match fingerprint",
+                            },
+                        )
+                        db.execute("COMMIT")
+                        return "idempotency_conflict", record
+                    if _proposal_fingerprint(record["proposal"]) != _proposal_fingerprint(proposal):
+                        self._append_audit(
+                            db, record["transaction_id"], "idempotency_conflict", actor_role,
+                            record["status"], record["status"], record["fingerprint"],
+                            {"reason": "key reused with a different proposal"},
+                        )
+                        db.execute("COMMIT")
+                        return "idempotency_conflict", record
                     if record["fingerprint"] != build_record(0, 0)["fingerprint"]:
                         self._append_audit(
                             db, record["transaction_id"], "idempotency_conflict", actor_role,
