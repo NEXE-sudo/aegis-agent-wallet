@@ -5,7 +5,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.workflow.store as store_module
-
 from app import main
 from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
 from app.policy.models import TransactionProposal
