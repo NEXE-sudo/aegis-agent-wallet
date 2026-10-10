@@ -1,6 +1,6 @@
 # Aegis Agent Wallet
 
-A testnet-only AI-agent wallet prototype. This build includes deterministic policy checks, explainable heuristic risk scoring, persistent transaction state, atomic daily-spend reservations, fingerprint-bound approval, bearer-token separation for agent and owner operations, idempotent proposal retries, and a simulated executor.
+A testnet-only AI-agent wallet prototype. This build includes deterministic policy checks, explainable heuristic risk scoring, persistent transaction state, atomic daily-spend reservations, fingerprint-bound approval, an append-only approval/execution audit trail, bearer-token separation for agent and owner operations, idempotent proposal retries, and a simulated executor.
 
 ## macOS setup
 
@@ -40,6 +40,7 @@ These endpoints are read-only. They do not sign or submit transactions. The demo
 
 - `POST /transactions/propose` — atomically calculates today's persisted spend, reserves the proposed amount, evaluates policy/risk, and saves the proposal. Supports the optional `Idempotency-Key` header (8–128 characters). Reusing a key with the same proposal returns the original record; reusing it with a different proposal returns HTTP 409.
 - `GET /transactions/{transaction_id}` — retrieves persisted state; owner token required.
+- `GET /transactions/{transaction_id}/audit` — retrieves ordered audit events, including actor role, state transition, fingerprint, timestamp, and event details; owner token required.
 - `POST /transactions/{transaction_id}/approve` — requires the owner token, the exact stored SHA-256 fingerprint, and body confirmation `APPROVE`.
 - `POST /transactions/{transaction_id}/execute` — requires the owner token and re-evaluates policy, daily spending, and heuristic risk under the same SQLite write lock used for the simulated state transition. If risk escalates to high, human approval is required before simulation.
 - `POST /policy/evaluate` and `POST /risk/assess` — standalone evaluation endpoints; their caller-provided spend is not trusted by the transaction workflow.
@@ -56,7 +57,7 @@ The daily limit is calculated from persisted same-day transactions for the same 
 - Hard policy blocks cannot be overridden by approval.
 - Idempotency protects retries that reuse the same key; it does not prove on-chain exactly-once execution. A real executor needs durable submission state, nonce management, receipt reconciliation, secure key custody, and chain-specific tests.
 - Standalone policy/risk endpoints accept a supplied daily-spend figure for demonstration; never use those endpoint responses as execution authorization.
-- SQLite state is persistent in `aegis-workflow.sqlite3` by default. Set `AEGIS_DB_PATH` to change the path. Existing prototype databases are migrated additively.
+- SQLite state is persistent in `aegis-workflow.sqlite3` by default. Set `AEGIS_DB_PATH` to change the path. Existing prototype databases are migrated additively. Audit rows are protected against updates/deletes by SQLite triggers, but this is application-level tamper resistance, not cryptographic tamper-proofing against someone who controls the database file.
 
 ## Demo flow
 

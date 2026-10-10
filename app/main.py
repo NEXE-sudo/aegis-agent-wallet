@@ -105,7 +105,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title="Aegis Agent Wallet API",
     description="Policy, risk, and approval workflow simulation with optional read-only Base Sepolia inspection. No signing or transaction submission occurs.",
-    version="0.7.0",
+    version="1.0.0",
     lifespan=lifespan,
 )
 
@@ -172,6 +172,13 @@ def propose_transaction(
     if outcome == "replayed":
         response.status_code = 200
     return _record_response(record)
+
+
+@app.get("/transactions/{transaction_id}/audit", dependencies=[Depends(require_owner)])
+def get_transaction_audit(transaction_id: str) -> list[dict]:
+    if store.get(transaction_id) is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    return store.audit_events(transaction_id)
 
 
 @app.get("/transactions/{transaction_id}", response_model=TransactionResponse,
