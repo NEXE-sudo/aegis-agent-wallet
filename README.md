@@ -86,9 +86,6 @@ Owner approvals are timestamped in UTC and expire after `AEGIS_APPROVAL_EXPIRES_
 
 ## Demo flow
 
-1. Start the API with the two distinct tokens exported.
-2. In `/docs`, create a proposal with the agent bearer token and no `daily_spent_base_units` field.
-3. Use the owner token to retrieve, approve, or simulate execution.
-4. A small payment to an allow-listed recipient may become `ready`. An unknown recipient or high-risk proposal needs approval. A policy violation is `blocked`.
+Follow the step-by-step [reproducible demo scenario](docs/demo-scenario.md) to exercise an allowed proposal, human approval, a hard block, idempotency replay/conflict, and audit retrieval with expected outcomes.
 
 This remains a local prototype with read-only chain inspection and simulation-only transaction execution. Do not load real keys or use real funds.

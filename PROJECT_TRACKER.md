@@ -5,8 +5,8 @@
 > **Last updated:** 2026-10-10  
 > **Repository:** [NEXE-sudo/aegis-agent-wallet](https://github.com/NEXE-sudo/aegis-agent-wallet)  
 > **Current package/API version:** 1.10.0  
-> **Current phase:** Milestone 2 — Safe Transaction Flow  
-> **Current status:** Milestones 1–2 complete; 3–7 planned; Milestone 8 is optional and out of current scope.
+> **Current phase:** Milestone 3 — Agent and Demo  
+> **Current status:** Milestones 1–2 complete; Milestone 3 in progress; 4–7 planned; Milestone 8 is optional and out of current scope.
 
 ## 1. Project mission and non-negotiable boundary
 
@@ -111,7 +111,7 @@ Remaining candidate work (inspect current implementation and tests before select
 **Status: PLANNED**
 
 Goal: make the workflow easy to understand and demonstrate end to end.
-- [ ] Define a reproducible demo scenario and expected outcomes.
+- [x] Define a reproducible demo scenario and expected outcomes (`docs/demo-scenario.md`; added in PR #32).
 - [ ] Add a minimal agent/client example that proposes transactions through the authenticated API.
 - [ ] Demonstrate allowed, hard-blocked, approval-required, expired-approval, and replay/conflict paths.
 - [ ] Keep the demo deterministic and simulation-only.
@@ -220,6 +220,12 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #23 | Document and test workflow state transitions | Merged |
 | #24 | Reject blank database paths and identical agent/owner authentication tokens | Merged |
 | #25 | Reject malformed JSON-RPC response shapes and test sanitized 502 errors | Merged |
+| #26 | Document threat model and trust boundaries | Merged |
+| #27 | Reject malformed token metadata RPC results safely | Merged |
+| #28 | Reject invalid JSON-RPC response envelopes | Merged |
+| #29 | Sanitize errors from malformed persisted workflow data | Merged |
+| #30 | Mark Milestone 2 complete in project tracker | Merged |
+| #31 | Close repository review validation gaps | Merged |
 
 ## 6. Current architecture and useful code locations
 
