@@ -17,7 +17,12 @@ def _require_token(credentials: HTTPAuthorizationCredentials | None, env_name: s
         "AEGIS_APPROVAL_TOKEN" if env_name == "AEGIS_AGENT_TOKEN" else "AEGIS_AGENT_TOKEN"
     )
     other = os.environ.get(other_env_name, "")
-    if other and hmac.compare_digest(expected, other):
+    if not other.strip():
+        raise HTTPException(
+            status_code=503,
+            detail="Both AEGIS_AGENT_TOKEN and AEGIS_APPROVAL_TOKEN must be configured; endpoint fails closed",
+        )
+    if hmac.compare_digest(expected, other):
         raise HTTPException(
             status_code=503,
             detail="AEGIS_AGENT_TOKEN and AEGIS_APPROVAL_TOKEN must be different; endpoint fails closed",
