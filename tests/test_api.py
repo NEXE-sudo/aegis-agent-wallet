@@ -1,11 +1,11 @@
 import json
-from concurrent.futures import ThreadPoolExecutor
-from threading import Barrier
 import sqlite3
 import tomllib
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from threading import Barrier
 
 import pytest
 from fastapi.testclient import TestClient
