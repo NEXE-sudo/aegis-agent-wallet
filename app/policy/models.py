@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-
 MAX_SQLITE_INTEGER = 2**63 - 1
 
 
