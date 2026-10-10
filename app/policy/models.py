@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
+from enum import StrEnum
 
 
 MAX_SQLITE_INTEGER = 2**63 - 1
-from enum import StrEnum
 
 
 class PolicyDecision(StrEnum):
@@ -65,12 +65,12 @@ class AgentPolicy:
             not 0 <= limit <= MAX_SQLITE_INTEGER
             for limit in self.recipient_daily_limits_base_units.values()
         ):
-            raise ValueError("recipient daily limits must be within the SQLite integer range")
+            raise ValueError("recipient daily limits cannot be negative or exceed the SQLite integer range")
         if any(
             not 0 <= limit <= MAX_SQLITE_INTEGER
             for limit in self.recipient_transaction_limits_base_units.values()
         ):
-            raise ValueError("recipient transaction limits must be within the SQLite integer range")
+            raise ValueError("recipient transaction limits cannot be negative or exceed the SQLite integer range")
 
 
 @dataclass(frozen=True)
