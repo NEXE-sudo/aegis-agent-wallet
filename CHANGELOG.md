@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0
+
+- Add configurable per-recipient daily spend caps, evaluated per chain and token contract.
+- Calculate recipient spend from persisted same-day reservations during proposal creation and pre-execution revalidation.
+- Hard-block transactions that exceed a recipient cap and reject negative cap configuration.
+- Add regression coverage for proposal-time and execution-time recipient-limit enforcement.
+
+
 ## 1.2.0
 
 - Add recipient-specific token allowlists; disallowed token/recipient combinations are hard-blocked before approval.
