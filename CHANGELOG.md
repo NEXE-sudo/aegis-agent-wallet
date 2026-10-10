@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.0
+## 1.10.0
 
 - Detect expired approvals when an approval retry is attempted, clear stale approval state, and record an expiry audit event.
 - Return an explicit conflict response requiring a fresh approval instead of reporting that an expired approval is still active.
