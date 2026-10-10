@@ -6,7 +6,7 @@
 > **Repository:** [NEXE-sudo/aegis-agent-wallet](https://github.com/NEXE-sudo/aegis-agent-wallet)  
 > **Current package/API version:** 1.10.0  
 > **Current phase:** Milestone 2 — Safe Transaction Flow  
-> **Current status:** Milestones 1 complete; 2 in progress; 3–7 planned; Milestone 8 is optional and out of current scope.
+> **Current status:** Milestones 1–2 complete; 3–7 planned; Milestone 8 is optional and out of current scope.
 
 ## 1. Project mission and non-negotiable boundary
 
@@ -78,7 +78,7 @@ Completed foundations include:
 - Read-only Base Sepolia JSON-RPC/token metadata inspection.
 
 ### Milestone 2 — Safe Transaction Flow
-**Status: IN PROGRESS — current milestone**
+**Status: COMPLETE**
 
 Goal: ensure proposed transactions are bound to validated policy, explicit approvals, reliable state transitions, spending controls, replay protection, and an auditable history.
 
@@ -100,10 +100,10 @@ Remaining candidate work (inspect current implementation and tests before select
 - [x] Review idempotency-key uniqueness behavior and concurrent retries under SQLite write locking.
 - [x] Reject whitespace-only idempotency keys at the API boundary.
 - [x] Review transaction reservation accounting across blocked, expired, simulated-executed, and same-day-boundary cases (PR #21 regression coverage).
-- [ ] Review API error responses and audit events for consistent fail-closed behavior without leaking secrets.
+- [x] Review API error responses and audit events for consistent fail-closed behavior without leaking secrets (PRs #22, #25, #27–#29).
 - [x] Review configuration parsing for malformed environment values and invalid combinations (blank database paths and identical agent/owner tokens are rejected).
 - [x] Document the threat model, trust boundaries, assumptions, and explicit non-goals (`docs/threat-model.md`).
-- [ ] Close any additional gaps revealed by tests or review.
+- [x] Close additional concrete gaps found in the final review: malformed JSON-RPC envelopes/results and malformed persisted workflow/audit JSON (PRs #27–#29).
 
 **Exit criteria:** the important state transitions and failure paths are documented and regression-tested; the test suite and Ruff pass; remaining limitations are explicit. This is a prototype milestone, not a claim of production security.
 
@@ -179,8 +179,8 @@ This would be a separate design/security project, not a simple continuation of t
 
 ## 4. Iteration estimate
 
-A reasonable current planning range is **about 15–28 additional focused PRs** to reach a strong simulation-only showcase:
-- Milestone 2: roughly 2–5 more PRs.
+A reasonable current planning range is **about 13–23 additional focused PRs** to reach a strong simulation-only showcase:
+- Milestone 2: complete.
 - Milestone 3: roughly 3–5 PRs.
 - Milestone 4: roughly 3–5 PRs.
 - Milestone 5: roughly 2–4 PRs.
