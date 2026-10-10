@@ -1,6 +1,6 @@
 # Aegis Agent Wallet
 
-A testnet-only AI-agent wallet prototype. This build includes deterministic policy checks, explainable heuristic risk scoring, persistent transaction state, atomic daily-spend reservations, fingerprint-bound approval, an append-only approval/execution audit trail, bearer-token separation for agent and owner operations, idempotent proposal retries, and a simulated executor.
+A testnet-only AI-agent wallet prototype. This build includes deterministic policy checks, explainable heuristic risk scoring, persistent transaction state, atomic daily-spend reservations, time-limited fingerprint-bound approval, an append-only approval/execution audit trail, bearer-token separation for agent and owner operations, idempotent proposal retries, and a simulated executor.
 
 ## macOS setup
 
@@ -18,6 +18,7 @@ Create local secrets and configure the environment before starting the API:
 export AEGIS_AGENT_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
 export AEGIS_APPROVAL_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
 export AEGIS_DB_PATH="./aegis-workflow.sqlite3"
+export AEGIS_APPROVAL_EXPIRES_SECONDS="300"
 export BASE_SEPOLIA_RPC_URL="https://YOUR_BASE_SEPOLIA_RPC_PROVIDER_URL"
 python -m pytest -q
 uvicorn app.main:app --reload
@@ -41,11 +42,15 @@ These endpoints are read-only. They do not sign or submit transactions. The demo
 - `POST /transactions/propose` — atomically calculates today's persisted spend, reserves the proposed amount, evaluates policy/risk, and saves the proposal. Supports the optional `Idempotency-Key` header (8–128 characters). Reusing a key with the same proposal returns the original record; reusing it with a different proposal returns HTTP 409.
 - `GET /transactions/{transaction_id}` — retrieves persisted state; owner token required.
 - `GET /transactions/{transaction_id}/audit` — retrieves ordered audit events, including actor role, state transition, fingerprint, timestamp, and event details; owner token required.
-- `POST /transactions/{transaction_id}/approve` — requires the owner token, the exact stored SHA-256 fingerprint, and body confirmation `APPROVE`.
+- `POST /transactions/{transaction_id}/approve` — requires the owner token, the exact stored SHA-256 fingerprint, and body confirmation `APPROVE`. Approval expires after `AEGIS_APPROVAL_EXPIRES_SECONDS` (default 300 seconds); expired approvals must be granted again.
 - `POST /transactions/{transaction_id}/execute` — requires the owner token and re-evaluates policy, daily spending, and heuristic risk under the same SQLite write lock used for the simulated state transition. If risk escalates to high, human approval is required before simulation.
 - `POST /policy/evaluate` and `POST /risk/assess` — standalone evaluation endpoints; their caller-provided spend is not trusted by the transaction workflow.
 
 The daily limit is calculated from persisted same-day transactions for the same chain and token. Ready, awaiting-approval, approved, and simulated-executed transactions count against the daily limit; blocked proposals do not. Pending transactions reserve budget to reduce overspending from concurrent proposals. This is a local prototype accounting model, not a substitute for confirmed on-chain balances/receipts in a production wallet.
+
+## Approval expiry
+
+Owner approvals are timestamped in UTC and expire after `AEGIS_APPROVAL_EXPIRES_SECONDS` seconds (default `300`). Expiry is checked under the workflow write lock before simulated execution; an expired or timestamp-less legacy approval is invalidated, returned to `awaiting_approval`, and recorded as an `approval_expired` audit event. Set the value to a positive integer. The API exposes `approved_at` while approval is active.
 
 ## Safety boundaries and limitations
 
