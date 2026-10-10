@@ -86,6 +86,18 @@ def evaluate_transaction(
     if proposal.amount_base_units > policy.max_transaction_base_units:
         hard_block = True
         reasons.append("Transaction exceeds the per-transaction limit.")
+
+    recipient_transaction_limits = {
+        _normalise_address(address): limit
+        for address, limit in policy.recipient_transaction_limits_base_units.items()
+    }
+    recipient_transaction_limit = recipient_transaction_limits.get(recipient)
+    if (
+        recipient_transaction_limit is not None
+        and proposal.amount_base_units > recipient_transaction_limit
+    ):
+        hard_block = True
+        reasons.append("Transaction exceeds the recipient-specific transaction limit.")
     if daily_spent_base_units < 0:
         hard_block = True
         reasons.append("Recorded daily spend cannot be negative.")
