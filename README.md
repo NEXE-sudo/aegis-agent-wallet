@@ -74,7 +74,7 @@ Owner approvals are timestamped in UTC and expire after `AEGIS_APPROVAL_EXPIRES_
 
 ## Safety boundaries and limitations
 
-- Recipient addresses must match the EVM format (`0x` followed by 40 hexadecimal characters); malformed recipients are blocked and cannot be approved. Format validation does not prove that an address belongs to the intended person or contract.
+- Recipient addresses must match the EVM format (`0x` followed by 40 hexadecimal characters); malformed recipients are blocked and cannot be approved. Address format validation does not prove that an address belongs to the intended person or contract.
 - **Execution is simulated. No private key is loaded, no transaction is signed, and no RPC request is sent.** The simulated reference is not a transaction hash.
 - The demo token is Circle's published Base Sepolia USDC testnet contract. Demo recipient addresses remain placeholders and are not verified accounts.
 - Bearer-token authentication is a development guard, not a full identity/authorization system. Keep the API bound to localhost and do not expose it publicly.
@@ -83,6 +83,10 @@ Owner approvals are timestamped in UTC and expire after `AEGIS_APPROVAL_EXPIRES_
 - Idempotency protects retries that reuse the same key; it does not prove on-chain exactly-once execution. A real executor needs durable submission state, nonce management, receipt reconciliation, secure key custody, and chain-specific tests.
 - Standalone policy/risk endpoints accept a supplied daily-spend figure for demonstration; never use those endpoint responses as execution authorization.
 - SQLite state is persistent in `aegis-workflow.sqlite3` by default. Set `AEGIS_DB_PATH` to change the path. Existing prototype databases are migrated additively. Audit rows are protected against updates/deletes by SQLite triggers, but this is application-level tamper resistance, not cryptographic tamper-proofing against someone who controls the database file.
+
+## Authenticated Python client
+
+Run `python examples/propose_transaction.py` with `AEGIS_AGENT_TOKEN` set in your environment to submit a proposal through the authenticated API. The client prints the proposal response and never approves or executes it. See the [Python client walkthrough](docs/python-client.md) for configuration, optional idempotency, and safety boundaries.
 
 ## Demo flow
 
