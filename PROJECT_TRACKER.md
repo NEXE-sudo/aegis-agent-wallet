@@ -99,7 +99,7 @@ Remaining candidate work (inspect current implementation and tests before select
 - [x] Add targeted negative tests for malformed/missing/future approval timestamps and expiry boundaries.
 - [x] Review idempotency-key uniqueness behavior and concurrent retries under SQLite write locking.
 - [x] Reject whitespace-only idempotency keys at the API boundary.
-- [ ] Review transaction reservation accounting across blocked, expired, simulated-executed, and same-day-boundary cases.
+- [x] Review transaction reservation accounting across blocked, expired, simulated-executed, and same-day-boundary cases (PR #21 regression coverage).
 - [ ] Review API error responses and audit events for consistent fail-closed behavior without leaking secrets.
 - [ ] Review configuration parsing for malformed environment values and invalid combinations.
 - [ ] Document the threat model, trust boundaries, assumptions, and explicit non-goals.
@@ -211,6 +211,11 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #14 | Verify persisted proposal integrity on idempotent retries | Merged |
 | #15 | Expire stale approvals when reapproval is attempted | Merged |
 | #16 | Align API version metadata with package version and add a regression test | Merged |
+| #17 | Add canonical project tracker and AI handoff workflow | Merged |
+| #18 | Cover malformed/missing/future approval timestamps and expiry boundaries | Merged |
+| #19 | Reject whitespace-only idempotency keys | Merged |
+| #20 | Test concurrent idempotency retries under SQLite write locking | Merged |
+| #21 | Test transaction reservation accounting across workflow states and UTC day boundaries | Merged |
 
 ## 6. Current architecture and useful code locations
 
