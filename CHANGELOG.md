@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.0
+
+- Add optional per-recipient single-transaction amount caps alongside the global transaction limit.
+- Hard-block transactions exceeding a recipient cap and reject negative cap configuration.
+- Normalize recipient addresses for case-insensitive cap lookup and add regression tests.
+
+
 ## 1.3.0
 
 - Add configurable per-recipient daily spend caps, evaluated per chain and token contract.

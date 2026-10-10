@@ -31,12 +31,15 @@ class AgentPolicy:
     approval_expires_seconds: int = 300
     recipient_token_allowlist: dict[str, set[str]] = field(default_factory=dict)
     recipient_daily_limits_base_units: dict[str, int] = field(default_factory=dict)
+    recipient_transaction_limits_base_units: dict[str, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.approval_expires_seconds <= 0:
             raise ValueError("approval_expires_seconds must be positive")
         if any(limit < 0 for limit in self.recipient_daily_limits_base_units.values()):
             raise ValueError("recipient daily limits cannot be negative")
+        if any(limit < 0 for limit in self.recipient_transaction_limits_base_units.values()):
+            raise ValueError("recipient transaction limits cannot be negative")
 
 
 @dataclass(frozen=True)
