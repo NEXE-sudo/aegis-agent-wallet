@@ -37,6 +37,10 @@ Set `BASE_SEPOLIA_RPC_URL` to an HTTPS JSON-RPC endpoint from your RPC provider.
 
 These endpoints are read-only. They do not sign or submit transactions. The demo policy allowlists Circle's published Base Sepolia USDC contract (`0x036CbD53842c5426634e7929541eC2318f3dCF7e`; 6 decimals), cross-checked against [Circle's USDC on Base information](https://www.circle.com/multi-chain-usdc/base) and your live RPC metadata response. Bytecode and readable ERC-20 metadata alone do **not** establish token authenticity; check official sources before adding any other token. Requests fail closed if the RPC URL is missing, the endpoint is on the wrong chain, or the RPC returns an error.
 
+## Policy configuration validation
+
+Policy construction fails fast when global transaction or daily limits are non-positive, the approval threshold is negative, the agent ID or configured token symbols are empty, or chain IDs are missing/non-positive. Trusted token metadata requires a positive chain ID, a non-empty symbol, and decimals between 0 and 36. An approval threshold of zero is valid and means every positive transaction meets the approval threshold. Invalid recipient-specific limits and approval-expiry settings are also rejected.
+
 ## Workflow endpoints
 
 - `POST /transactions/propose` — atomically calculates today's persisted spend, reserves the proposed amount, evaluates policy/risk, and saves the proposal. Supports the optional `Idempotency-Key` header (8–128 characters). Reusing a key with the same proposal returns the original record; reusing it with a different proposal returns HTTP 409.
