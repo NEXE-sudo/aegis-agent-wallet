@@ -602,3 +602,55 @@ def test_recipient_daily_limit_configuration_cannot_be_negative():
                 "0x2222222222222222222222222222222222222222": -1
             },
         )
+
+
+
+def test_recipient_transaction_limit_allows_amount_within_cap():
+    recipient = "0x2222222222222222222222222222222222222222"
+    policy = replace(
+        main.DEMO_POLICY,
+        recipient_transaction_limits_base_units={recipient: 10_000_000},
+    )
+    proposal = TransactionProposal(**_payload(recipient=recipient, amount_base_units=9_000_000))
+
+    result = main.evaluate_transaction(proposal, policy)
+
+    assert result.decision == main.PolicyDecision.ALLOW
+
+
+def test_recipient_transaction_limit_hard_blocks_amount_above_cap():
+    recipient = "0x2222222222222222222222222222222222222222"
+    policy = replace(
+        main.DEMO_POLICY,
+        recipient_transaction_limits_base_units={recipient: 10_000_000},
+    )
+    proposal = TransactionProposal(**_payload(recipient=recipient, amount_base_units=11_000_000))
+
+    result = main.evaluate_transaction(proposal, policy)
+
+    assert result.decision == main.PolicyDecision.BLOCK
+    assert "Transaction exceeds the recipient-specific transaction limit." in result.reasons
+
+
+def test_recipient_transaction_limit_normalizes_address_case():
+    recipient = "0x2222222222222222222222222222222222222222"
+    policy = replace(
+        main.DEMO_POLICY,
+        recipient_transaction_limits_base_units={recipient.upper().replace("0X", "0x"): 10_000_000},
+    )
+    proposal = TransactionProposal(**_payload(recipient=recipient, amount_base_units=11_000_000))
+
+    result = main.evaluate_transaction(proposal, policy)
+
+    assert result.decision == main.PolicyDecision.BLOCK
+    assert "Transaction exceeds the recipient-specific transaction limit." in result.reasons
+
+
+def test_recipient_transaction_limit_configuration_cannot_be_negative():
+    with pytest.raises(ValueError, match="cannot be negative"):
+        replace(
+            main.DEMO_POLICY,
+            recipient_transaction_limits_base_units={
+                "0x2222222222222222222222222222222222222222": -1
+            },
+        )
