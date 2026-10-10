@@ -3,7 +3,8 @@ import os
 from contextlib import asynccontextmanager
 from typing import Literal
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.auth import require_agent, require_owner
@@ -20,7 +21,7 @@ from app.policy.models import (
 from app.risk.engine import assess_transaction_risk
 from app.risk.models import RiskLevel
 from app.workflow.controller import TransactionController
-from app.workflow.store import WorkflowStore
+from app.workflow.store import WorkflowDataError, WorkflowStore
 
 
 class EvaluationRequest(BaseModel):
@@ -120,6 +121,12 @@ app = FastAPI(
     version="1.10.0",
     lifespan=lifespan,
 )
+
+
+@app.exception_handler(WorkflowDataError)
+async def workflow_data_error_handler(_: Request, exc: WorkflowDataError) -> JSONResponse:
+    """Return a stable, sanitized error for malformed persisted workflow data."""
+    return JSONResponse(status_code=500, content={"detail": "Stored workflow data is invalid"})
 
 
 def _proposal(request: EvaluationRequest | ProposalRequest) -> TransactionProposal:
