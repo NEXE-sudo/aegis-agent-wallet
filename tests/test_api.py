@@ -542,3 +542,55 @@ def test_unconfigured_recipient_keeps_existing_approval_behavior():
     result = main.evaluate_transaction(proposal, policy)
 
     assert result.decision == main.PolicyDecision.REQUIRE_APPROVAL
+
+
+def test_recipient_daily_limit_blocks_proposal_after_prior_reservations(tmp_path):
+    recipient = "0x2222222222222222222222222222222222222222"
+    policy = replace(
+        main.DEMO_POLICY,
+        recipient_daily_limits_base_units={recipient: 20_000_000},
+    )
+    local_store = WorkflowStore(tmp_path / "recipient-limit.sqlite3")
+    controller = TransactionController(policy, local_store)
+
+    first_proposal = TransactionProposal(**_payload(recipient=recipient, amount_base_units=12_000_000))
+    first_outcome, first = controller.propose(first_proposal)
+    assert first_outcome == "created"
+    assert first["status"] == "ready"
+
+    second_proposal = TransactionProposal(**_payload(recipient=recipient, amount_base_units=9_000_000))
+    second_outcome, second = controller.propose(second_proposal)
+    assert second_outcome == "created"
+    assert second["status"] == "blocked"
+    assert "Transaction would exceed the recipient daily spending limit." in second["policy_reasons"]
+
+
+def test_recipient_daily_limit_is_rechecked_before_execution(tmp_path):
+    recipient = "0x2222222222222222222222222222222222222222"
+    policy = replace(
+        main.DEMO_POLICY,
+        recipient_daily_limits_base_units={recipient: 20_000_000},
+    )
+    local_store = WorkflowStore(tmp_path / "recipient-recheck.sqlite3")
+    controller = TransactionController(policy, local_store)
+    first_proposal = TransactionProposal(**_payload(recipient=recipient, amount_base_units=12_000_000))
+    _, first = controller.propose(first_proposal)
+    second_proposal = TransactionProposal(**_payload(recipient=recipient, amount_base_units=9_000_000))
+    _, second = controller.propose(second_proposal)
+
+    # The first transaction reserves spend. Even if the second record was inserted
+    # through a separate workflow path, execution must revalidate the recipient cap.
+    assert second["status"] == "blocked"
+    outcome, record = controller.execute(second["transaction_id"])
+    assert outcome == "blocked"
+    assert record["status"] == "blocked"
+
+
+def test_recipient_daily_limit_configuration_cannot_be_negative():
+    with pytest.raises(ValueError, match="cannot be negative"):
+        replace(
+            main.DEMO_POLICY,
+            recipient_daily_limits_base_units={
+                "0x2222222222222222222222222222222222222222": -1
+            },
+        )
