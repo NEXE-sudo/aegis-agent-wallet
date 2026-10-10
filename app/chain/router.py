@@ -1,4 +1,4 @@
-""""Read-only Base Sepolia RPC endpoints."""
+"""Read-only Base Sepolia RPC endpoints."""
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth import require_chain_owner
