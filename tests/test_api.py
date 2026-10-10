@@ -165,6 +165,18 @@ def test_daily_spend_reservations_block_overspend():
     assert "daily spending limit" in " ".join(fourth["policy_reasons"]).lower()
 
 
+@pytest.mark.parametrize("key", ["        ", "\t\t\t\t\t\t\t\t", " \t       "])
+def test_idempotency_key_rejects_whitespace_only_values(key):
+    response = client.post(
+        "/transactions/propose",
+        headers={**AGENT_HEADERS, "Idempotency-Key": key},
+        json=_payload(),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Idempotency-Key must not be blank"
+
+
 def test_idempotency_replay_returns_same_transaction_and_conflict_for_changed_payload():
     headers = {**AGENT_HEADERS, "Idempotency-Key": "retry-key-0001"}
     first = client.post("/transactions/propose", headers=headers, json=_payload())
