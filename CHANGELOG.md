@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.10.0
+
+- Detect expired approvals when an approval retry is attempted, clear stale approval state, and record an expiry audit event.
+- Return an explicit conflict response requiring a fresh approval instead of reporting that an expired approval is still active.
+- Add regression coverage for reapproval after expiry.
+
+
 ## 1.9.0
 
 - Verify the stored proposal fingerprint before returning an idempotent replay, and fail closed if persisted proposal details have changed.
