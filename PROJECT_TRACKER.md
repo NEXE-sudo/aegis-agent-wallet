@@ -285,6 +285,10 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #87 | Update project tracker through PR #86 | Merged |
 | #88 | Test negative recipient daily spend rejection | Merged |
 | #89 | Test risk score threshold boundaries | Merged |
+| #90 | Update project tracker through PR #89 | Merged |
+| #91 | Test standalone evaluation endpoint input bounds | Merged |
+| #92 | Test evaluation endpoint projected-spend responses | Merged |
+| #93 | Test successful read-only token API responses | Merged |
 
 ## 6. Current architecture and useful code locations
 
