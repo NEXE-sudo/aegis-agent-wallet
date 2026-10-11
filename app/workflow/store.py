@@ -319,6 +319,38 @@ class WorkflowStore:
             raise WorkflowDataError("Stored workflow data is invalid")
 
     @staticmethod
+    def _assert_accounting_integrity(db: sqlite3.Connection) -> None:
+        """Fail closed on corrupted accounting keys before relying on indexed totals."""
+        invalid = db.execute(
+            """
+            SELECT transaction_id FROM transactions
+            WHERE CASE
+                WHEN json_valid(proposal_json) = 0 THEN 1
+                WHEN json_type(proposal_json) != 'object' THEN 1
+                WHEN json_type(proposal_json, '$.chain_id') != 'integer' THEN 1
+                WHEN json_type(proposal_json, '$.amount_base_units') != 'integer' THEN 1
+                WHEN json_type(proposal_json, '$.token_address') != 'text' THEN 1
+                WHEN json_type(proposal_json, '$.recipient') != 'text' THEN 1
+                WHEN chain_id != json_extract(proposal_json, '$.chain_id') THEN 1
+                WHEN amount_base_units != json_extract(proposal_json, '$.amount_base_units') THEN 1
+                WHEN lower(trim(token_address)) !=
+                     lower(trim(json_extract(proposal_json, '$.token_address'))) THEN 1
+                WHEN recipient_normalized IS NULL OR recipient_normalized !=
+                     lower(trim(json_extract(proposal_json, '$.recipient'))) THEN 1
+                WHEN created_day IS NULL OR created_day != date(created_at) THEN 1
+                WHEN status = 'executed_simulated' AND (
+                    executed_at IS NULL OR executed_day IS NULL
+                    OR executed_day != date(executed_at)
+                ) THEN 1
+                ELSE 0
+            END = 1
+            LIMIT 1
+            """
+        ).fetchone()
+        if invalid is not None:
+            raise WorkflowDataError("Stored workflow data is invalid")
+
+    @staticmethod
     def _sum_amount_rows(rows: Any) -> int:
         """Sum indexed spend values while preserving overflow-safe Python arithmetic."""
         total = 0
@@ -405,6 +437,7 @@ class WorkflowStore:
         """Serializes spend check + reservation so concurrent proposals cannot overspend."""
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
+            self._assert_accounting_integrity(db)
             if idempotency_key:
                 prior = db.execute(
                     "SELECT * FROM transactions WHERE idempotency_key = ?", (idempotency_key,)
