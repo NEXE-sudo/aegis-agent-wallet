@@ -179,7 +179,7 @@ def test_workflow_requires_distinct_authentication():
     ],
 )
 def test_non_ascii_bearer_header_returns_401_not_500(method, path):
-    headers = [("Authorization", b"Bearer caf\\xe9")]
+    headers = [("Authorization", b"Bearer caf\xe9")]
     if method == "post":
         response = client.post(path, headers=headers, json=_payload())
     else:
