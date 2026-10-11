@@ -1111,6 +1111,34 @@ def test_malformed_persisted_reason_data_returns_sanitized_server_error(
     assert secret_marker not in response.text
 
 
+@pytest.mark.parametrize(
+    ("column", "secret_marker"),
+    [
+        ("policy_reasons_json", "must-not-leak-from-policy-reason-item"),
+        ("risk_reasons_json", "must-not-leak-from-risk-reason-item"),
+    ],
+    ids=["non-string-policy-reason", "non-string-risk-reason"],
+)
+def test_persisted_reason_lists_reject_non_string_items(column, secret_marker):
+    record = propose().json()
+    with sqlite3.connect(main.store.db_path) as db:
+        db.execute(
+            f"UPDATE transactions SET {column} = ? WHERE transaction_id = ?",
+            (
+                json.dumps(["valid reason", {"unexpected": secret_marker}]),
+                record["transaction_id"],
+            ),
+        )
+
+    response = client.get(
+        f"/transactions/{record['transaction_id']}", headers=OWNER_HEADERS
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Stored workflow data is invalid"}
+    assert secret_marker not in response.text
+
+
 def test_malformed_persisted_audit_details_return_sanitized_server_error():
     record = propose().json()
     secret_marker = "must-not-leak-from-corrupt-audit"
