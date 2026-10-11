@@ -3,7 +3,7 @@
 import json
 import sqlite3
 
-from app.workflow.store import WorkflowStore
+from app.workflow.store import WorkflowDataError, WorkflowStore
 
 
 def test_migration_skips_malformed_and_non_object_legacy_proposals(tmp_path):
@@ -62,9 +62,14 @@ def test_migration_skips_malformed_and_non_object_legacy_proposals(tmp_path):
         "non-object": (0, "", 0),
         "missing-fields": (0, "", 0),
     }
-    assert store.get("malformed-json") is not None
-    assert store.get("non-object") is not None
-    assert store.get("missing-fields") is not None
+    # Migration tolerates legacy rows, while reads reject invalid persisted records.
+    for transaction_id in ("malformed-json", "non-object", "missing-fields"):
+        try:
+            store.get(transaction_id)
+        except WorkflowDataError:
+            pass
+        else:
+            raise AssertionError(f"Expected invalid persisted data for {transaction_id}")
 
 
 def test_legacy_database_migration_preserves_transaction_and_backfills_accounting(tmp_path):
