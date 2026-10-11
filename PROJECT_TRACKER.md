@@ -126,8 +126,8 @@ Goal: make the workflow easy to understand and demonstrate end to end.
 Goal: test correctness under failures, concurrency, and persistence changes.
 - [ ] Review test coverage by API endpoint, policy rule, and workflow transition.
 - [x] Add concurrency tests for competing proposals/reservations and idempotent retries where practical (PRs #48, #20, #66, and #84).
-- [ ] Test database initialization, additive migrations, and compatibility with an existing database.
-- [ ] Test recovery/error behavior for malformed or inconsistent persisted data.
+- [x] Test database initialization, additive migrations, and compatibility with an existing database (PRs #36, #67, #68, #78, and #86).
+- [x] Test recovery/error behavior for malformed or inconsistent persisted data (PRs #49, #50, #68, and #70–#82).
 - [x] Add CI automation for tests and Ruff (PR #35).
 - [ ] Keep tests deterministic; avoid live RPC dependence in the unit-test suite.
 
@@ -279,6 +279,8 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #82 | Reject unknown persisted audit values | Merged |
 | #83 | Update project tracker through PR #82 | Merged |
 | #84 | Test concurrent idempotency key conflicts | Merged |
+| #85 | Update project tracker through PR #84 | Merged |
+| #86 | Test fresh workflow database initialization | Merged |
 
 ## 6. Current architecture and useful code locations
 
