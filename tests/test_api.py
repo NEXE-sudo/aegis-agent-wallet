@@ -1195,3 +1195,36 @@ def test_chain_token_endpoint_rejects_invalid_address_before_rpc(monkeypatch):
 
     assert response.status_code == 422
     assert response.json() == {"detail": "Address must be a 20-byte hexadecimal EVM address"}
+
+def test_chain_token_endpoint_maps_missing_rpc_configuration_to_503(monkeypatch):
+    from app.chain import router as chain_router
+
+    def unavailable_rpc():
+        raise chain_router.RpcConfigurationError("RPC is not configured")
+
+    monkeypatch.setattr(chain_router, "BaseSepoliaRpc", unavailable_rpc)
+
+    response = client.get(
+        f"/chain/base-sepolia/token/{BASE_SEPOLIA_USDC_ADDRESS}",
+        headers=OWNER_HEADERS,
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "RPC is not configured"}
+
+
+def test_chain_token_endpoint_maps_rpc_failure_to_502(monkeypatch):
+    from app.chain import router as chain_router
+
+    def failing_rpc():
+        raise chain_router.RpcRequestError("RPC request failed")
+
+    monkeypatch.setattr(chain_router, "BaseSepoliaRpc", failing_rpc)
+
+    response = client.get(
+        f"/chain/base-sepolia/token/{BASE_SEPOLIA_USDC_ADDRESS}",
+        headers=OWNER_HEADERS,
+    )
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "RPC request failed"}
