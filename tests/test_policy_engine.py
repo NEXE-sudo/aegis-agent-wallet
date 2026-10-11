@@ -201,3 +201,33 @@ def test_recipient_transaction_limit_boundary(policy, amount, expected_decision)
             "recipient-specific transaction limit" in reason.lower()
             for reason in result.reasons
         )
+
+
+@pytest.mark.parametrize(
+    ("daily_spent", "expected_decision"),
+    [
+        (20_000_000, PolicyDecision.ALLOW),
+        (20_000_001, PolicyDecision.BLOCK),
+    ],
+    ids=["at-global-daily-limit", "above-global-daily-limit"],
+)
+def test_global_daily_spending_limit_boundary(policy, daily_spent, expected_decision):
+    limited_policy = AgentPolicy(
+        **{
+            **policy.__dict__,
+            "daily_limit_base_units": 40_000_000,
+        }
+    )
+
+    result = evaluate_transaction(
+        proposal(amount_base_units=20_000_000),
+        limited_policy,
+        daily_spent_base_units=daily_spent,
+    )
+
+    assert result.decision == expected_decision
+    if expected_decision == PolicyDecision.BLOCK:
+        assert any(
+            "daily spending limit" in reason.lower()
+            for reason in result.reasons
+        )
