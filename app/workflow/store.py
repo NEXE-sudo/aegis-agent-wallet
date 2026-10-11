@@ -184,6 +184,21 @@ class WorkflowStore:
         return events
 
     @staticmethod
+    def _validate_accounting_consistency(record: dict[str, Any]) -> None:
+        """Reject denormalized accounting fields that disagree with the validated proposal."""
+        proposal = record["proposal"]
+        if (
+            type(record.get("chain_id")) is not int
+            or type(record.get("amount_base_units")) is not int
+            or not isinstance(record.get("token_address"), str)
+            or record["chain_id"] != proposal["chain_id"]
+            or record["amount_base_units"] != proposal["amount_base_units"]
+            or record["token_address"].strip().lower()
+            != proposal["token_address"].strip().lower()
+        ):
+            raise WorkflowDataError("Stored workflow data is invalid")
+
+    @staticmethod
     def _daily_spend(
         db: sqlite3.Connection,
         chain_id: int,
@@ -203,6 +218,7 @@ class WorkflowStore:
         for row in db.execute(query, args).fetchall():
             record = WorkflowStore._decode(row)
             proposal = record["proposal"]
+            WorkflowStore._validate_accounting_consistency(record)
             if (
                 proposal["chain_id"] == chain_id
                 and proposal["token_address"].strip().lower() == token_address.strip().lower()
@@ -633,16 +649,6 @@ class WorkflowStore:
             TransactionProposal(**proposal)
         except (TypeError, ValueError) as exc:
             raise WorkflowDataError("Stored workflow data is invalid") from exc
-        if (
-            type(record.get("chain_id")) is not int
-            or type(record.get("amount_base_units")) is not int
-            or not isinstance(record.get("token_address"), str)
-            or record["chain_id"] != proposal["chain_id"]
-            or record["amount_base_units"] != proposal["amount_base_units"]
-            or record["token_address"].strip().lower()
-            != proposal["token_address"].strip().lower()
-        ):
-            raise WorkflowDataError("Stored workflow data is invalid")
         record["proposal"] = proposal
         record["policy_reasons"] = policy_reasons
         record["risk_reasons"] = risk_reasons
