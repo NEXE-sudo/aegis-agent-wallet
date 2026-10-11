@@ -99,3 +99,21 @@ def test_legacy_database_migration_preserves_transaction_and_backfills_accountin
         None,
     )
     assert store.daily_spend(84532, proposal["token_address"]) == 1_250_000
+
+    # Reopening an already-migrated database must not alter existing data or schema.
+    reopened_store = WorkflowStore(db_path)
+    reopened_record = reopened_store.get("legacy-transaction")
+    assert reopened_record == record
+    assert reopened_store.daily_spend(84532, proposal["token_address"]) == 1_250_000
+
+    with sqlite3.connect(db_path) as db:
+        reopened_columns = {
+            row[1] for row in db.execute("PRAGMA table_info(transactions)")
+        }
+        audit_count = db.execute(
+            "SELECT COUNT(*) FROM audit_events WHERE transaction_id = ?",
+            ("legacy-transaction",),
+        ).fetchone()[0]
+
+    assert reopened_columns == columns
+    assert audit_count == 0
