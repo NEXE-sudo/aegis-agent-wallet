@@ -938,6 +938,61 @@ def test_recipient_transaction_limit_hard_blocks_amount_above_cap():
     assert "Transaction exceeds the recipient-specific transaction limit." in result.reasons
 
 
+@pytest.mark.parametrize(
+    ("amount_base_units", "expected_status", "expected_decision"),
+    [
+        (20_000_000, 201, "ready"),
+        (20_000_001, 201, "blocked"),
+    ],
+)
+def test_recipient_transaction_limit_boundary(
+    monkeypatch, tmp_path, amount_base_units, expected_status, expected_decision
+):
+    policy = AgentPolicy(
+        agent_id="devops-01",
+        allowed_chain_ids={84532},
+        allowed_token_addresses={BASE_SEPOLIA_USDC_ADDRESS},
+        allowed_token_symbols={"USDC"},
+        trusted_tokens={
+            BASE_SEPOLIA_USDC_ADDRESS: TrustedToken(
+                chain_id=84532, symbol="USDC", decimals=6
+            )
+        },
+        max_transaction_base_units=50_000_000,
+        daily_limit_base_units=150_000_000,
+        approval_threshold_base_units=50_000_000,
+        allowed_recipients={"0x2222222222222222222222222222222222222222"},
+        recipient_transaction_limits_base_units={
+            "0x2222222222222222222222222222222222222222": 20_000_000
+        },
+    )
+    local_store = WorkflowStore(tmp_path / "recipient-transaction-limit.sqlite3")
+    monkeypatch.setattr(main, "store", local_store)
+    monkeypatch.setattr(main, "controller", TransactionController(policy, local_store))
+
+    response = client.post(
+        "/transactions/propose",
+        headers={**AGENT_HEADERS, "Idempotency-Key": f"recipient-cap-{amount_base_units}"},
+        json={
+            "agent_id": "devops-01",
+            "chain_id": 84532,
+            "token_symbol": "USDC",
+            "token_address": BASE_SEPOLIA_USDC_ADDRESS,
+            "recipient": "0x2222222222222222222222222222222222222222",
+            "amount_base_units": amount_base_units,
+            "token_decimals": 6,
+        },
+    )
+
+    assert response.status_code == expected_status
+    assert response.json()["status"] == expected_decision
+    if expected_decision == "blocked":
+        assert any(
+            "recipient-specific transaction limit" in reason.lower()
+            for reason in response.json()["policy_reasons"]
+        )
+
+
 def test_recipient_transaction_limit_normalizes_address_case():
     recipient = "0x2222222222222222222222222222222222222222"
     policy = replace(
