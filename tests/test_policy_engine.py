@@ -254,3 +254,20 @@ def test_approval_threshold_boundary(policy, amount, expected_decision):
     )
 
     assert result.decision == expected_decision
+
+def test_allowed_recipient_address_matching_is_case_insensitive(policy):
+    recipient = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+    mixed_case_recipient = "0xABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD"
+    recipient_policy = AgentPolicy(
+        **{
+            **policy.__dict__,
+            "allowed_recipients": {recipient},
+        }
+    )
+
+    result = evaluate_transaction(
+        proposal(recipient=mixed_case_recipient),
+        recipient_policy,
+    )
+
+    assert result.decision == PolicyDecision.ALLOW
