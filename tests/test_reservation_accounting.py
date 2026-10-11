@@ -60,7 +60,8 @@ def test_daily_reservations_cover_workflow_states_and_utc_day_boundary(tmp_path)
         # count against today's daily budget even if its workflow status reserves spend.
         db.execute(
             """UPDATE transactions
-               SET created_at = date('now', '-1 day') || ' 23:59:59'
+               SET created_at = date('now', '-1 day') || ' 23:59:59',
+                   created_day = date('now', '-1 day')
                WHERE transaction_id = 'yesterday'"""
         )
         recipient_spend = store._recipient_daily_spend(
@@ -90,7 +91,8 @@ def _backdate_creation(store: WorkflowStore, transaction_id: str) -> None:
     with store._connect() as db:
         db.execute(
             """UPDATE transactions
-               SET created_at = date('now', '-1 day') || ' 23:59:59'
+               SET created_at = date('now', '-1 day') || ' 23:59:59',
+                   created_day = date('now', '-1 day')
                WHERE transaction_id = ?""",
             (transaction_id,),
         )
@@ -121,6 +123,10 @@ def test_execution_today_counts_against_daily_limit_when_proposal_is_from_yester
     with store._connect() as db:
         assert db.execute(
             "SELECT date(executed_at) = date('now') FROM transactions WHERE transaction_id = ?",
+            (stale["transaction_id"],),
+        ).fetchone()[0] == 1
+        assert db.execute(
+            "SELECT executed_day = date('now') FROM transactions WHERE transaction_id = ?",
             (stale["transaction_id"],),
         ).fetchone()[0] == 1
 
@@ -163,3 +169,46 @@ def test_execution_today_counts_against_recipient_daily_limit_when_proposal_is_f
     assert outcome == "created"
     assert next_record["status"] == "blocked"
     assert "recipient daily spending limit" in " ".join(next_record["policy_reasons"]).lower()
+
+
+
+def test_daily_spend_queries_use_targeted_indexes(tmp_path):
+    store = WorkflowStore(tmp_path / "indexed-spend.sqlite3")
+    with store._connect() as db:
+        plans = {
+            "global_reservations": db.execute(
+                """EXPLAIN QUERY PLAN SELECT amount_base_units FROM transactions
+                   WHERE chain_id = ? AND token_address = ? AND created_day = ?
+                   AND status IN ('ready', 'awaiting_approval', 'approved')""",
+                (CHAIN_ID, BASE_SEPOLIA_USDC_ADDRESS, "2026-10-11"),
+            ).fetchall(),
+            "recipient_reservations": db.execute(
+                """EXPLAIN QUERY PLAN SELECT amount_base_units FROM transactions
+                   WHERE chain_id = ? AND token_address = ? AND recipient_normalized = ?
+                   AND created_day = ? AND status IN ('ready', 'awaiting_approval', 'approved')""",
+                (CHAIN_ID, BASE_SEPOLIA_USDC_ADDRESS, RECIPIENT.lower(), "2026-10-11"),
+            ).fetchall(),
+            "global_executions": db.execute(
+                """EXPLAIN QUERY PLAN SELECT amount_base_units FROM transactions
+                   WHERE chain_id = ? AND token_address = ? AND executed_day = ?
+                   AND status = 'executed_simulated'""",
+                (CHAIN_ID, BASE_SEPOLIA_USDC_ADDRESS, "2026-10-11"),
+            ).fetchall(),
+            "recipient_executions": db.execute(
+                """EXPLAIN QUERY PLAN SELECT amount_base_units FROM transactions
+                   WHERE chain_id = ? AND token_address = ? AND recipient_normalized = ?
+                   AND executed_day = ? AND status = 'executed_simulated'""",
+                (CHAIN_ID, BASE_SEPOLIA_USDC_ADDRESS, RECIPIENT.lower(), "2026-10-11"),
+            ).fetchall(),
+        }
+
+    expected_indexes = {
+        "global_reservations": "idx_transactions_daily_spend",
+        "recipient_reservations": "idx_transactions_recipient_daily_spend",
+        "global_executions": "idx_transactions_execution_day",
+        "recipient_executions": "idx_transactions_recipient_execution_day",
+    }
+    for query_name, index_name in expected_indexes.items():
+        details = " ".join(row["detail"] for row in plans[query_name])
+        assert index_name in details, details
+        assert "SCAN transactions" not in details, details
