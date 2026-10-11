@@ -383,7 +383,7 @@ def test_partial_migration_preserves_existing_columns_and_backfills_missing_acco
 def test_fresh_database_initialization_creates_indexes_and_append_only_audit(tmp_path):
     db_path = tmp_path / "fresh-workflow.sqlite3"
 
-    store = WorkflowStore(db_path)
+    WorkflowStore(db_path)
 
     with sqlite3.connect(db_path) as db:
         columns = {row[1] for row in db.execute("PRAGMA table_info(transactions)")}
