@@ -515,7 +515,7 @@ def test_documented_demo_token_symbol_mismatch_is_hard_blocked():
         ("token_symbol", "S" * 17),
         ("token_address", "0x" + "a" * 41),
         ("recipient", "0x" + "2" * 41),
-        ("recipient", "0x" + "2" * 40 + " " * 10000),
+        ("recipient", "0x" + "2" * 40 + "x" * 10000),
     ],
 )
 def test_proposal_rejects_oversized_text_fields(field, value):
