@@ -267,6 +267,12 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #70 | Validate persisted proposal types before workflow use | Merged |
 | #71 | Verify spending accounting fields against persisted proposals | Merged |
 | #72 | Handle overflowing legacy values during SQLite migration | Merged |
+| #73 | Update project tracker through PR #72 | Merged |
+| #74 | Validate persisted workflow metadata | Merged |
+| #75 | Validate legacy proposals before accounting backfill | Merged |
+| #76 | Validate persisted workflow lifecycle field types | Merged |
+| #77 | Test malformed lifecycle data on audit endpoint | Merged |
+| #78 | Test partially applied SQLite schema migrations | Merged |
 
 ## 6. Current architecture and useful code locations
 
