@@ -295,6 +295,19 @@ class WorkflowStore:
                 END
             """)
 
+            # SQLite REPLACE can bypass the DELETE trigger's protection unless
+            # recursive triggers are enabled. Reject inserts that reuse an event ID.
+            db.execute("""
+                CREATE TRIGGER IF NOT EXISTS audit_events_no_replace
+                BEFORE INSERT ON audit_events
+                WHEN EXISTS (
+                    SELECT 1 FROM audit_events WHERE event_id = NEW.event_id
+                )
+                BEGIN
+                    SELECT RAISE(ABORT, 'audit events are append-only');
+                END
+            """)
+
     @staticmethod
     def _append_audit(
         db: sqlite3.Connection,
