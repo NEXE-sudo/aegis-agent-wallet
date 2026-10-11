@@ -1308,6 +1308,29 @@ def test_malformed_persisted_audit_details_return_sanitized_server_error():
 
 
 
+@pytest.mark.parametrize(
+    "corrupt_amount",
+    ["1000000", True, -1, 2**63],
+    ids=["string", "boolean", "negative", "too-large"],
+)
+def test_persisted_proposal_rejects_invalid_integer_types_and_ranges(corrupt_amount):
+    record = propose().json()
+    proposal = record["proposal"]
+    proposal["amount_base_units"] = corrupt_amount
+    with sqlite3.connect(main.store.db_path) as db:
+        db.execute(
+            "UPDATE transactions SET proposal_json = ? WHERE transaction_id = ?",
+            (json.dumps(proposal), record["transaction_id"]),
+        )
+
+    response = client.get(
+        f"/transactions/{record['transaction_id']}", headers=OWNER_HEADERS
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Stored workflow data is invalid"}
+
+
 def test_malformed_persisted_proposal_object_returns_sanitized_server_error():
     record = propose().json()
     with sqlite3.connect(main.store.db_path) as db:

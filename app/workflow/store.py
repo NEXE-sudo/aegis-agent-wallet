@@ -10,6 +10,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from app.policy.models import MAX_SQLITE_INTEGER
+
 DEFAULT_DB_PATH = os.environ.get("AEGIS_DB_PATH", "aegis-workflow.sqlite3")
 RESERVED_STATUSES = ("ready", "awaiting_approval", "approved", "executed_simulated")
 
@@ -605,6 +607,19 @@ class WorkflowStore:
             or not all(isinstance(reason, str) for reason in policy_reasons)
             or not isinstance(risk_reasons, list)
             or not all(isinstance(reason, str) for reason in risk_reasons)
+        ):
+            raise WorkflowDataError("Stored workflow data is invalid")
+        string_fields = ("agent_id", "token_symbol", "token_address", "recipient")
+        integer_fields = ("chain_id", "amount_base_units", "token_decimals")
+        if any(not isinstance(proposal.get(name), str) for name in string_fields):
+            raise WorkflowDataError("Stored workflow data is invalid")
+        # bool is an int subclass in Python, so use exact type checks for persisted integers.
+        if any(type(proposal.get(name)) is not int for name in integer_fields):
+            raise WorkflowDataError("Stored workflow data is invalid")
+        if (
+            not 0 < proposal["chain_id"] <= MAX_SQLITE_INTEGER
+            or not 0 < proposal["amount_base_units"] <= MAX_SQLITE_INTEGER
+            or not 0 <= proposal["token_decimals"] <= 36
         ):
             raise WorkflowDataError("Stored workflow data is invalid")
         try:
