@@ -188,6 +188,23 @@ class WorkflowStore:
         events = []
         for row in rows:
             event = dict(row)
+            if (
+                type(event.get("event_id")) is not int
+                or event["event_id"] <= 0
+                or any(
+                    not isinstance(event.get(name), str) or not event[name]
+                    for name in ("transaction_id", "event_type", "actor_role", "created_at")
+                )
+                or any(
+                    value is not None and not isinstance(value, str)
+                    for value in (
+                        event.get("from_status"),
+                        event.get("to_status"),
+                        event.get("fingerprint"),
+                    )
+                )
+            ):
+                raise WorkflowDataError("Stored workflow data is invalid")
             try:
                 details = json.loads(event.pop("details_json"))
             except (TypeError, ValueError) as exc:

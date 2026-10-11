@@ -1311,6 +1311,37 @@ def test_malformed_persisted_audit_details_return_sanitized_server_error():
     assert response.json() == {"detail": "Stored workflow data is invalid"}
     assert secret_marker not in response.text
 
+@pytest.mark.parametrize(
+    ("column", "corrupt_value"),
+    [
+        ("event_type", sqlite3.Binary(b"corrupt-audit-event-type")),
+        ("actor_role", sqlite3.Binary(b"corrupt-audit-actor")),
+        ("from_status", sqlite3.Binary(b"corrupt-audit-status")),
+        ("created_at", sqlite3.Binary(b"corrupt-audit-timestamp")),
+    ],
+    ids=["event-type", "actor-role", "from-status", "created-at"],
+)
+def test_invalid_persisted_audit_metadata_returns_sanitized_server_error(
+    column, corrupt_value
+):
+    record = propose().json()
+    with sqlite3.connect(main.store.db_path) as db:
+        # Simulate out-of-band database-file tampering, not an ordinary application update.
+        db.execute("DROP TRIGGER audit_events_no_update")
+        db.execute(
+            f"UPDATE audit_events SET {column} = ? WHERE transaction_id = ?",
+            (corrupt_value, record["transaction_id"]),
+        )
+
+    response = client.get(
+        f"/transactions/{record['transaction_id']}/audit", headers=OWNER_HEADERS
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Stored workflow data is invalid"}
+    assert "corrupt-audit" not in response.text
+
+
 
 
 @pytest.mark.parametrize(
