@@ -227,6 +227,38 @@ def test_concurrent_idempotency_retries_create_one_transaction(tmp_path):
     assert event_types.count("proposal_replayed") == retry_count - 1
 
 
+def test_concurrent_distinct_proposals_cannot_overspend_daily_limit(tmp_path):
+    local_store = WorkflowStore(tmp_path / "concurrent-reservations.sqlite3")
+    controller = TransactionController(main.DEMO_POLICY, local_store)
+    proposal_count = 4
+    barrier = Barrier(proposal_count)
+    proposals = [
+        TransactionProposal(
+            **_payload(
+                recipient=f"0x{index:040x}",
+                amount_base_units=45_000_000,
+            )
+        )
+        for index in range(1, proposal_count + 1)
+    ]
+
+    def submit(proposal):
+        barrier.wait(timeout=5)
+        return controller.propose(proposal)[1]
+
+    with ThreadPoolExecutor(max_workers=proposal_count) as executor:
+        records = list(executor.map(submit, proposals))
+
+    assert sum(record["status"] != "blocked" for record in records) == 3
+    assert sum(record["status"] == "blocked" for record in records) == 1
+    assert local_store.daily_spend(84532, BASE_SEPOLIA_USDC_ADDRESS) == 135_000_000
+    assert sum(
+        event["event_type"] == "proposal_created"
+        for record in records
+        for event in local_store.audit_events(record["transaction_id"])
+    ) == proposal_count
+
+
 def test_idempotency_replay_returns_same_transaction_and_conflict_for_changed_payload():
     headers = {**AGENT_HEADERS, "Idempotency-Key": "retry-key-0001"}
     first = client.post("/transactions/propose", headers=headers, json=_payload())
