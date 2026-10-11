@@ -272,6 +272,15 @@ def test_allowed_recipient_address_matching_is_case_insensitive(policy):
 
     assert result.decision == PolicyDecision.ALLOW
 
+def test_global_token_address_matching_is_case_insensitive(policy):
+    mixed_case_token = TOKEN.upper().replace("0X", "0x")
+
+    result = evaluate_transaction(proposal(token_address=mixed_case_token), policy)
+
+    assert result.decision == PolicyDecision.ALLOW
+    assert result.reasons == ["All configured policy checks passed."]
+
+
 def test_recipient_token_allowlist_normalizes_token_address(policy):
     mixed_case_token = TOKEN.upper().replace("0X", "0x")
     restricted_policy = AgentPolicy(
