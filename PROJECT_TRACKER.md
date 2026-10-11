@@ -263,6 +263,10 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #66 | Test concurrent duplicate approval requests | Merged |
 | #67 | Test idempotent workflow database migration | Merged |
 | #68 | Test migration with malformed legacy proposal data | Merged |
+| #69 | Mark Milestone 3 complete and Milestone 4 in progress | Merged |
+| #70 | Validate persisted proposal types before workflow use | Merged |
+| #71 | Verify spending accounting fields against persisted proposals | Merged |
+| #72 | Handle overflowing legacy values during SQLite migration | Merged |
 
 ## 6. Current architecture and useful code locations
 
