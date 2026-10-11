@@ -1331,6 +1331,43 @@ def test_persisted_proposal_rejects_invalid_integer_types_and_ranges(corrupt_amo
     assert response.json() == {"detail": "Stored workflow data is invalid"}
 
 
+@pytest.mark.parametrize(
+    ("column", "corrupt_value"),
+    [
+        ("status", "unknown-state"),
+        ("policy_decision", "unknown-decision"),
+        ("risk_level", "critical"),
+        ("risk_score", -1),
+        ("risk_score", 101),
+        ("risk_score", "not-an-integer"),
+    ],
+    ids=[
+        "unknown-status",
+        "unknown-policy-decision",
+        "unknown-risk-level",
+        "negative-risk-score",
+        "risk-score-above-100",
+        "non-integer-risk-score",
+    ],
+)
+def test_invalid_persisted_workflow_metadata_returns_sanitized_server_error(
+    column, corrupt_value
+):
+    record = propose().json()
+    with sqlite3.connect(main.store.db_path) as db:
+        db.execute(
+            f"UPDATE transactions SET {column} = ? WHERE transaction_id = ?",
+            (corrupt_value, record["transaction_id"]),
+        )
+
+    response = client.get(
+        f"/transactions/{record['transaction_id']}", headers=OWNER_HEADERS
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Stored workflow data is invalid"}
+
+
 def test_malformed_persisted_proposal_object_returns_sanitized_server_error():
     record = propose().json()
     with sqlite3.connect(main.store.db_path) as db:
