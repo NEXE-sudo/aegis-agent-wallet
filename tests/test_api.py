@@ -121,6 +121,28 @@ def test_low_risk_transaction_can_be_simulated_once():
     assert owner_post(f"/transactions/{record['transaction_id']}/execute").status_code == 409
 
 
+@pytest.mark.parametrize(
+    "approval_body",
+    [
+        {"transaction_fingerprint": "short", "confirmation": "APPROVE"},
+        {"transaction_fingerprint": "a" * 64, "confirmation": "approve"},
+        {"transaction_fingerprint": "a" * 64},
+    ],
+    ids=["malformed-fingerprint", "invalid-confirmation", "missing-confirmation"],
+)
+def test_approval_request_validation_rejects_invalid_payloads(approval_body):
+    record = propose(
+        _payload(recipient="0x4444444444444444444444444444444444444444")
+    ).json()
+
+    response = owner_post(
+        f"/transactions/{record['transaction_id']}/approve",
+        json=approval_body,
+    )
+
+    assert response.status_code == 422
+
+
 def test_unknown_recipient_requires_fingerprint_bound_approval():
     record = propose(_payload(recipient="0x4444444444444444444444444444444444444444")).json()
     assert record["status"] == "awaiting_approval"
