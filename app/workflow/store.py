@@ -176,8 +176,14 @@ class WorkflowStore:
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_idempotency
                 ON transactions(idempotency_key) WHERE idempotency_key IS NOT NULL
             """)
-            # Replace the original timestamp index with sargable day-key indexes.
-            db.execute("DROP INDEX IF EXISTS idx_transactions_daily_spend")
+            # Replace the original timestamp index only when its column layout is stale.
+            daily_index_columns = tuple(
+                row["name"] for row in db.execute(
+                    "PRAGMA index_info(idx_transactions_daily_spend)"
+                )
+            )
+            if daily_index_columns != ("chain_id", "token_address", "created_day", "status"):
+                db.execute("DROP INDEX IF EXISTS idx_transactions_daily_spend")
             db.execute("""
                 CREATE INDEX IF NOT EXISTS idx_transactions_daily_spend
                 ON transactions(chain_id, token_address, created_day, status)
@@ -495,7 +501,7 @@ class WorkflowStore:
                     json.dumps(proposal, sort_keys=True), record["policy_decision"],
                     json.dumps(record["policy_reasons"]), record["risk_score"],
                     record["risk_level"], json.dumps(record["risk_reasons"]), record["status"],
-                    int(proposal.get("chain_id", 0)), str(proposal.get("token_address", "")).lower(),
+                    int(proposal.get("chain_id", 0)), str(proposal.get("token_address", "")).strip().lower(),
                     int(proposal.get("amount_base_units", 0)),
                     executed_at, executed_at, str(proposal.get("recipient", "")).strip().lower(),
                 ),
