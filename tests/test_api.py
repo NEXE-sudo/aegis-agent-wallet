@@ -1334,6 +1334,43 @@ def test_persisted_proposal_rejects_invalid_integer_types_and_ranges(corrupt_amo
 @pytest.mark.parametrize(
     ("column", "corrupt_value"),
     [
+        ("fingerprint", sqlite3.Binary(b"123")),
+        ("approval_fingerprint", sqlite3.Binary(b"123")),
+        ("approved_at", sqlite3.Binary(b"123")),
+        ("execution_reference", sqlite3.Binary(b"123")),
+        ("created_at", sqlite3.Binary(b"123")),
+        ("updated_at", sqlite3.Binary(b"123")),
+    ],
+    ids=[
+        "non-string-fingerprint",
+        "non-string-approval-fingerprint",
+        "non-string-approved-at",
+        "non-string-execution-reference",
+        "non-string-created-at",
+        "non-string-updated-at",
+    ],
+)
+def test_invalid_persisted_lifecycle_field_types_return_sanitized_server_error(
+    column, corrupt_value
+):
+    record = propose().json()
+    with sqlite3.connect(main.store.db_path) as db:
+        db.execute(
+            f"UPDATE transactions SET {column} = ? WHERE transaction_id = ?",
+            (corrupt_value, record["transaction_id"]),
+        )
+
+    response = client.get(
+        f"/transactions/{record['transaction_id']}", headers=OWNER_HEADERS
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Stored workflow data is invalid"}
+
+
+@pytest.mark.parametrize(
+    ("column", "corrupt_value"),
+    [
         ("status", "unknown-state"),
         ("policy_decision", "unknown-decision"),
         ("risk_level", "critical"),

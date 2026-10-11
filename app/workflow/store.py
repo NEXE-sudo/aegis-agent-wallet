@@ -635,8 +635,18 @@ class WorkflowStore:
     @staticmethod
     def _decode(row: sqlite3.Row) -> dict[str, Any]:
         record = dict(row)
-        workflow_fields = ("policy_decision", "risk_level", "status")
-        if any(not isinstance(record.get(name), str) for name in workflow_fields):
+        required_string_fields = (
+            "transaction_id", "fingerprint", "created_at", "updated_at",
+            "policy_decision", "risk_level", "status",
+        )
+        nullable_string_fields = ("approval_fingerprint", "approved_at", "execution_reference")
+        if (
+            any(not isinstance(record.get(name), str) for name in required_string_fields)
+            or any(
+                record.get(name) is not None and not isinstance(record.get(name), str)
+                for name in nullable_string_fields
+            )
+        ):
             raise WorkflowDataError("Stored workflow data is invalid")
         if (
             record["policy_decision"] not in {"allow", "require_approval", "block"}
