@@ -1349,7 +1349,12 @@ def test_invalid_persisted_audit_metadata_returns_sanitized_server_error(
         ("from_status", "unknown-source-state"),
         ("to_status", "unknown-destination-state"),
     ],
-    ids=["unknown-event-type", "unknown-actor-role", "unknown-source-state", "unknown-destination-state"],
+    ids=[
+        "unknown-event-type",
+        "unknown-actor-role",
+        "unknown-source-state",
+        "unknown-destination-state",
+    ],
 )
 def test_unknown_persisted_audit_values_return_sanitized_server_error(
     column, invalid_value
