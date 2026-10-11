@@ -44,3 +44,30 @@ def test_chain_status_reports_read_only_mode(monkeypatch):
         "expected_chain_id": 84532,
         "mode": "read-only",
     }
+
+
+
+def test_chain_status_reports_wrong_chain_without_claiming_base_sepolia(monkeypatch):
+    monkeypatch.setenv("AEGIS_APPROVAL_TOKEN", OWNER_HEADERS["Authorization"].split()[-1])
+
+    class FakeRpc:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+        def chain_id(self):
+            return 1
+
+    monkeypatch.setattr(chain_router, "BaseSepoliaRpc", FakeRpc)
+    response = client.get("/chain/base-sepolia/status", headers=OWNER_HEADERS)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "connected": True,
+        "chain_id": 1,
+        "is_base_sepolia": False,
+        "expected_chain_id": 84532,
+        "mode": "read-only",
+    }
