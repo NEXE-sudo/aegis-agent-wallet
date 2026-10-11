@@ -35,6 +35,7 @@ AUDIT_STATUSES = {
     "ready",
 }
 
+
 def _proposal_fingerprint(proposal: dict[str, Any]) -> str:
     """Recompute the canonical fingerprint from the persisted proposal payload."""
     canonical = json.dumps(proposal, sort_keys=True, separators=(",", ":"))
