@@ -99,6 +99,14 @@ def test_trusted_token_rejects_tampered_decimals(policy):
     assert any("decimals do not match" in reason.lower() for reason in result.reasons)
 
 
+@pytest.mark.parametrize("decimals", [-1, 37])
+def test_policy_blocks_decimals_outside_supported_range(policy, decimals):
+    result = evaluate_transaction(proposal(token_decimals=decimals), policy)
+
+    assert result.decision == PolicyDecision.BLOCK
+    assert any("outside the supported range" in reason.lower() for reason in result.reasons)
+
+
 def test_trusted_token_rejects_tampered_symbol(policy):
     result = evaluate_transaction(proposal(token_symbol="USDC.e"), policy)
     assert result.decision == PolicyDecision.BLOCK
