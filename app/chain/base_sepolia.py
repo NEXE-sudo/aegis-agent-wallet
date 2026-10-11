@@ -134,7 +134,9 @@ class BaseSepoliaRpc:
         try:
             symbol = _decode_abi_string(self._call(normalized, "0x95d89b41"))
             decimals_result = self._call(normalized, "0x313ce567")
-            if not isinstance(decimals_result, str) or not decimals_result.startswith("0x"):
+            if not isinstance(decimals_result, str) or not re.fullmatch(
+                r"0x[0-9a-fA-F]{64}", decimals_result
+            ):
                 raise RpcRequestError("RPC returned malformed token decimals data")
             decimals = int(decimals_result, 16)
             if not 0 <= decimals <= 36:

@@ -133,6 +133,41 @@ def test_rpc_rejects_malformed_json_rpc_envelopes(payload):
         rpc.chain_id()
 
 
+@pytest.mark.parametrize(
+    "decimals_result",
+    [
+        "0x",
+        "0x1",
+        "0x" + "0" * 62 + "gg",
+        [],
+        "0x" + "0" * 62 + "25",
+        "0x" + "0" * 62 + "ff",
+    ],
+    ids=[
+        "empty-data",
+        "truncated-word",
+        "invalid-hex",
+        "non-string-result",
+        "decimals-above-supported-range",
+        "valid-word-above-supported-range",
+    ],
+)
+def test_token_decimals_rejects_malformed_or_unsupported_abi_values(decimals_result):
+    methods = {
+        "eth_chainId": hex(BASE_SEPOLIA_CHAIN_ID),
+        "eth_getCode": "0x60016000",
+        "eth_call": lambda params: {
+            "0x95d89b41": _abi_string("USDC"),
+            "0x313ce567": decimals_result,
+            "0x06fdde03": _abi_string("Example USD Coin"),
+        }[params[0]["data"]],
+    }
+    rpc = BaseSepoliaRpc("https://rpc.invalid", transport=_rpc_transport(methods))
+
+    with pytest.raises(RpcRequestError):
+        rpc.verify_token(TOKEN)
+
+
 @pytest.mark.parametrize("malformed_code", [[], "6000", "0x600", "0xgg"])
 def test_get_code_rejects_malformed_bytecode_result(malformed_code):
     rpc = BaseSepoliaRpc(
