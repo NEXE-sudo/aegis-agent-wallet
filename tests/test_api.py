@@ -1368,6 +1368,23 @@ def test_invalid_persisted_lifecycle_field_types_return_sanitized_server_error(
     assert response.json() == {"detail": "Stored workflow data is invalid"}
 
 
+def test_invalid_persisted_lifecycle_field_returns_sanitized_audit_error():
+    record = propose().json()
+    with sqlite3.connect(main.store.db_path) as db:
+        db.execute(
+            "UPDATE transactions SET fingerprint = ? WHERE transaction_id = ?",
+            (sqlite3.Binary(b"123"), record["transaction_id"]),
+        )
+
+    response = client.get(
+        f"/transactions/{record['transaction_id']}/audit",
+        headers=OWNER_HEADERS,
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Stored workflow data is invalid"}
+
+
 @pytest.mark.parametrize(
     ("column", "corrupt_value"),
     [
