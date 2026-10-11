@@ -277,3 +277,103 @@ def test_legacy_database_migration_preserves_transaction_and_backfills_accountin
 
     assert reopened_columns == columns
     assert audit_count == 0
+
+
+
+def test_partial_migration_preserves_existing_columns_and_backfills_missing_accounting(tmp_path):
+    db_path = tmp_path / "partially-migrated.sqlite3"
+    proposal = {
+        "agent_id": "devops-01",
+        "chain_id": 84532,
+        "token_symbol": "USDC",
+        "token_address": "0xAbCd000000000000000000000000000000000123",
+        "recipient": "0x2222222222222222222222222222222222222222",
+        "amount_base_units": 2_500_000,
+        "token_decimals": 6,
+    }
+
+    # Simulate an interrupted/older migration: idempotency_key and chain_id
+    # already exist, while approved_at and the remaining accounting columns do not.
+    with sqlite3.connect(db_path) as db:
+        db.execute(
+            """
+            CREATE TABLE transactions (
+                transaction_id TEXT PRIMARY KEY,
+                fingerprint TEXT NOT NULL,
+                proposal_json TEXT NOT NULL,
+                policy_decision TEXT NOT NULL,
+                policy_reasons_json TEXT NOT NULL,
+                risk_score INTEGER NOT NULL,
+                risk_level TEXT NOT NULL,
+                risk_reasons_json TEXT NOT NULL,
+                status TEXT NOT NULL,
+                approval_fingerprint TEXT,
+                execution_reference TEXT,
+                idempotency_key TEXT,
+                chain_id INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        db.execute(
+            """
+            INSERT INTO transactions (
+                transaction_id, fingerprint, proposal_json, policy_decision,
+                policy_reasons_json, risk_score, risk_level, risk_reasons_json,
+                status, idempotency_key, chain_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "partial-legacy-transaction",
+                "c" * 64,
+                json.dumps(proposal),
+                "allow",
+                json.dumps(["existing policy reason"]),
+                7,
+                "low",
+                json.dumps(["existing risk reason"]),
+                "ready",
+                "preserve-this-idempotency-key",
+                84532,
+            ),
+        )
+
+    store = WorkflowStore(db_path)
+    record = store.get("partial-legacy-transaction")
+    assert record is not None
+    assert record["transaction_id"] == "partial-legacy-transaction"
+    assert record["idempotency_key"] == "preserve-this-idempotency-key"
+    assert record["policy_reasons"] == ["existing policy reason"]
+    assert record["risk_reasons"] == ["existing risk reason"]
+    assert record["proposal"] == proposal
+
+    with sqlite3.connect(db_path) as db:
+        columns = {row[1] for row in db.execute("PRAGMA table_info(transactions)")}
+        accounting = db.execute(
+            """
+            SELECT chain_id, token_address, amount_base_units, idempotency_key, approved_at
+            FROM transactions WHERE transaction_id = ?
+            """,
+            ("partial-legacy-transaction",),
+        ).fetchone()
+        idempotency_index = db.execute(
+            """
+            SELECT sql FROM sqlite_master
+            WHERE type = 'index' AND name = 'idx_transactions_idempotency'
+            """
+        ).fetchone()
+
+    assert {
+        "idempotency_key", "approved_at", "chain_id", "token_address", "amount_base_units"
+    } <= columns
+    assert accounting == (
+        84532,
+        proposal["token_address"].lower(),
+        2_500_000,
+        "preserve-this-idempotency-key",
+        None,
+    )
+    assert idempotency_index is not None
+    assert "UNIQUE INDEX" in idempotency_index[0].upper()
+    assert store.daily_spend(84532, proposal["token_address"]) == 2_500_000
