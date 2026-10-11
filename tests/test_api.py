@@ -584,10 +584,6 @@ def test_execution_invalidates_approval_if_risk_increases_after_approval():
 
 
 
-@pytest.mark.parametrize(
-    "path",
-    ["/transactions/missing-transaction", "/transactions/missing-transaction/audit"],
-)
 def test_owner_can_read_existing_transaction():
     created = propose()
     assert created.status_code == 201
@@ -606,6 +602,10 @@ def test_owner_can_read_existing_transaction():
     assert body["proposal"] == record["proposal"]
 
 
+@pytest.mark.parametrize(
+    "path",
+    ["/transactions/missing-transaction", "/transactions/missing-transaction/audit"],
+)
 def test_owner_read_endpoints_return_404_for_unknown_transaction(path):
     response = client.get(path, headers=OWNER_HEADERS)
 
