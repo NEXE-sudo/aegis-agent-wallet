@@ -60,6 +60,17 @@ python -m pytest -q
 ruff check .
 ```
 
+After both post-merge checks pass, remove that PR's feature branch (replace `<branch-name>` with the exact branch used for the PR):
+```bash
+git branch -D <branch-name>
+if git ls-remote --exit-code --heads origin <branch-name> >/dev/null 2>&1; then
+  git push origin --delete <branch-name>
+else
+  echo "Remote branch already deleted."
+fi
+```
+Use this only after verifying the PR is merged and local `main` is synced. Never delete `main` or a branch with unmerged work.
+
 **Merge gate:** do not merge until the user explicitly confirms both test commands passed for the PR branch.
 
 ## 3. Milestone roadmap
@@ -130,6 +141,7 @@ Goal: test correctness under failures, concurrency, and persistence changes.
 - [x] Test database initialization, additive migrations, and compatibility with an existing database (PRs #36, #67, #68, #78, and #86).
 - [x] Test recovery/error behavior for malformed or inconsistent persisted data (PRs #49, #50, #68, and #70–#82).
 - [x] Add CI automation for tests and Ruff (PR #35).
+- [x] Cover successful read-only token inspection responses (PR #93), invalid token addresses before RPC initialization (PR #95), and missing/invalid owner authentication before RPC initialization (PR #96).
 - [ ] Keep tests deterministic; avoid live RPC dependence in the unit-test suite.
 
 **Exit criteria:** automated checks run reproducibly and important failure modes have regression coverage.
@@ -289,6 +301,9 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #91 | Test standalone evaluation endpoint input bounds | Merged |
 | #92 | Test evaluation endpoint projected-spend responses | Merged |
 | #93 | Test successful read-only token API responses | Merged |
+| #94 | Update project tracker through PR #93 | Merged |
+| #95 | Test invalid token address rejection before RPC | Merged |
+| #96 | Test owner authentication for token inspection | Merged |
 
 ## 6. Current architecture and useful code locations
 
