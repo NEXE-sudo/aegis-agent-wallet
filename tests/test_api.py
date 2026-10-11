@@ -289,7 +289,7 @@ def test_idempotency_replay_after_execution_preserves_terminal_state():
     event_types = [event["event_type"] for event in events]
     assert event_types.count("proposal_created") == 1
     assert event_types.count("proposal_replayed") == 1
-    assert event_types.count("execution_simulated") == 1
+    assert event_types.count("simulated_execution") == 1
 
 
 def test_execution_rechecks_spending_and_blocks_stale_approval():
