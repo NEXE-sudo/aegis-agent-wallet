@@ -138,6 +138,7 @@ def test_risk_endpoint_rejects_unknown_agent():
         {"amount_base_units": 2**63},
         {"chain_id": -1},
         {"chain_id": 0},
+        {"chain_id": 2**63},
         {"token_decimals": -1},
         {"token_decimals": 37},
     ],
@@ -148,6 +149,7 @@ def test_risk_endpoint_rejects_unknown_agent():
         "amount-above-sqlite-range",
         "negative-chain-id",
         "zero-chain-id",
+        "chain-id-above-sqlite-range",
         "negative-token-decimals",
         "decimals-above-supported-range",
     ],
@@ -1227,13 +1229,19 @@ def test_trusted_token_rejects_invalid_metadata():
         TrustedToken(chain_id=84532, symbol="USDC", decimals=37)
 
 
-def test_api_rejects_amounts_outside_sqlite_integer_range():
+def test_api_rejects_values_outside_sqlite_integer_range():
     oversized = 2**63
-    response = client.post(
+    amount_response = client.post(
         "/transactions/propose", headers=AGENT_HEADERS,
         json=_payload(amount_base_units=oversized),
     )
-    assert response.status_code == 422
+    assert amount_response.status_code == 422
+
+    chain_response = client.post(
+        "/transactions/propose", headers=AGENT_HEADERS,
+        json=_payload(chain_id=oversized),
+    )
+    assert chain_response.status_code == 422
 
     evaluation = client.post(
         "/policy/evaluate",
