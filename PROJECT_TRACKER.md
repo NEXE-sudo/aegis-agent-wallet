@@ -135,7 +135,7 @@ Goal: make the workflow easy to understand and demonstrate end to end.
 **Status: IN PROGRESS**
 
 Goal: test correctness under failures, concurrency, and persistence changes.
-- [ ] Review test coverage by API endpoint, policy rule, and workflow transition.
+- [x] Review test coverage by API endpoint, policy rule, and workflow transition (reviewed API routes in `app/main.py` and `app/chain/router.py` against `tests/test_api.py`, `tests/test_chain_api.py`, and `tests/test_workflow_transitions.py`; focused endpoint and policy-boundary gaps were covered in PRs #101–#110).
 - [x] Add explicit regression coverage for risk-score amount and projected daily-spend thresholds (PR #89).
 - [x] Add concurrency tests for competing proposals/reservations and idempotent retries where practical (PRs #48, #20, #66, and #84).
 - [x] Test database initialization, additive migrations, and compatibility with an existing database (PRs #36, #67, #68, #78, and #86).
@@ -143,7 +143,7 @@ Goal: test correctness under failures, concurrency, and persistence changes.
 - [x] Add CI automation for tests and Ruff (PR #35).
 - [x] Cover successful read-only token inspection responses (PR #93), invalid token addresses before RPC initialization (PR #95), and missing/invalid owner authentication before RPC initialization (PR #96).
 - [x] Test lower-bound validation for standalone evaluation inputs (PR #98) and policy-engine token decimals outside the supported range (PR #99).
-- [ ] Keep tests deterministic; avoid live RPC dependence in the unit-test suite.
+- [x] Keep tests deterministic; avoid live RPC dependence in the unit-test suite (Base Sepolia RPC tests use `httpx.MockTransport`; chain/API tests substitute fake RPC clients, and no live RPC is required by the reviewed unit tests).
 
 **Exit criteria:** automated checks run reproducibly and important failure modes have regression coverage.
 
@@ -308,6 +308,17 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #97 | Update project tracker through PR #96 | Merged |
 | #98 | Test lower bounds for evaluation inputs | Merged |
 | #99 | Test policy token decimals range | Merged |
+| #100 | Record merged validation coverage PRs 97–99 | Merged |
+| #101 | Test API chain ID upper bounds | Merged |
+| #102 | Test proposal chain and decimals bounds | Merged |
+| #103 | Test proposal endpoint rejects zero amount | Merged |
+| #104 | Test recipient-specific transaction limit boundary | Merged |
+| #105 | Test global daily spending limit boundary | Merged |
+| #106 | Test approval threshold boundary | Merged |
+| #107 | Test case-insensitive recipient allowlist | Merged |
+| #108 | Test recipient token allowlist normalization | Merged |
+| #109 | Test successful transaction read endpoint | Merged |
+| #110 | Test global token address normalization | Merged |
 
 ## 6. Current architecture and useful code locations
 
