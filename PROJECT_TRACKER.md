@@ -125,6 +125,7 @@ Goal: make the workflow easy to understand and demonstrate end to end.
 
 Goal: test correctness under failures, concurrency, and persistence changes.
 - [ ] Review test coverage by API endpoint, policy rule, and workflow transition.
+- [x] Add explicit regression coverage for risk-score amount and projected daily-spend thresholds (PR #89).
 - [x] Add concurrency tests for competing proposals/reservations and idempotent retries where practical (PRs #48, #20, #66, and #84).
 - [x] Test database initialization, additive migrations, and compatibility with an existing database (PRs #36, #67, #68, #78, and #86).
 - [x] Test recovery/error behavior for malformed or inconsistent persisted data (PRs #49, #50, #68, and #70–#82).
@@ -281,6 +282,9 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #84 | Test concurrent idempotency key conflicts | Merged |
 | #85 | Update project tracker through PR #84 | Merged |
 | #86 | Test fresh workflow database initialization | Merged |
+| #87 | Update project tracker through PR #86 | Merged |
+| #88 | Test negative recipient daily spend rejection | Merged |
+| #89 | Test risk score threshold boundaries | Merged |
 
 ## 6. Current architecture and useful code locations
 
