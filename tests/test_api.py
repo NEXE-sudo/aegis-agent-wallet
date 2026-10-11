@@ -1348,6 +1348,29 @@ def test_malformed_persisted_proposal_object_returns_sanitized_server_error():
     assert "invalid-but-secret" not in response.text
 
 
+@pytest.mark.parametrize(
+    ("column", "corrupt_value"),
+    [
+        ("chain_id", 1),
+        ("token_address", "0x1111111111111111111111111111111111111111"),
+        ("amount_base_units", 1),
+    ],
+    ids=["chain-id-mismatch", "token-address-mismatch", "amount-mismatch"],
+)
+def test_accounting_column_tampering_fails_closed_before_new_reservation(column, corrupt_value):
+    record = propose(_payload(amount_base_units=3_000_000)).json()
+    with sqlite3.connect(main.store.db_path) as db:
+        db.execute(
+            f"UPDATE transactions SET {column} = ? WHERE transaction_id = ?",
+            (corrupt_value, record["transaction_id"]),
+        )
+
+    response = propose(_payload(amount_base_units=2_000_000))
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Stored workflow data is invalid"}
+
+
 def test_malformed_persisted_proposal_fails_closed_during_recipient_spend_check():
     record = propose().json()
     with sqlite3.connect(main.store.db_path) as db:
