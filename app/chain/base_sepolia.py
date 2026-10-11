@@ -12,6 +12,7 @@ BASE_SEPOLIA_CHAIN_ID = 84532
 BASE_SEPOLIA_USDC_ADDRESS = "0x036cbd53842c5426634e7929541ec2318f3dcf7e"
 _ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 _QUANTITY_RE = re.compile(r"^0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)$")
+_DATA_RE = re.compile(r"^0x(?:[0-9a-fA-F]{2})*$")
 
 
 class RpcConfigurationError(RuntimeError):
@@ -102,7 +103,10 @@ class BaseSepoliaRpc:
             raise RpcRequestError("RPC returned an invalid chain ID") from exc
 
     def get_code(self, address: str) -> str:
-        return self._rpc("eth_getCode", [validate_address(address), "latest"])
+        result = self._rpc("eth_getCode", [validate_address(address), "latest"])
+        if not isinstance(result, str) or not _DATA_RE.fullmatch(result):
+            raise RpcRequestError("RPC returned malformed contract bytecode")
+        return result
 
     def _call(self, address: str, selector: str) -> str:
         return self._rpc("eth_call", [{"to": validate_address(address), "data": selector}, "latest"])
