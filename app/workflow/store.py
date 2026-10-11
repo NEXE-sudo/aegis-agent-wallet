@@ -247,6 +247,7 @@ class WorkflowStore:
         for row in db.execute(query, args).fetchall():
             record = WorkflowStore._decode(row)
             proposal = record["proposal"]
+            WorkflowStore._validate_accounting_consistency(record)
             if (
                 proposal["chain_id"] == chain_id
                 and proposal["token_address"].strip().lower() == token_address.strip().lower()
@@ -280,6 +281,7 @@ class WorkflowStore:
                         )
                         db.execute("COMMIT")
                         return "idempotency_conflict", record
+                    self._validate_accounting_consistency(record)
                     if _proposal_fingerprint(record["proposal"]) != _proposal_fingerprint(proposal):
                         self._append_audit(
                             db, record["transaction_id"], "idempotency_conflict", actor_role,
@@ -394,6 +396,7 @@ class WorkflowStore:
                 )
                 db.execute("COMMIT")
                 return "proposal_integrity_mismatch", record
+            self._validate_accounting_consistency(record)
             if record["fingerprint"] != fingerprint:
                 db.execute("COMMIT")
                 return "fingerprint_mismatch", record
@@ -477,6 +480,7 @@ class WorkflowStore:
                 )
                 db.execute("COMMIT")
                 return "proposal_integrity_mismatch", record
+            self._validate_accounting_consistency(record)
             if record["status"] == "blocked":
                 db.execute("COMMIT")
                 return "blocked", record
