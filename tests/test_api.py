@@ -539,6 +539,38 @@ def test_audit_records_proposal_approval_and_simulated_execution():
     assert events[-1]["details"]["execution_reference"].startswith("simulated:")
 
 
+def test_concurrent_duplicate_approvals_grant_approval_once():
+    record = propose(
+        _payload(recipient="0x4444444444444444444444444444444444444444")
+    ).json()
+    path = f"/transactions/{record['transaction_id']}/approve"
+    body = {
+        "transaction_fingerprint": record["fingerprint"],
+        "confirmation": "APPROVE",
+    }
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(
+            pool.map(
+                lambda _: owner_post(path, json=body),
+                range(2),
+            )
+        )
+
+    assert sorted(response.status_code for response in responses) == [200, 409]
+    current = client.get(
+        f"/transactions/{record['transaction_id']}", headers=OWNER_HEADERS
+    )
+    assert current.status_code == 200
+    assert current.json()["status"] == "approved"
+    assert current.json()["approval_fingerprint"] == record["fingerprint"]
+
+    events = client.get(
+        f"/transactions/{record['transaction_id']}/audit", headers=OWNER_HEADERS
+    ).json()
+    assert sum(event["event_type"] == "approval_granted" for event in events) == 1
+
+
 def test_duplicate_approval_does_not_create_second_approval_event():
     record = propose(
         _payload(recipient="0x4444444444444444444444444444444444444444")
