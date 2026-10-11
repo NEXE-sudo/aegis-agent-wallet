@@ -96,7 +96,7 @@ class WorkflowStore:
                         (int(proposal.get("chain_id", 0)), str(proposal.get("token_address", "")).lower(),
                          int(proposal.get("amount_base_units", 0)), row["transaction_id"]),
                     )
-                except (TypeError, ValueError, json.JSONDecodeError):
+                except (TypeError, ValueError, OverflowError, json.JSONDecodeError):
                     continue
             db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_fingerprint ON transactions(fingerprint)")
             db.execute("""
