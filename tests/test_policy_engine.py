@@ -150,3 +150,16 @@ def test_recipient_daily_limit_boundary(policy, recipient_daily_spent, expected_
     if expected_decision == PolicyDecision.BLOCK:
         assert any("recipient daily spending limit" in reason.lower() for reason in result.reasons)
 
+def test_negative_recipient_daily_spend_is_blocked(policy):
+    result = evaluate_transaction(
+        proposal(),
+        policy,
+        recipient_daily_spent_base_units=-1,
+    )
+
+    assert result.decision == PolicyDecision.BLOCK
+    assert any(
+        "recipient daily spend cannot be negative" in reason.lower()
+        for reason in result.reasons
+    )
+
