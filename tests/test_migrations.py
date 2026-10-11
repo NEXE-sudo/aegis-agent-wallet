@@ -32,6 +32,22 @@ def test_migration_skips_malformed_and_non_object_legacy_proposals(tmp_path):
             ("malformed-json", "{not-json"),
             ("non-object", json.dumps(["not", "an", "object"])),
             ("missing-fields", json.dumps({"agent_id": "devops-01"})),
+            (
+                "infinite-chain-id",
+                json.dumps({
+                    "chain_id": float("inf"),
+                    "token_address": "0xabcdef",
+                    "amount_base_units": 100,
+                }),
+            ),
+            (
+                "oversized-amount",
+                json.dumps({
+                    "chain_id": 84532,
+                    "token_address": "0xabcdef",
+                    "amount_base_units": 2**100,
+                }),
+            ),
         ]:
             db.execute(
                 """
@@ -61,9 +77,11 @@ def test_migration_skips_malformed_and_non_object_legacy_proposals(tmp_path):
         "malformed-json": (0, "", 0),
         "non-object": (0, "", 0),
         "missing-fields": (0, "", 0),
+        "infinite-chain-id": (0, "", 0),
+        "oversized-amount": (0, "", 0),
     }
     # Migration tolerates legacy rows, while reads reject invalid persisted records.
-    for transaction_id in ("malformed-json", "non-object", "missing-fields"):
+    for transaction_id in ("malformed-json", "non-object", "missing-fields", "infinite-chain-id", "oversized-amount"):
         try:
             store.get(transaction_id)
         except WorkflowDataError:
