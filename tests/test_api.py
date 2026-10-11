@@ -1132,3 +1132,21 @@ def test_owner_only_transaction_endpoints_reject_missing_or_invalid_authenticati
     response = getattr(client, method)(url, headers=headers, **kwargs)
 
     assert response.status_code == 401
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/chain/base-sepolia/status",
+        "/chain/base-sepolia/token/0x1111111111111111111111111111111111111111",
+    ],
+)
+@pytest.mark.parametrize(
+    "headers",
+    [None, AGENT_HEADERS],
+    ids=["missing-credentials", "agent-credentials"],
+)
+def test_read_only_chain_endpoints_require_owner_authentication(path, headers):
+    response = client.get(path, headers=headers)
+
+    assert response.status_code == 401
