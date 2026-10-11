@@ -66,3 +66,56 @@ def test_score_is_capped_at_100(policy: AgentPolicy) -> None:
         daily_spent_base_units=300,
     )
     assert result.score == 100
+
+
+@pytest.mark.parametrize(
+    ("amount", "expected_score", "reason_fragment"),
+    [
+        (49, 0, None),
+        (50, 10, "at least 50%"),
+        (79, 10, "at least 50%"),
+        (80, 40, "at least 80%"),
+    ],
+)
+def test_transaction_amount_risk_threshold_boundaries(
+    policy: AgentPolicy,
+    amount: int,
+    expected_score: int,
+    reason_fragment: str | None,
+) -> None:
+    result = assess_transaction_risk(proposal(amount=amount), policy, daily_spent_base_units=0)
+
+    assert result.score == expected_score
+    if reason_fragment is None:
+        assert not any("Amount is at least" in reason for reason in result.reasons)
+    else:
+        assert any(reason_fragment in reason for reason in result.reasons)
+
+
+@pytest.mark.parametrize(
+    ("daily_spent", "expected_score", "reason_fragment"),
+    [
+        (139, 0, None),
+        (140, 10, "at least 50%"),
+        (229, 10, "at least 50%"),
+        (230, 25, "at least 80%"),
+    ],
+)
+def test_projected_daily_spend_risk_threshold_boundaries(
+    policy: AgentPolicy,
+    daily_spent: int,
+    expected_score: int,
+    reason_fragment: str | None,
+) -> None:
+    result = assess_transaction_risk(
+        proposal(amount=10),
+        policy,
+        daily_spent_base_units=daily_spent,
+    )
+
+    assert result.score == expected_score
+    if reason_fragment is None:
+        assert not any("Projected daily spend is at least" in reason for reason in result.reasons)
+    else:
+        assert any(reason_fragment in reason for reason in result.reasons)
+
