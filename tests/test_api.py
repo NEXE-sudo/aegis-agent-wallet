@@ -362,6 +362,17 @@ def test_execution_invalidates_approval_if_risk_increases_after_approval():
 
 
 
+@pytest.mark.parametrize(
+    "path",
+    ["/transactions/missing-transaction", "/transactions/missing-transaction/audit"],
+)
+def test_owner_read_endpoints_return_404_for_unknown_transaction(path):
+    response = client.get(path, headers=OWNER_HEADERS)
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Transaction not found"
+
+
 def test_audit_records_proposal_approval_and_simulated_execution():
     record = propose(
         _payload(recipient="0x4444444444444444444444444444444444444444")
