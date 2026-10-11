@@ -474,7 +474,6 @@ class WorkflowStore:
         """Serializes spend check + reservation so concurrent proposals cannot overspend."""
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            self._assert_accounting_integrity(db)
             if idempotency_key:
                 prior = db.execute(
                     "SELECT * FROM transactions WHERE idempotency_key = ?", (idempotency_key,)
@@ -517,6 +516,9 @@ class WorkflowStore:
                     db.execute("COMMIT")
                     return "replayed", record
 
+            # Idempotency replays validate the prior record first so proposal
+            # tampering remains a conflict (409); new reservations fail closed.
+            self._assert_accounting_integrity(db)
             spent = self._daily_spend(
                 db, int(proposal["chain_id"]), str(proposal["token_address"])
             )
