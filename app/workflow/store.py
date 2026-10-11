@@ -13,7 +13,6 @@ from typing import Any
 from app.policy.models import MAX_SQLITE_INTEGER
 
 DEFAULT_DB_PATH = os.environ.get("AEGIS_DB_PATH", "aegis-workflow.sqlite3")
-RESERVED_STATUSES = ("ready", "awaiting_approval", "approved", "executed_simulated")
 AUDIT_EVENT_TYPES = {
     "approval_expired",
     "approval_granted",
@@ -81,6 +80,7 @@ class WorkflowStore:
                     approval_fingerprint TEXT,
                     approved_at TEXT,
                     execution_reference TEXT,
+                    executed_at TEXT,
                     idempotency_key TEXT,
                     chain_id INTEGER NOT NULL DEFAULT 0,
                     token_address TEXT NOT NULL DEFAULT '',
@@ -94,6 +94,7 @@ class WorkflowStore:
             migrations = {
                 "idempotency_key": "TEXT",
                 "approved_at": "TEXT",
+                "executed_at": "TEXT",
                 "chain_id": "INTEGER NOT NULL DEFAULT 0",
                 "token_address": "TEXT NOT NULL DEFAULT ''",
                 "amount_base_units": "INTEGER NOT NULL DEFAULT 0",
@@ -101,6 +102,11 @@ class WorkflowStore:
             for name, declaration in migrations.items():
                 if name not in existing:
                     db.execute(f"ALTER TABLE transactions ADD COLUMN {name} {declaration}")
+            # Older simulated executions used updated_at as their execution timestamp.
+            db.execute(
+                """UPDATE transactions SET executed_at = updated_at
+                   WHERE status = 'executed_simulated' AND executed_at IS NULL"""
+            )
             # Backfill the new accounting columns for older records.
             rows = db.execute(
                 "SELECT transaction_id, proposal_json FROM transactions "
@@ -264,12 +270,14 @@ class WorkflowStore:
         token_address: str,
         exclude_transaction_id: str | None = None,
     ) -> int:
-        statuses = ",".join("?" for _ in RESERVED_STATUSES)
+        reservation_statuses = ("ready", "awaiting_approval", "approved")
+        statuses = ",".join("?" for _ in reservation_statuses)
         query = (
-            "SELECT * FROM transactions "
-            f"WHERE date(created_at) = date('now') AND status IN ({statuses})"
+            "SELECT * FROM transactions WHERE "
+            f"((status IN ({statuses}) AND date(created_at) = date('now')) "
+            "OR (status = 'executed_simulated' AND date(executed_at) = date('now')))"
         )
-        args: list[Any] = list(RESERVED_STATUSES)
+        args: list[Any] = list(reservation_statuses)
         if exclude_transaction_id is not None:
             query += " AND transaction_id != ?"
             args.append(exclude_transaction_id)
@@ -293,12 +301,14 @@ class WorkflowStore:
         recipient: str,
         exclude_transaction_id: str | None = None,
     ) -> int:
-        statuses = ",".join("?" for _ in RESERVED_STATUSES)
+        reservation_statuses = ("ready", "awaiting_approval", "approved")
+        statuses = ",".join("?" for _ in reservation_statuses)
         query = (
-            "SELECT * FROM transactions "
-            f"WHERE date(created_at) = date('now') AND status IN ({statuses})"
+            "SELECT * FROM transactions WHERE "
+            f"((status IN ({statuses}) AND date(created_at) = date('now')) "
+            "OR (status = 'executed_simulated' AND date(executed_at) = date('now')))"
         )
-        args: list[Any] = list(RESERVED_STATUSES)
+        args: list[Any] = list(reservation_statuses)
         if exclude_transaction_id is not None:
             query += " AND transaction_id != ?"
             args.append(exclude_transaction_id)
@@ -408,8 +418,8 @@ class WorkflowStore:
                 """INSERT INTO transactions (
                     transaction_id, fingerprint, proposal_json, policy_decision,
                     policy_reasons_json, risk_score, risk_level, risk_reasons_json, status,
-                    chain_id, token_address, amount_base_units
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    chain_id, token_address, amount_base_units, executed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     record["transaction_id"], record["fingerprint"],
                     json.dumps(proposal, sort_keys=True), record["policy_decision"],
@@ -417,6 +427,7 @@ class WorkflowStore:
                     record["risk_level"], json.dumps(record["risk_reasons"]), record["status"],
                     int(proposal.get("chain_id", 0)), str(proposal.get("token_address", "")).lower(),
                     int(proposal.get("amount_base_units", 0)),
+                    _utc_now().isoformat() if record["status"] == "executed_simulated" else None,
                 ),
             )
             self._append_audit(
@@ -664,9 +675,9 @@ class WorkflowStore:
             reference = "simulated:" + record["fingerprint"][:24]
             db.execute(
                 """UPDATE transactions SET status = 'executed_simulated',
-                   execution_reference = ?, updated_at = CURRENT_TIMESTAMP
+                   execution_reference = ?, executed_at = ?, updated_at = CURRENT_TIMESTAMP
                    WHERE transaction_id = ?""",
-                (reference, transaction_id),
+                (reference, _utc_now().isoformat(), transaction_id),
             )
             self._append_audit(
                 db, transaction_id, "simulated_execution", actor_role,
@@ -683,7 +694,9 @@ class WorkflowStore:
             "transaction_id", "fingerprint", "created_at", "updated_at",
             "policy_decision", "risk_level", "status",
         )
-        nullable_string_fields = ("approval_fingerprint", "approved_at", "execution_reference")
+        nullable_string_fields = (
+            "approval_fingerprint", "approved_at", "execution_reference", "executed_at"
+        )
         if (
             any(not isinstance(record.get(name), str) for name in required_string_fields)
             or any(

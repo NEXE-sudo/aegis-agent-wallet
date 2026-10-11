@@ -1,4 +1,9 @@
+from dataclasses import replace
+
+from app import main
 from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
+from app.policy.models import TransactionProposal
+from app.workflow.controller import TransactionController
 from app.workflow.store import WorkflowStore
 
 CHAIN_ID = 84532
@@ -67,3 +72,94 @@ def test_daily_reservations_cover_workflow_states_and_utc_day_boundary(tmp_path)
     assert recipient_spend == expected_today
     assert store.get("expired-approval")["status"] == "awaiting_approval"
     assert store.get("expired-approval")["approved_at"] is None
+
+
+def _proposal(amount: int, recipient: str = RECIPIENT) -> TransactionProposal:
+    return TransactionProposal(
+        agent_id="devops-01",
+        chain_id=CHAIN_ID,
+        token_symbol="USDC",
+        token_address=BASE_SEPOLIA_USDC_ADDRESS,
+        recipient=recipient,
+        amount_base_units=amount,
+        token_decimals=6,
+    )
+
+
+def _backdate_creation(store: WorkflowStore, transaction_id: str) -> None:
+    with store._connect() as db:
+        db.execute(
+            """UPDATE transactions
+               SET created_at = date('now', '-1 day') || ' 23:59:59'
+               WHERE transaction_id = ?""",
+            (transaction_id,),
+        )
+
+
+def _approve_and_execute(
+    controller: TransactionController, record: dict
+) -> tuple[str, dict | None]:
+    if record["status"] == "awaiting_approval":
+        outcome, approved = controller.approve(record["transaction_id"], record["fingerprint"])
+        assert outcome == "approved"
+        assert approved is not None
+    return controller.execute(record["transaction_id"])
+
+
+def test_execution_today_counts_against_daily_limit_when_proposal_is_from_yesterday(tmp_path):
+    store = WorkflowStore(tmp_path / "execution-day-global-limit.sqlite3")
+    controller = TransactionController(main.DEMO_POLICY, store)
+
+    outcome, stale = controller.propose(_proposal(40_000_000))
+    assert outcome == "created"
+    _backdate_creation(store, stale["transaction_id"])
+
+    outcome, executed = controller.execute(stale["transaction_id"])
+    assert outcome == "executed"
+    assert executed is not None
+    assert executed["executed_at"] is not None
+    with store._connect() as db:
+        assert db.execute(
+            "SELECT date(executed_at) = date('now') FROM transactions WHERE transaction_id = ?",
+            (stale["transaction_id"],),
+        ).fetchone()[0] == 1
+
+    outcomes = []
+    for index in range(3):
+        outcome, record = controller.propose(_proposal(50_000_000))
+        assert outcome == "created"
+        if record["status"] == "blocked":
+            outcomes.append("blocked")
+            continue
+        outcome, result = _approve_and_execute(controller, record)
+        outcomes.append(outcome)
+        if outcome == "executed":
+            assert result is not None
+            assert result["status"] == "executed_simulated"
+
+    assert outcomes == ["executed", "executed", "blocked"]
+    assert store.daily_spend(CHAIN_ID, BASE_SEPOLIA_USDC_ADDRESS) == 140_000_000
+
+
+def test_execution_today_counts_against_recipient_daily_limit_when_proposal_is_from_yesterday(
+    tmp_path,
+):
+    policy = replace(
+        main.DEMO_POLICY,
+        recipient_daily_limits_base_units={RECIPIENT: 70_000_000},
+    )
+    store = WorkflowStore(tmp_path / "execution-day-recipient-limit.sqlite3")
+    controller = TransactionController(policy, store)
+
+    outcome, stale = controller.propose(_proposal(40_000_000))
+    assert outcome == "created"
+    _backdate_creation(store, stale["transaction_id"])
+    outcome, executed = controller.execute(stale["transaction_id"])
+    assert outcome == "executed"
+    assert executed is not None
+    assert executed["status"] == "executed_simulated"
+
+    outcome, next_record = controller.propose(_proposal(40_000_000))
+    assert outcome == "created"
+    assert next_record["status"] == "blocked"
+    assert "recipient daily spending limit" in " ".join(next_record["policy_reasons"]).lower()
