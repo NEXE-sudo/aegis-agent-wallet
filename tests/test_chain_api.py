@@ -74,6 +74,37 @@ def test_chain_status_reports_wrong_chain_without_claiming_base_sepolia(monkeypa
 
 
 
+
+@pytest.mark.parametrize(
+    "address",
+    [
+        "not-an-address",
+        "0x1234",
+        "0x" + "g" * 40,
+    ],
+    ids=["not-hex-address", "too-short", "non-hex-character"],
+)
+def test_chain_token_endpoint_rejects_invalid_address_before_rpc(
+    monkeypatch, address
+):
+    monkeypatch.setenv(
+        "AEGIS_APPROVAL_TOKEN", OWNER_HEADERS["Authorization"].split()[-1]
+    )
+
+    def unexpected_rpc():
+        raise AssertionError("RPC client must not be created for an invalid address")
+
+    monkeypatch.setattr(chain_router, "BaseSepoliaRpc", unexpected_rpc)
+    response = client.get(
+        f"/chain/base-sepolia/token/{address}",
+        headers=OWNER_HEADERS,
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "Address must be a 20-byte hexadecimal EVM address"
+    }
+
 def test_chain_token_endpoint_returns_read_only_metadata(monkeypatch):
     monkeypatch.setenv("AEGIS_APPROVAL_TOKEN", OWNER_HEADERS["Authorization"].split()[-1])
     expected = {
