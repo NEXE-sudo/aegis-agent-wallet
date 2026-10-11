@@ -138,9 +138,9 @@ def test_rpc_rejects_malformed_json_rpc_envelopes(payload):
     [
         "0x",
         "0x1",
-        "0x" + "0" * 62 + "25",
         "0x" + "0" * 62 + "gg",
         [],
+        "0x" + "0" * 62 + "25",
         "0x" + "0" * 62 + "ff",
     ],
     ids=[
