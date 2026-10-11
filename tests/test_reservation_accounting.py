@@ -171,7 +171,6 @@ def test_execution_today_counts_against_recipient_daily_limit_when_proposal_is_f
     assert "recipient daily spending limit" in " ".join(next_record["policy_reasons"]).lower()
 
 
-
 def test_daily_spend_queries_use_targeted_indexes(tmp_path):
     store = WorkflowStore(tmp_path / "indexed-spend.sqlite3")
     with store._connect() as db:
