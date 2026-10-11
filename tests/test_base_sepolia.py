@@ -139,8 +139,8 @@ def test_rpc_rejects_malformed_json_rpc_envelopes(payload):
         "not-hex",
         "0xzz",
         "0x" + "0" * 64 + "0" * 64,
-        "0x" + "0" * 63,
-        "0x" + "0" * 63 + "1",
+        "0x" + "00" * 31,
+        "0x1",
     ],
     ids=[
         "missing-hex-prefix",
