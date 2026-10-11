@@ -40,6 +40,27 @@ def test_small_transaction_to_approved_recipient_is_low_risk(policy: AgentPolicy
     assert result.reasons == ["No configured risk signals were triggered."]
 
 
+def test_approved_recipient_risk_matching_is_case_insensitive(policy: AgentPolicy) -> None:
+    recipient = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+    mixed_case_recipient = "0xABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD"
+    recipient_policy = AgentPolicy(
+        **{
+            **policy.__dict__,
+            "allowed_recipients": {recipient},
+        }
+    )
+
+    result = assess_transaction_risk(
+        proposal(recipient=mixed_case_recipient),
+        recipient_policy,
+        daily_spent_base_units=0,
+    )
+
+    assert result.score == 0
+    assert result.level == RiskLevel.LOW
+    assert result.reasons == ["No configured risk signals were triggered."]
+
+
 def test_unknown_recipient_is_medium_risk(policy: AgentPolicy) -> None:
     result = assess_transaction_risk(
         proposal(recipient="0x" + "3" * 40), policy, daily_spent_base_units=0
