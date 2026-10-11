@@ -270,6 +270,28 @@ def test_idempotency_replay_returns_same_transaction_and_conflict_for_changed_pa
     assert conflict.status_code == 409
 
 
+def test_idempotency_replay_after_execution_preserves_terminal_state():
+    headers = {**AGENT_HEADERS, "Idempotency-Key": "executed-replay-key-0001"}
+    first = client.post("/transactions/propose", headers=headers, json=_payload())
+    assert first.status_code == 201
+    transaction_id = first.json()["transaction_id"]
+
+    executed = owner_post(f"/transactions/{transaction_id}/execute")
+    assert executed.status_code == 200
+    assert executed.json()["status"] == "executed_simulated"
+
+    replay = client.post("/transactions/propose", headers=headers, json=_payload())
+    assert replay.status_code == 200
+    assert replay.json()["transaction_id"] == transaction_id
+    assert replay.json()["status"] == "executed_simulated"
+
+    events = client.get(f"/transactions/{transaction_id}/audit", headers=OWNER_HEADERS).json()
+    event_types = [event["event_type"] for event in events]
+    assert event_types.count("proposal_created") == 1
+    assert event_types.count("proposal_replayed") == 1
+    assert event_types.count("execution_simulated") == 1
+
+
 def test_execution_rechecks_spending_and_blocks_stale_approval():
     # First reserve most of the daily budget; second proposal is initially evaluated against it.
     first = propose(_payload(amount_base_units=45_000_000)).json()
