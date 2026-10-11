@@ -172,3 +172,32 @@ def test_negative_recipient_daily_spend_is_blocked(policy):
         for reason in result.reasons
     )
 
+
+
+@pytest.mark.parametrize(
+    ("amount", "expected_decision"),
+    [
+        (20_000_000, PolicyDecision.ALLOW),
+        (20_000_001, PolicyDecision.BLOCK),
+    ],
+    ids=["at-recipient-transaction-limit", "above-recipient-transaction-limit"],
+)
+def test_recipient_transaction_limit_boundary(policy, amount, expected_decision):
+    limited_policy = AgentPolicy(
+        **{
+            **policy.__dict__,
+            "recipient_transaction_limits_base_units": {RECIPIENT_A: 20_000_000},
+        }
+    )
+
+    result = evaluate_transaction(
+        proposal(amount_base_units=amount),
+        limited_policy,
+    )
+
+    assert result.decision == expected_decision
+    if expected_decision == PolicyDecision.BLOCK:
+        assert any(
+            "recipient-specific transaction limit" in reason.lower()
+            for reason in result.reasons
+        )
