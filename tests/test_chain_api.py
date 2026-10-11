@@ -14,6 +14,32 @@ def test_chain_status_requires_owner_authentication(monkeypatch):
     assert response.status_code == 401
 
 
+
+@pytest.mark.parametrize(
+    "headers",
+    [None, {"Authorization": "Bearer incorrect-owner-token"}],
+    ids=["missing-token", "invalid-token"],
+)
+def test_chain_token_endpoint_requires_owner_authentication(
+    monkeypatch, headers
+):
+    monkeypatch.setenv(
+        "AEGIS_APPROVAL_TOKEN", OWNER_HEADERS["Authorization"].split()[-1]
+    )
+
+    def unexpected_rpc():
+        raise AssertionError("RPC client must not be created for an unauthenticated request")
+
+    monkeypatch.setattr(chain_router, "BaseSepoliaRpc", unexpected_rpc)
+    kwargs = {"headers": headers} if headers is not None else {}
+    response = client.get(
+        "/chain/base-sepolia/token/0x1111111111111111111111111111111111111111",
+        **kwargs,
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Missing or invalid bearer token"}
+
 def test_chain_status_fails_closed_without_rpc_url(monkeypatch):
     monkeypatch.setenv("AEGIS_APPROVAL_TOKEN", OWNER_HEADERS["Authorization"].split()[-1])
     monkeypatch.delenv("BASE_SEPOLIA_RPC_URL", raising=False)
