@@ -90,11 +90,26 @@ class WorkflowStore:
                     proposal = json.loads(row["proposal_json"])
                     if not isinstance(proposal, dict):
                         continue
+                    chain_id = proposal.get("chain_id")
+                    token_address = proposal.get("token_address")
+                    amount_base_units = proposal.get("amount_base_units")
+                    token_decimals = proposal.get("token_decimals")
+                    string_fields = ("agent_id", "token_symbol", "token_address", "recipient")
+                    if (
+                        any(not isinstance(proposal.get(name), str) for name in string_fields)
+                        or any(
+                            type(value) is not int
+                            for value in (chain_id, amount_base_units, token_decimals)
+                        )
+                        or not 0 < chain_id <= MAX_SQLITE_INTEGER
+                        or not 0 < amount_base_units <= MAX_SQLITE_INTEGER
+                        or not 0 <= token_decimals <= 36
+                    ):
+                        continue
                     db.execute(
                         """UPDATE transactions SET chain_id = ?, token_address = ?,
                            amount_base_units = ? WHERE transaction_id = ?""",
-                        (int(proposal.get("chain_id", 0)), str(proposal.get("token_address", "")).lower(),
-                         int(proposal.get("amount_base_units", 0)), row["transaction_id"]),
+                        (chain_id, token_address.lower(), amount_base_units, row["transaction_id"]),
                     )
                 except (TypeError, ValueError, OverflowError, json.JSONDecodeError):
                     continue

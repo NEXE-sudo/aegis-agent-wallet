@@ -48,6 +48,66 @@ def test_migration_skips_malformed_and_non_object_legacy_proposals(tmp_path):
                     "amount_base_units": 2**100,
                 }),
             ),
+            (
+                "negative-chain-id",
+                json.dumps({
+                    "agent_id": "devops-01",
+                    "chain_id": -1,
+                    "token_symbol": "USDC",
+                    "token_address": "0xabcdef",
+                    "recipient": "0x2222222222222222222222222222222222222222",
+                    "amount_base_units": 100,
+                    "token_decimals": 6,
+                }),
+            ),
+            (
+                "boolean-chain-id",
+                json.dumps({
+                    "agent_id": "devops-01",
+                    "chain_id": True,
+                    "token_symbol": "USDC",
+                    "token_address": "0xabcdef",
+                    "recipient": "0x2222222222222222222222222222222222222222",
+                    "amount_base_units": 100,
+                    "token_decimals": 6,
+                }),
+            ),
+            (
+                "string-amount",
+                json.dumps({
+                    "agent_id": "devops-01",
+                    "chain_id": 84532,
+                    "token_symbol": "USDC",
+                    "token_address": "0xabcdef",
+                    "recipient": "0x2222222222222222222222222222222222222222",
+                    "amount_base_units": "100",
+                    "token_decimals": 6,
+                }),
+            ),
+            (
+                "non-string-token-address",
+                json.dumps({
+                    "agent_id": "devops-01",
+                    "chain_id": 84532,
+                    "token_symbol": "USDC",
+                    "token_address": {"unexpected": "object"},
+                    "recipient": "0x2222222222222222222222222222222222222222",
+                    "amount_base_units": 100,
+                    "token_decimals": 6,
+                }),
+            ),
+            (
+                "zero-amount",
+                json.dumps({
+                    "agent_id": "devops-01",
+                    "chain_id": 84532,
+                    "token_symbol": "USDC",
+                    "token_address": "0xabcdef",
+                    "recipient": "0x2222222222222222222222222222222222222222",
+                    "amount_base_units": 0,
+                    "token_decimals": 6,
+                }),
+            ),
         ]:
             db.execute(
                 """
@@ -79,9 +139,25 @@ def test_migration_skips_malformed_and_non_object_legacy_proposals(tmp_path):
         "missing-fields": (0, "", 0),
         "infinite-chain-id": (0, "", 0),
         "oversized-amount": (0, "", 0),
+        "negative-chain-id": (0, "", 0),
+        "boolean-chain-id": (0, "", 0),
+        "string-amount": (0, "", 0),
+        "non-string-token-address": (0, "", 0),
+        "zero-amount": (0, "", 0),
     }
     # Migration tolerates legacy rows, while reads reject invalid persisted records.
-    for transaction_id in ("malformed-json", "non-object", "missing-fields", "infinite-chain-id", "oversized-amount"):
+    for transaction_id in (
+        "malformed-json",
+        "non-object",
+        "missing-fields",
+        "infinite-chain-id",
+        "oversized-amount",
+        "negative-chain-id",
+        "boolean-chain-id",
+        "string-amount",
+        "non-string-token-address",
+        "zero-amount",
+    ):
         try:
             store.get(transaction_id)
         except WorkflowDataError:
