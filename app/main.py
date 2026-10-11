@@ -7,7 +7,7 @@ from typing import Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from app.auth import require_agent, require_owner
 from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
@@ -26,27 +26,49 @@ from app.workflow.controller import TransactionController
 from app.workflow.store import WorkflowDataError, WorkflowStore
 
 
+def _canonical_ascii_proposal_field(value: object, field_name: str) -> object:
+    """Canonicalize proposal text using ASCII only, before schema length checks."""
+    if not isinstance(value, str):
+        return value
+    if not value.isascii():
+        raise ValueError(f"{field_name} must contain ASCII characters")
+    value = value.strip()
+    if field_name == "token_symbol":
+        return value.upper()
+    return value.lower()
+
+
 class EvaluationRequest(BaseModel):
-    agent_id: str = "devops-01"
-    chain_id: int = Field(gt=0, le=MAX_SQLITE_INTEGER)
-    token_symbol: str
-    token_address: str
-    recipient: str
-    amount_base_units: int = Field(gt=0, le=MAX_SQLITE_INTEGER)
-    token_decimals: int = Field(ge=0, le=36)
+    agent_id: str = Field(default="devops-01", max_length=64)
+    chain_id: int = Field(strict=True, gt=0, le=MAX_SQLITE_INTEGER)
+    token_symbol: str = Field(max_length=16)
+    token_address: str = Field(max_length=42)
+    recipient: str = Field(max_length=42)
+    amount_base_units: int = Field(strict=True, gt=0, le=MAX_SQLITE_INTEGER)
+    token_decimals: int = Field(strict=True, ge=0, le=36)
     # Only the standalone evaluation endpoints accept caller-supplied simulated spend.
     # The transaction workflow never trusts this value.
-    daily_spent_base_units: int = Field(default=0, ge=0, le=MAX_SQLITE_INTEGER)
+    daily_spent_base_units: int = Field(default=0, strict=True, ge=0, le=MAX_SQLITE_INTEGER)
+
+    @field_validator("token_symbol", "token_address", "recipient", mode="before")
+    @classmethod
+    def canonicalize_text_fields(cls, value: object, info: ValidationInfo) -> object:
+        return _canonical_ascii_proposal_field(value, info.field_name)
 
 
 class ProposalRequest(BaseModel):
-    agent_id: str = "devops-01"
-    chain_id: int = Field(gt=0, le=MAX_SQLITE_INTEGER)
-    token_symbol: str
-    token_address: str
-    recipient: str
-    amount_base_units: int = Field(gt=0, le=MAX_SQLITE_INTEGER)
-    token_decimals: int = Field(ge=0, le=36)
+    agent_id: str = Field(default="devops-01", max_length=64)
+    chain_id: int = Field(strict=True, gt=0, le=MAX_SQLITE_INTEGER)
+    token_symbol: str = Field(max_length=16)
+    token_address: str = Field(max_length=42)
+    recipient: str = Field(max_length=42)
+    amount_base_units: int = Field(strict=True, gt=0, le=MAX_SQLITE_INTEGER)
+    token_decimals: int = Field(strict=True, ge=0, le=36)
+
+    @field_validator("token_symbol", "token_address", "recipient", mode="before")
+    @classmethod
+    def canonicalize_text_fields(cls, value: object, info: ValidationInfo) -> object:
+        return _canonical_ascii_proposal_field(value, info.field_name)
 
 
 class EvaluationResponse(BaseModel):
@@ -159,9 +181,9 @@ def _proposal(request: EvaluationRequest | ProposalRequest) -> TransactionPropos
     return TransactionProposal(
         agent_id=request.agent_id,
         chain_id=request.chain_id,
-        token_symbol=request.token_symbol,
-        token_address=request.token_address,
-        recipient=request.recipient,
+        token_symbol=request.token_symbol.strip().upper(),
+        token_address=request.token_address.strip().lower(),
+        recipient=request.recipient.strip().lower(),
         amount_base_units=request.amount_base_units,
         token_decimals=request.token_decimals,
     )

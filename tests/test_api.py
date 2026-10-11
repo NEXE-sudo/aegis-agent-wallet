@@ -171,6 +171,23 @@ def test_workflow_requires_distinct_authentication():
     assert owner_post(f"/transactions/{record['transaction_id']}/execute").status_code == 200
 
 
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("post", "/transactions/propose"),
+        ("get", "/chain/base-sepolia/status"),
+    ],
+)
+def test_non_ascii_bearer_header_returns_401_not_500(method, path):
+    headers = [("Authorization", b"Bearer caf\xe9")]
+    if method == "post":
+        response = client.post(path, headers=headers, json=_payload())
+    else:
+        response = client.get(path, headers=headers)
+
+    assert response.status_code == 401
+
+
 def test_simulated_execution_is_terminal_and_cannot_be_approved():
     record = propose().json()
     transaction_id = record["transaction_id"]
@@ -489,6 +506,66 @@ def test_documented_demo_token_symbol_mismatch_is_hard_blocked():
     assert approval.status_code == 409
     execution = owner_post(f"/transactions/{record['transaction_id']}/execute")
     assert execution.status_code == 403
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("agent_id", "a" * 65),
+        ("token_symbol", "S" * 17),
+        ("token_address", "0x" + "a" * 41),
+        ("recipient", "0x" + "2" * 41),
+        ("recipient", "0x" + "2" * 40 + "x" * 10000),
+    ],
+)
+def test_proposal_rejects_oversized_text_fields(field, value):
+    response = propose(_payload(**{field: value}))
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("chain_id", True),
+        ("amount_base_units", True),
+        ("amount_base_units", "1000000"),
+        ("amount_base_units", 1_000_000.0),
+        ("token_decimals", 6.0),
+    ],
+)
+def test_proposal_rejects_non_strict_integer_fields(field, value):
+    response = propose(_payload(**{field: value}))
+    assert response.status_code == 422
+
+
+def test_proposal_canonicalizes_ascii_text_before_fingerprinting():
+    headers = {**AGENT_HEADERS, "Idempotency-Key": "canonical-retry-key"}
+    clean_payload = _payload()
+    first = client.post("/transactions/propose", headers=headers, json=clean_payload)
+    assert first.status_code == 201
+
+    noncanonical_payload = _payload(
+        token_symbol=" usdc ",
+        token_address=f" {BASE_SEPOLIA_USDC_ADDRESS.upper()} ",
+        recipient=f"  {clean_payload['recipient']}\n",
+    )
+    retry = client.post("/transactions/propose", headers=headers, json=noncanonical_payload)
+
+    assert retry.status_code == 200
+    assert retry.json()["transaction_id"] == first.json()["transaction_id"]
+    assert retry.json()["fingerprint"] == first.json()["fingerprint"]
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("token_symbol", "UſDC"),
+        ("recipient", "\u20030x2222222222222222222222222222222222222222"),
+    ],
+)
+def test_proposal_rejects_non_ascii_lookalikes_and_padding(field, value):
+    response = propose(_payload(**{field: value}))
+    assert response.status_code == 422
 
 
 def test_malformed_recipient_is_blocked_and_cannot_be_approved_or_executed():
