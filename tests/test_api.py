@@ -1257,15 +1257,17 @@ def test_api_rejects_values_outside_sqlite_integer_range():
         ("chain_id", 0),
         ("token_decimals", -1),
         ("token_decimals", 37),
+        ("amount_base_units", 0),
     ],
     ids=[
         "negative-chain-id",
         "zero-chain-id",
         "negative-token-decimals",
         "decimals-above-supported-range",
+        "zero-amount",
     ],
 )
-def test_proposal_rejects_out_of_range_chain_id_and_token_decimals(field, value):
+def test_proposal_rejects_out_of_range_inputs(field, value):
     response = client.post(
         "/transactions/propose",
         headers=AGENT_HEADERS,
