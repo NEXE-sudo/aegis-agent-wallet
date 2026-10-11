@@ -136,7 +136,9 @@ def test_risk_endpoint_rejects_unknown_agent():
         {"daily_spent_base_units": 2**63},
         {"amount_base_units": 0},
         {"amount_base_units": 2**63},
+        {"chain_id": -1},
         {"chain_id": 0},
+        {"token_decimals": -1},
         {"token_decimals": 37},
     ],
     ids=[
@@ -144,7 +146,9 @@ def test_risk_endpoint_rejects_unknown_agent():
         "daily-spend-above-sqlite-range",
         "zero-amount",
         "amount-above-sqlite-range",
-        "nonpositive-chain-id",
+        "negative-chain-id",
+        "zero-chain-id",
+        "negative-token-decimals",
         "decimals-above-supported-range",
     ],
 )
