@@ -7,6 +7,7 @@ from app.chain.base_sepolia import (
     BaseSepoliaRpc,
     RpcConfigurationError,
     RpcRequestError,
+    validate_address,
 )
 
 router = APIRouter(
@@ -37,8 +38,9 @@ def rpc_status() -> dict:
 @router.get("/token/{address}")
 def inspect_token(address: str) -> dict:
     try:
+        normalized_address = validate_address(address)
         with BaseSepoliaRpc() as rpc:
-            return rpc.verify_token(address)
+            return rpc.verify_token(normalized_address)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RpcConfigurationError as exc:

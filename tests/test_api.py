@@ -1150,3 +1150,48 @@ def test_read_only_chain_endpoints_require_owner_authentication(path, headers):
     response = client.get(path, headers=headers)
 
     assert response.status_code == 401
+
+
+def test_chain_status_maps_missing_rpc_configuration_to_503(monkeypatch):
+    from app.chain import router as chain_router
+
+    def unavailable_rpc():
+        raise chain_router.RpcConfigurationError("RPC is not configured")
+
+    monkeypatch.setattr(chain_router, "BaseSepoliaRpc", unavailable_rpc)
+
+    response = client.get("/chain/base-sepolia/status", headers=OWNER_HEADERS)
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "RPC is not configured"}
+
+
+def test_chain_status_maps_rpc_failure_to_502(monkeypatch):
+    from app.chain import router as chain_router
+
+    def failing_rpc():
+        raise chain_router.RpcRequestError("RPC request failed")
+
+    monkeypatch.setattr(chain_router, "BaseSepoliaRpc", failing_rpc)
+
+    response = client.get("/chain/base-sepolia/status", headers=OWNER_HEADERS)
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "RPC request failed"}
+
+
+def test_chain_token_endpoint_rejects_invalid_address_before_rpc(monkeypatch):
+    from app.chain import router as chain_router
+
+    def unexpected_rpc():
+        raise AssertionError("RPC client must not be created for an invalid address")
+
+    monkeypatch.setattr(chain_router, "BaseSepoliaRpc", unexpected_rpc)
+
+    response = client.get(
+        "/chain/base-sepolia/token/not-an-address",
+        headers=OWNER_HEADERS,
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Address must be a 20-byte hexadecimal EVM address"}
