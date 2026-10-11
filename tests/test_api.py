@@ -584,6 +584,24 @@ def test_execution_invalidates_approval_if_risk_increases_after_approval():
 
 
 
+def test_owner_can_read_existing_transaction():
+    created = propose()
+    assert created.status_code == 201
+    record = created.json()
+
+    response = client.get(
+        f"/transactions/{record['transaction_id']}",
+        headers=OWNER_HEADERS,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["transaction_id"] == record["transaction_id"]
+    assert body["status"] == record["status"] == "ready"
+    assert body["fingerprint"] == record["fingerprint"]
+    assert body["proposal"] == record["proposal"]
+
+
 @pytest.mark.parametrize(
     "path",
     ["/transactions/missing-transaction", "/transactions/missing-transaction/audit"],
