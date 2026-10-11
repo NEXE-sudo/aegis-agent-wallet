@@ -79,6 +79,20 @@ def test_policy_endpoint_blocks_wrong_chain():
     assert response.json()["decision"] == "block"
 
 
+def test_policy_endpoint_reports_amount_and_projected_daily_spend():
+    response = client.post(
+        "/policy/evaluate",
+        json={**_payload(amount_base_units=1_000_000), "daily_spent_base_units": 5_000_000},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["decision"] == "allow"
+    assert body["amount_base_units"] == 1_000_000
+    assert body["projected_daily_spend_base_units"] == 6_000_000
+    assert body["reasons"]
+
+
 def test_unknown_agent_returns_404():
     response = client.post("/policy/evaluate", json={**_payload(), "agent_id": "not-configured"})
     assert response.status_code == 404
@@ -93,6 +107,19 @@ def test_risk_endpoint_returns_score_and_reasons():
     body = response.json()
     assert body["score"] == 85
     assert body["level"] == "high"
+    assert body["reasons"]
+
+
+def test_risk_endpoint_reports_amount_and_projected_daily_spend():
+    response = client.post(
+        "/risk/assess",
+        json={**_payload(amount_base_units=1_000_000), "daily_spent_base_units": 5_000_000},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["amount_base_units"] == 1_000_000
+    assert body["projected_daily_spend_base_units"] == 6_000_000
     assert body["reasons"]
 
 
