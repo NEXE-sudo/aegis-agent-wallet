@@ -1,6 +1,8 @@
 """Aegis Agent Wallet API. Workflow execution is simulation-only."""
+import logging
 import os
 from contextlib import asynccontextmanager
+from time import perf_counter
 from typing import Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
@@ -121,6 +123,28 @@ app = FastAPI(
     version="1.10.0",
     lifespan=lifespan,
 )
+
+
+request_logger = logging.getLogger("aegis.request")
+
+
+@app.middleware("http")
+async def log_http_requests(request: Request, call_next):
+    """Log request metadata without recording raw URLs, headers, or exception text."""
+    started = perf_counter()
+    response = await call_next(request)
+    route = request.scope.get("route")
+    route_template = getattr(route, "path", "<unmatched>")
+    request_logger.info(
+        "http_request",
+        extra={
+            "http_method": request.method,
+            "http_route": route_template,
+            "http_status_code": response.status_code,
+            "duration_ms": round((perf_counter() - started) * 1000, 2),
+        },
+    )
+    return response
 
 
 @app.exception_handler(WorkflowDataError)
