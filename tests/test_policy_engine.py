@@ -231,3 +231,26 @@ def test_global_daily_spending_limit_boundary(policy, daily_spent, expected_deci
             "daily spending limit" in reason.lower()
             for reason in result.reasons
         )
+
+@pytest.mark.parametrize(
+    ("amount", "expected_decision"),
+    [
+        (19_999_999, PolicyDecision.ALLOW),
+        (20_000_000, PolicyDecision.REQUIRE_APPROVAL),
+    ],
+    ids=["below-approval-threshold", "at-approval-threshold"],
+)
+def test_approval_threshold_boundary(policy, amount, expected_decision):
+    limited_policy = AgentPolicy(
+        **{
+            **policy.__dict__,
+            "approval_threshold_base_units": 20_000_000,
+        }
+    )
+
+    result = evaluate_transaction(
+        proposal(amount_base_units=amount),
+        limited_policy,
+    )
+
+    assert result.decision == expected_decision
