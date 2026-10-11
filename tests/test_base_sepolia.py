@@ -104,3 +104,13 @@ def test_rpc_error_is_not_treated_as_valid_result():
     )
     with pytest.raises(RpcRequestError):
         rpc.chain_id()
+
+
+@pytest.mark.parametrize("malformed_code", [[], "6000", "0x600", "0xgg"])
+def test_get_code_rejects_malformed_bytecode_result(malformed_code):
+    rpc = BaseSepoliaRpc(
+        "https://rpc.invalid",
+        transport=_rpc_transport({"eth_getCode": malformed_code}),
+    )
+    with pytest.raises(RpcRequestError, match="RPC returned malformed contract bytecode"):
+        rpc.get_code(TOKEN)
