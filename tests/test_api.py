@@ -1196,6 +1196,7 @@ def test_chain_token_endpoint_rejects_invalid_address_before_rpc(monkeypatch):
     assert response.status_code == 422
     assert response.json() == {"detail": "Address must be a 20-byte hexadecimal EVM address"}
 
+
 def test_chain_token_endpoint_maps_missing_rpc_configuration_to_503(monkeypatch):
     from app.chain import router as chain_router
 
