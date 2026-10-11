@@ -510,6 +510,11 @@ def test_audit_records_proposal_approval_and_simulated_execution():
     unauthenticated = client.get(f"/transactions/{tx_id}/audit")
     assert unauthenticated.status_code == 401
 
+    agent_authenticated = client.get(
+        f"/transactions/{tx_id}/audit", headers=AGENT_HEADERS
+    )
+    assert agent_authenticated.status_code == 401
+
     initial = client.get(f"/transactions/{tx_id}/audit", headers=OWNER_HEADERS)
     assert initial.status_code == 200
     assert [event["event_type"] for event in initial.json()] == ["proposal_created"]
