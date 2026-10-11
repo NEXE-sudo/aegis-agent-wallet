@@ -27,13 +27,15 @@ def _require_token(
             status_code=503,
             detail="Both AEGIS_AGENT_TOKEN and AEGIS_APPROVAL_TOKEN must be configured; endpoint fails closed",
         )
-    if other.strip() and hmac.compare_digest(expected, other):
+    if other.strip() and hmac.compare_digest(expected.encode("utf-8"), other.encode("utf-8")):
         raise HTTPException(
             status_code=503,
             detail="AEGIS_AGENT_TOKEN and AEGIS_APPROVAL_TOKEN must be different; endpoint fails closed",
         )
     supplied = credentials.credentials if credentials else ""
-    if not hmac.compare_digest(supplied, expected):
+    if not supplied.isascii() or not hmac.compare_digest(
+        supplied.encode("utf-8"), expected.encode("utf-8")
+    ):
         raise HTTPException(status_code=401, detail="Missing or invalid bearer token")
 
 
