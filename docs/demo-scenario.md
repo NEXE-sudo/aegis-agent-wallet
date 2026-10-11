@@ -63,7 +63,7 @@ curl -sS -X POST "$API/transactions/$TX_ID/execute" \
   -H "Authorization: Bearer $OWNER_TOKEN"
 ```
 
-Expected: a successful response with `status` `simulated_executed` and an `execution_reference` explicitly representing a simulation, not an on-chain transaction hash.
+Expected: a successful response with `status` `executed_simulated` and an `execution_reference` explicitly representing a simulation, not an on-chain transaction hash.
 
 ## 3. Human-approval path
 
@@ -90,7 +90,7 @@ curl -sS -X POST "$API/transactions/$TX_ID/approve" \
   -d "{\"transaction_fingerprint\":\"$TX_FINGERPRINT\",\"confirmation\":\"APPROVE\"}"
 ```
 
-Expected: approval succeeds only when the exact fingerprint is supplied and the transaction is awaiting approval. Executing afterward returns `simulated_executed`; it still does not sign or submit a transaction.
+Expected: approval succeeds only when the exact fingerprint is supplied and the transaction is awaiting approval. Executing afterward returns `executed_simulated`; it still does not sign or submit a transaction.
 
 ## 4. Hard-blocked proposal
 
@@ -152,7 +152,7 @@ curl -sS -i -X POST "$API/transactions/$TX_ID/execute" \
   -H "Authorization: Bearer $OWNER_TOKEN"
 ```
 
-Expected: HTTP `409` with `Human approval is required before execution`. The API invalidates the stale approval and returns the transaction to `awaiting_approval`; inspect `GET /transactions/$TX_ID` with the owner token to verify. Approve again with the same transaction fingerprint and repeat execution promptly. The renewed approval should allow the workflow to reach `simulated_executed`, but it still does not sign or submit a transaction.
+Expected: HTTP `409` with `Human approval is required before execution`. The API invalidates the stale approval and returns the transaction to `awaiting_approval`; inspect `GET /transactions/$TX_ID` with the owner token to verify. Approve again with the same transaction fingerprint and repeat execution promptly. The renewed approval should allow the workflow to reach `executed_simulated`, but it still does not sign or submit a transaction.
 
 The timing step is intentionally approximate: if the approval expires before the first execution request, that is the expected outcome. Do not use this short expiry setting for any environment beyond the local demo.
 
