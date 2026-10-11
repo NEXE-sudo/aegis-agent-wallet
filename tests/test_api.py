@@ -259,6 +259,38 @@ def test_concurrent_idempotency_retries_create_one_transaction(tmp_path):
     assert event_types.count("proposal_replayed") == retry_count - 1
 
 
+def test_concurrent_idempotency_key_conflict_creates_only_one_proposal(tmp_path):
+    local_store = WorkflowStore(tmp_path / "concurrent-idempotency-conflict.sqlite3")
+    controller = TransactionController(main.DEMO_POLICY, local_store)
+    proposal_count = 2
+    barrier = Barrier(proposal_count)
+    proposals = [
+        TransactionProposal(**_payload(amount_base_units=amount))
+        for amount in (1_000_000, 2_000_000)
+    ]
+
+    def submit(proposal):
+        barrier.wait(timeout=5)
+        return controller.propose(proposal, "concurrent-conflict-key")
+
+    with ThreadPoolExecutor(max_workers=proposal_count) as executor:
+        outcomes = list(executor.map(submit, proposals))
+
+    assert sorted(outcome for outcome, _ in outcomes) == [
+        "created",
+        "idempotency_conflict",
+    ]
+    records = [record for _, record in outcomes]
+    assert len({record["transaction_id"] for record in records}) == 1
+    transaction_id = records[0]["transaction_id"]
+
+    events = local_store.audit_events(transaction_id)
+    event_types = [event["event_type"] for event in events]
+    assert event_types.count("proposal_created") == 1
+    assert event_types.count("idempotency_conflict") == 1
+    assert event_types.count("proposal_replayed") == 0
+
+
 def test_concurrent_distinct_proposals_cannot_overspend_daily_limit(tmp_path):
     local_store = WorkflowStore(tmp_path / "concurrent-reservations.sqlite3")
     controller = TransactionController(main.DEMO_POLICY, local_store)
