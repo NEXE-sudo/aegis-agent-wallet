@@ -204,3 +204,45 @@ def test_documented_expired_approval_requires_reapproval_before_simulated_execut
     assert executed.status_code == 200
     assert executed.json()["status"] == "executed_simulated"
     assert executed.json()["execution_reference"].startswith("simulated:")
+
+
+
+def test_documented_idempotency_replay_returns_original_and_changed_payload_conflicts():
+    proposal = {
+        "agent_id": "devops-01",
+        "chain_id": 84532,
+        "token_symbol": "USDC",
+        "token_address": BASE_SEPOLIA_USDC_ADDRESS,
+        "recipient": "0x2222222222222222222222222222222222222222",
+        "amount_base_units": 1_000_000,
+        "token_decimals": 6,
+    }
+    headers = {**AGENT_HEADERS, "Idempotency-Key": "demo-allowed-001"}
+
+    first = client.post("/transactions/propose", headers=headers, json=proposal)
+    assert first.status_code == 201
+    original = first.json()
+    assert original["status"] == "ready"
+
+    replay = client.post("/transactions/propose", headers=headers, json=proposal)
+    assert replay.status_code == 200
+    assert replay.json()["transaction_id"] == original["transaction_id"]
+    assert replay.json()["fingerprint"] == original["fingerprint"]
+
+    changed_proposal = {**proposal, "amount_base_units": 2_000_000}
+    conflict = client.post(
+        "/transactions/propose",
+        headers=headers,
+        json=changed_proposal,
+    )
+    assert conflict.status_code == 409
+    assert conflict.json()["detail"] == "Idempotency-Key was already used for a different proposal"
+
+    events = client.get(
+        f"/transactions/{original['transaction_id']}/audit",
+        headers=OWNER_HEADERS,
+    )
+    assert events.status_code == 200
+    event_types = [event["event_type"] for event in events.json()]
+    assert event_types.count("proposal_created") == 1
+    assert event_types.count("proposal_replayed") == 1
