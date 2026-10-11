@@ -1098,3 +1098,37 @@ def test_agent_authentication_cannot_access_owner_only_transaction_endpoints(
     response = getattr(client, method)(url, headers=AGENT_HEADERS, **kwargs)
 
     assert response.status_code == 401
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "kwargs"),
+    [
+        ("get", "/transactions/{transaction_id}", {}),
+        ("get", "/transactions/{transaction_id}/audit", {}),
+        (
+            "post",
+            "/transactions/{transaction_id}/approve",
+            {
+                "json": {
+                    "transaction_fingerprint": "a" * 64,
+                    "confirmation": "APPROVE",
+                }
+            },
+        ),
+        ("post", "/transactions/{transaction_id}/execute", {}),
+    ],
+)
+@pytest.mark.parametrize(
+    "headers",
+    [None, {"Authorization": "Bearer invalid-owner-token"}],
+    ids=["missing-credentials", "invalid-credentials"],
+)
+def test_owner_only_transaction_endpoints_reject_missing_or_invalid_authentication(
+    method, path, kwargs, headers
+):
+    record = propose().json()
+    url = path.format(transaction_id=record["transaction_id"])
+
+    response = getattr(client, method)(url, headers=headers, **kwargs)
+
+    assert response.status_code == 401
