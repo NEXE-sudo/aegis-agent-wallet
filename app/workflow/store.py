@@ -192,16 +192,23 @@ class WorkflowStore:
     ) -> int:
         statuses = ",".join("?" for _ in RESERVED_STATUSES)
         query = (
-            "SELECT amount_base_units FROM transactions "
-            f"WHERE date(created_at) = date('now') AND chain_id = ? "
-            f"AND lower(token_address) = ? AND status IN ({statuses})"
+            "SELECT * FROM transactions "
+            f"WHERE date(created_at) = date('now') AND status IN ({statuses})"
         )
-        args: list[Any] = [chain_id, token_address.lower(), *RESERVED_STATUSES]
+        args: list[Any] = list(RESERVED_STATUSES)
         if exclude_transaction_id is not None:
             query += " AND transaction_id != ?"
             args.append(exclude_transaction_id)
-        # SQLite SUM(INTEGER) can overflow even when every stored amount is valid.
-        return sum(int(row["amount_base_units"]) for row in db.execute(query, args).fetchall())
+        total = 0
+        for row in db.execute(query, args).fetchall():
+            record = WorkflowStore._decode(row)
+            proposal = record["proposal"]
+            if (
+                proposal["chain_id"] == chain_id
+                and proposal["token_address"].strip().lower() == token_address.strip().lower()
+            ):
+                total += proposal["amount_base_units"]
+        return total
 
     @staticmethod
     def _recipient_daily_spend(
@@ -213,25 +220,23 @@ class WorkflowStore:
     ) -> int:
         statuses = ",".join("?" for _ in RESERVED_STATUSES)
         query = (
-            "SELECT transaction_id, proposal_json, amount_base_units FROM transactions "
-            "WHERE date(created_at) = date('now') AND chain_id = ? "
-            "AND lower(token_address) = ? "
-            f"AND status IN ({statuses})"
+            "SELECT * FROM transactions "
+            f"WHERE date(created_at) = date('now') AND status IN ({statuses})"
         )
-        args: list[Any] = [chain_id, token_address.lower(), *RESERVED_STATUSES]
+        args: list[Any] = list(RESERVED_STATUSES)
         if exclude_transaction_id is not None:
             query += " AND transaction_id != ?"
             args.append(exclude_transaction_id)
         total = 0
         for row in db.execute(query, args).fetchall():
-            try:
-                proposal = json.loads(row["proposal_json"])
-            except (TypeError, ValueError) as exc:
-                raise WorkflowDataError("Stored workflow data is invalid") from exc
-            if not isinstance(proposal, dict) or not isinstance(proposal.get("recipient"), str):
-                raise WorkflowDataError("Stored workflow data is invalid")
-            if proposal["recipient"].strip().lower() == recipient.strip().lower():
-                total += int(row["amount_base_units"])
+            record = WorkflowStore._decode(row)
+            proposal = record["proposal"]
+            if (
+                proposal["chain_id"] == chain_id
+                and proposal["token_address"].strip().lower() == token_address.strip().lower()
+                and proposal["recipient"].strip().lower() == recipient.strip().lower()
+            ):
+                total += proposal["amount_base_units"]
         return total
 
     def create_evaluated(
@@ -628,6 +633,16 @@ class WorkflowStore:
             TransactionProposal(**proposal)
         except (TypeError, ValueError) as exc:
             raise WorkflowDataError("Stored workflow data is invalid") from exc
+        if (
+            type(record.get("chain_id")) is not int
+            or type(record.get("amount_base_units")) is not int
+            or not isinstance(record.get("token_address"), str)
+            or record["chain_id"] != proposal["chain_id"]
+            or record["amount_base_units"] != proposal["amount_base_units"]
+            or record["token_address"].strip().lower()
+            != proposal["token_address"].strip().lower()
+        ):
+            raise WorkflowDataError("Stored workflow data is invalid")
         record["proposal"] = proposal
         record["policy_reasons"] = policy_reasons
         record["risk_reasons"] = risk_reasons
