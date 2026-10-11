@@ -142,6 +142,7 @@ Goal: test correctness under failures, concurrency, and persistence changes.
 - [x] Test recovery/error behavior for malformed or inconsistent persisted data (PRs #49, #50, #68, and #70–#82).
 - [x] Add CI automation for tests and Ruff (PR #35).
 - [x] Cover successful read-only token inspection responses (PR #93), invalid token addresses before RPC initialization (PR #95), and missing/invalid owner authentication before RPC initialization (PR #96).
+- [x] Test lower-bound validation for standalone evaluation inputs (PR #98) and policy-engine token decimals outside the supported range (PR #99).
 - [ ] Keep tests deterministic; avoid live RPC dependence in the unit-test suite.
 
 **Exit criteria:** automated checks run reproducibly and important failure modes have regression coverage.
@@ -304,6 +305,9 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #94 | Update project tracker through PR #93 | Merged |
 | #95 | Test invalid token address rejection before RPC | Merged |
 | #96 | Test owner authentication for token inspection | Merged |
+| #97 | Update project tracker through PR #96 | Merged |
+| #98 | Test lower bounds for evaluation inputs | Merged |
+| #99 | Test policy token decimals range | Merged |
 
 ## 6. Current architecture and useful code locations
 
