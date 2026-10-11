@@ -5,8 +5,8 @@
 > **Last updated:** 2026-10-11  
 > **Repository:** [NEXE-sudo/aegis-agent-wallet](https://github.com/NEXE-sudo/aegis-agent-wallet)  
 > **Current package/API version:** 1.10.0  
-> **Current phase:** Milestone 3 — Agent and Demo  
-> **Current status:** Milestones 1–2 complete; Milestone 3 in progress; 4–7 planned; Milestone 8 is optional and out of current scope.
+> **Current phase:** Milestone 4 — Testing and Reliability  
+> **Current status:** Milestones 1–3 complete; Milestone 4 in progress; 5–7 planned; Milestone 8 is optional and out of current scope.
 
 ## 1. Project mission and non-negotiable boundary
 
@@ -108,7 +108,7 @@ Remaining candidate work (inspect current implementation and tests before select
 **Exit criteria:** the important state transitions and failure paths are documented and regression-tested; the test suite and Ruff pass; remaining limitations are explicit. This is a prototype milestone, not a claim of production security.
 
 ### Milestone 3 — Agent and Demo
-**Status: IN PROGRESS**
+**Status: COMPLETE**
 
 Goal: make the workflow easy to understand and demonstrate end to end.
 - [x] Define a reproducible demo scenario and expected outcomes (`docs/demo-scenario.md`; added in PR #32).
@@ -121,7 +121,7 @@ Goal: make the workflow easy to understand and demonstrate end to end.
 **Exit criteria:** a new developer can run the app and reproduce the documented happy path and important rejection paths.
 
 ### Milestone 4 — Testing and Reliability
-**Status: PLANNED**
+**Status: IN PROGRESS**
 
 Goal: test correctness under failures, concurrency, and persistence changes.
 - [ ] Review test coverage by API endpoint, policy rule, and workflow transition.
@@ -255,6 +255,14 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #58 | Test documented demo hard-blocked path | Merged |
 | #59 | Test documented expired-approval demo path | Merged |
 | #60 | Test documented demo idempotency replay and conflict | Merged |
+| #61 | Verify documented demo paths with regression tests | Merged |
+| #62 | Test recipient daily spending limit boundaries | Merged |
+| #63 | Test recipient transaction limit boundary | Merged |
+| #64 | Test idempotency replay after simulated execution | Merged |
+| #65 | Test simulated execution terminal state | Merged |
+| #66 | Test concurrent duplicate approval requests | Merged |
+| #67 | Test idempotent workflow database migration | Merged |
+| #68 | Test migration with malformed legacy proposal data | Merged |
 
 ## 6. Current architecture and useful code locations
 
