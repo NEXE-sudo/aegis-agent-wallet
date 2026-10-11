@@ -2,7 +2,7 @@
 
 > **Purpose:** This is the canonical project status and continuation guide for humans and AI assistants. Read this file before proposing or implementing the next change.
 >
-> **Last updated:** 2026-10-10  
+> **Last updated:** 2026-10-11  
 > **Repository:** [NEXE-sudo/aegis-agent-wallet](https://github.com/NEXE-sudo/aegis-agent-wallet)  
 > **Current package/API version:** 1.10.0  
 > **Current phase:** Milestone 3 — Agent and Demo  
@@ -113,7 +113,7 @@ Remaining candidate work (inspect current implementation and tests before select
 Goal: make the workflow easy to understand and demonstrate end to end.
 - [x] Define a reproducible demo scenario and expected outcomes (`docs/demo-scenario.md`; added in PR #32).
 - [x] Add a minimal agent/client example that proposes transactions through the authenticated API (PR #33).
-- [ ] Demonstrate allowed, hard-blocked, approval-required, expired-approval, and replay/conflict paths (`docs/demo-scenario.md`; expiry walkthrough is under review).
+- [ ] Verify the documented allowed, hard-blocked, approval-required, expired-approval, and replay/conflict paths end to end (`docs/demo-scenario.md`; the expired-approval walkthrough was added in PR #34).
 - [x] Keep the demo deterministic and simulation-only.
 - [x] Add a concise documented command sequence and expected outcomes.
 - [x] Ensure secrets and provider credentials are supplied via environment variables and never committed.
@@ -128,7 +128,7 @@ Goal: test correctness under failures, concurrency, and persistence changes.
 - [ ] Add concurrency tests for competing proposals/reservations and idempotent retries where practical.
 - [ ] Test database initialization, additive migrations, and compatibility with an existing database.
 - [ ] Test recovery/error behavior for malformed or inconsistent persisted data.
-- [ ] Add CI automation for tests and Ruff if not already configured.
+- [x] Add CI automation for tests and Ruff (PR #35).
 - [ ] Keep tests deterministic; avoid live RPC dependence in the unit-test suite.
 
 **Exit criteria:** automated checks run reproducibly and important failure modes have regression coverage.
@@ -228,6 +228,16 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #31 | Close repository review validation gaps | Merged |
 | #32 | Document reproducible simulation demo scenario | Merged |
 | #33 | Add authenticated Python proposal client example | Merged |
+| #34 | Document expired-approval demo path | Merged |
+| #35 | Add automated pytest and Ruff checks | Merged |
+| #36 | Test additive migration of legacy workflow databases | Merged |
+| #37 | Test owner-only transaction endpoint authentication | Merged |
+| #38 | Test missing and invalid owner endpoint authentication | Merged |
+| #39 | Test owner authentication on read-only chain endpoints | Merged |
+| #40 | Validate token addresses before RPC client creation | Merged |
+| #41 | Test token endpoint RPC error mapping | Merged |
+| #42 | Test wrong-chain Base Sepolia status response | Merged |
+| #43 | Validate Base Sepolia contract bytecode responses | Merged |
 
 ## 6. Current architecture and useful code locations
 
