@@ -273,6 +273,10 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #76 | Validate persisted workflow lifecycle field types | Merged |
 | #77 | Test malformed lifecycle data on audit endpoint | Merged |
 | #78 | Test partially applied SQLite schema migrations | Merged |
+| #79 | Update project tracker through PR #78 | Merged |
+| #80 | Test agent token rejection on audit endpoint | Merged |
+| #81 | Reject malformed persisted audit metadata | Merged |
+| #82 | Reject unknown persisted audit values | Merged |
 
 ## 6. Current architecture and useful code locations
 
