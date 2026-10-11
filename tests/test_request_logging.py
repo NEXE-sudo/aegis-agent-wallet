@@ -9,12 +9,11 @@ def test_request_logs_use_route_template_and_exclude_sensitive_request_data(capl
     bearer_secret = "bearer-secret-must-not-be-logged"
     query_secret = "query-secret-must-not-be-logged"
 
-    with TestClient(app) as client:
-        with caplog.at_level(logging.INFO, logger="aegis.request"):
-            response = client.get(
-                f"/health?api_key={query_secret}",
-                headers={"Authorization": f"Bearer {bearer_secret}"},
-            )
+    with TestClient(app) as client, caplog.at_level(logging.INFO, logger="aegis.request"):
+        response = client.get(
+            f"/health?api_key={query_secret}",
+            headers={"Authorization": f"Bearer {bearer_secret}"},
+        )
 
     assert response.status_code == 200
     records = [record for record in caplog.records if record.name == "aegis.request"]
