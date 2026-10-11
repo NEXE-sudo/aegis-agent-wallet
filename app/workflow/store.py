@@ -81,6 +81,10 @@ class WorkflowStore:
                     approved_at TEXT,
                     execution_reference TEXT,
                     executed_at TEXT,
+                    recipient_normalized TEXT,
+                    created_day TEXT,
+                    executed_day TEXT,
+                    accounting_integrity INTEGER NOT NULL DEFAULT 1,
                     idempotency_key TEXT,
                     chain_id INTEGER NOT NULL DEFAULT 0,
                     token_address TEXT NOT NULL DEFAULT '',
@@ -95,6 +99,10 @@ class WorkflowStore:
                 "idempotency_key": "TEXT",
                 "approved_at": "TEXT",
                 "executed_at": "TEXT",
+                "recipient_normalized": "TEXT",
+                "created_day": "TEXT",
+                "executed_day": "TEXT",
+                "accounting_integrity": "INTEGER NOT NULL DEFAULT 1",
                 "chain_id": "INTEGER NOT NULL DEFAULT 0",
                 "token_address": "TEXT NOT NULL DEFAULT ''",
                 "amount_base_units": "INTEGER NOT NULL DEFAULT 0",
@@ -107,7 +115,32 @@ class WorkflowStore:
                 """UPDATE transactions SET executed_at = updated_at
                    WHERE status = 'executed_simulated' AND executed_at IS NULL"""
             )
-            # Backfill the new accounting columns for older records.
+            # Backfill indexed spend keys for existing records without rewriting history.
+            db.execute(
+                "UPDATE transactions SET created_day = date(created_at) "
+                "WHERE created_day IS NULL OR created_day = ''"
+            )
+            db.execute(
+                "UPDATE transactions SET executed_day = date(executed_at) "
+                "WHERE status = 'executed_simulated' AND executed_at IS NOT NULL "
+                "AND (executed_day IS NULL OR executed_day = '')"
+            )
+            rows = db.execute(
+                "SELECT transaction_id, proposal_json FROM transactions "
+                "WHERE recipient_normalized IS NULL"
+            ).fetchall()
+            for row in rows:
+                try:
+                    proposal = json.loads(row["proposal_json"])
+                    recipient = proposal.get("recipient") if isinstance(proposal, dict) else None
+                    if isinstance(recipient, str):
+                        db.execute(
+                            "UPDATE transactions SET recipient_normalized = ? WHERE transaction_id = ?",
+                            (recipient.strip().lower(), row["transaction_id"]),
+                        )
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    continue
+            # Backfill the legacy accounting columns for older records.
             rows = db.execute(
                 "SELECT transaction_id, proposal_json FROM transactions "
                 "WHERE chain_id = 0 OR token_address = '' OR amount_base_units = 0"
@@ -140,14 +173,95 @@ class WorkflowStore:
                     )
                 except (TypeError, ValueError, OverflowError, json.JSONDecodeError):
                     continue
+            # Mark any legacy accounting inconsistency once, then keep this guard indexed.
+            db.execute(
+                """
+                UPDATE transactions SET accounting_integrity = 0
+                WHERE CASE
+                    WHEN json_valid(proposal_json) = 0 THEN 1
+                    WHEN json_type(proposal_json) != 'object' THEN 1
+                    WHEN json_type(proposal_json, '$.chain_id') != 'integer' THEN 1
+                    WHEN json_type(proposal_json, '$.amount_base_units') != 'integer' THEN 1
+                    WHEN json_type(proposal_json, '$.token_address') != 'text' THEN 1
+                    WHEN json_type(proposal_json, '$.recipient') != 'text' THEN 1
+                    WHEN chain_id != json_extract(proposal_json, '$.chain_id') THEN 1
+                    WHEN amount_base_units != json_extract(proposal_json, '$.amount_base_units') THEN 1
+                    WHEN lower(trim(token_address)) !=
+                         lower(trim(json_extract(proposal_json, '$.token_address'))) THEN 1
+                    WHEN recipient_normalized IS NULL OR recipient_normalized !=
+                         lower(trim(json_extract(proposal_json, '$.recipient'))) THEN 1
+                    WHEN created_day IS NULL OR created_day != date(created_at) THEN 1
+                    WHEN status = 'executed_simulated' AND (
+                        executed_at IS NULL OR executed_day IS NULL
+                        OR executed_day != date(executed_at)
+                    ) THEN 1
+                    ELSE 0
+                END = 1
+                """
+            )
+            db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_accounting_integrity ON transactions(accounting_integrity)")
+            db.execute("""
+                CREATE TRIGGER IF NOT EXISTS transactions_accounting_integrity_guard
+                AFTER UPDATE OF proposal_json, chain_id, token_address, amount_base_units,
+                    recipient_normalized, created_day, executed_day, created_at, executed_at, status
+                ON transactions
+                WHEN CASE
+                    WHEN json_valid(NEW.proposal_json) = 0 THEN 1
+                    WHEN json_type(NEW.proposal_json) != 'object' THEN 1
+                    WHEN json_type(NEW.proposal_json, '$.chain_id') != 'integer' THEN 1
+                    WHEN json_type(NEW.proposal_json, '$.amount_base_units') != 'integer' THEN 1
+                    WHEN json_type(NEW.proposal_json, '$.token_address') != 'text' THEN 1
+                    WHEN json_type(NEW.proposal_json, '$.recipient') != 'text' THEN 1
+                    WHEN NEW.chain_id != json_extract(NEW.proposal_json, '$.chain_id') THEN 1
+                    WHEN NEW.amount_base_units != json_extract(NEW.proposal_json, '$.amount_base_units') THEN 1
+                    WHEN lower(trim(NEW.token_address)) !=
+                         lower(trim(json_extract(NEW.proposal_json, '$.token_address'))) THEN 1
+                    WHEN NEW.recipient_normalized IS NULL OR NEW.recipient_normalized !=
+                         lower(trim(json_extract(NEW.proposal_json, '$.recipient'))) THEN 1
+                    WHEN NEW.created_day IS NULL OR NEW.created_day != date(NEW.created_at) THEN 1
+                    WHEN NEW.status = 'executed_simulated' AND (
+                        NEW.executed_at IS NULL OR NEW.executed_day IS NULL
+                        OR NEW.executed_day != date(NEW.executed_at)
+                    ) THEN 1
+                    ELSE 0
+                END = 1
+                BEGIN
+                    UPDATE transactions SET accounting_integrity = 0
+                    WHERE transaction_id = NEW.transaction_id;
+                END
+            """)
             db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_fingerprint ON transactions(fingerprint)")
             db.execute("""
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_idempotency
                 ON transactions(idempotency_key) WHERE idempotency_key IS NOT NULL
             """)
+            # Replace the original timestamp index only when its column layout is stale.
+            daily_index_columns = tuple(
+                row["name"] for row in db.execute(
+                    "PRAGMA index_info(idx_transactions_daily_spend)"
+                )
+            )
+            if daily_index_columns != ("chain_id", "token_address", "created_day", "status"):
+                db.execute("DROP INDEX IF EXISTS idx_transactions_daily_spend")
             db.execute("""
                 CREATE INDEX IF NOT EXISTS idx_transactions_daily_spend
-                ON transactions(chain_id, token_address, created_at, status)
+                ON transactions(chain_id, token_address, created_day, status)
+            """)
+            db.execute("""
+                CREATE INDEX IF NOT EXISTS idx_transactions_recipient_daily_spend
+                ON transactions(
+                    chain_id, token_address, recipient_normalized, created_day, status
+                )
+            """)
+            db.execute("""
+                CREATE INDEX IF NOT EXISTS idx_transactions_execution_day
+                ON transactions(chain_id, token_address, executed_day, status)
+            """)
+            db.execute("""
+                CREATE INDEX IF NOT EXISTS idx_transactions_recipient_execution_day
+                ON transactions(
+                    chain_id, token_address, recipient_normalized, executed_day, status
+                )
             """)
             db.execute("""
                 CREATE TABLE IF NOT EXISTS audit_events (
@@ -264,34 +378,57 @@ class WorkflowStore:
             raise WorkflowDataError("Stored workflow data is invalid")
 
     @staticmethod
+    def _assert_accounting_integrity(db: sqlite3.Connection) -> None:
+        """Fail closed on corrupted accounting keys before relying on indexed totals."""
+        invalid = db.execute(
+            "SELECT transaction_id FROM transactions "
+            "WHERE accounting_integrity != 1 LIMIT 1"
+        ).fetchone()
+        if invalid is not None:
+            raise WorkflowDataError("Stored workflow data is invalid")
+
+    @staticmethod
+    def _sum_amount_rows(rows: Any) -> int:
+        """Sum indexed spend values while preserving overflow-safe Python arithmetic."""
+        total = 0
+        for row in rows:
+            amount = row["amount_base_units"]
+            if type(amount) is not int or not 0 <= amount <= MAX_SQLITE_INTEGER:
+                raise WorkflowDataError("Stored workflow data is invalid")
+            total += amount
+        return total
+
+    @staticmethod
     def _daily_spend(
         db: sqlite3.Connection,
         chain_id: int,
         token_address: str,
         exclude_transaction_id: str | None = None,
     ) -> int:
+        """Read only today's reservations and executions for this chain/token."""
+        today = _utc_now().date().isoformat()
         reservation_statuses = ("ready", "awaiting_approval", "approved")
-        statuses = ",".join("?" for _ in reservation_statuses)
+        status_placeholders = ",".join("?" for _ in reservation_statuses)
+        normalized_token = token_address.strip().lower()
         query = (
-            "SELECT * FROM transactions WHERE "
-            f"((status IN ({statuses}) AND date(created_at) = date('now')) "
-            "OR (status = 'executed_simulated' AND date(executed_at) = date('now')))"
+            "SELECT amount_base_units FROM transactions "
+            f"WHERE chain_id = ? AND token_address = ? AND created_day = ? "
+            f"AND status IN ({status_placeholders})"
         )
-        args: list[Any] = list(reservation_statuses)
+        args: list[Any] = [chain_id, normalized_token, today, *reservation_statuses]
         if exclude_transaction_id is not None:
             query += " AND transaction_id != ?"
             args.append(exclude_transaction_id)
-        total = 0
-        for row in db.execute(query, args).fetchall():
-            record = WorkflowStore._decode(row)
-            proposal = record["proposal"]
-            WorkflowStore._validate_accounting_consistency(record)
-            if (
-                proposal["chain_id"] == chain_id
-                and proposal["token_address"].strip().lower() == token_address.strip().lower()
-            ):
-                total += proposal["amount_base_units"]
-        return total
+        query += (
+            " UNION ALL SELECT amount_base_units FROM transactions "
+            "WHERE chain_id = ? AND token_address = ? AND executed_day = ? "
+            "AND status = 'executed_simulated'"
+        )
+        args.extend([chain_id, normalized_token, today])
+        if exclude_transaction_id is not None:
+            query += " AND transaction_id != ?"
+            args.append(exclude_transaction_id)
+        return WorkflowStore._sum_amount_rows(db.execute(query, args))
 
     @staticmethod
     def _recipient_daily_spend(
@@ -301,29 +438,33 @@ class WorkflowStore:
         recipient: str,
         exclude_transaction_id: str | None = None,
     ) -> int:
+        """Read only today's spend for the normalized chain/token/recipient tuple."""
+        today = _utc_now().date().isoformat()
         reservation_statuses = ("ready", "awaiting_approval", "approved")
-        statuses = ",".join("?" for _ in reservation_statuses)
+        status_placeholders = ",".join("?" for _ in reservation_statuses)
+        normalized_token = token_address.strip().lower()
+        normalized_recipient = recipient.strip().lower()
         query = (
-            "SELECT * FROM transactions WHERE "
-            f"((status IN ({statuses}) AND date(created_at) = date('now')) "
-            "OR (status = 'executed_simulated' AND date(executed_at) = date('now')))"
+            "SELECT amount_base_units FROM transactions "
+            f"WHERE chain_id = ? AND token_address = ? AND recipient_normalized = ? "
+            f"AND created_day = ? AND status IN ({status_placeholders})"
         )
-        args: list[Any] = list(reservation_statuses)
+        args: list[Any] = [
+            chain_id, normalized_token, normalized_recipient, today, *reservation_statuses
+        ]
         if exclude_transaction_id is not None:
             query += " AND transaction_id != ?"
             args.append(exclude_transaction_id)
-        total = 0
-        for row in db.execute(query, args).fetchall():
-            record = WorkflowStore._decode(row)
-            proposal = record["proposal"]
-            WorkflowStore._validate_accounting_consistency(record)
-            if (
-                proposal["chain_id"] == chain_id
-                and proposal["token_address"].strip().lower() == token_address.strip().lower()
-                and proposal["recipient"].strip().lower() == recipient.strip().lower()
-            ):
-                total += proposal["amount_base_units"]
-        return total
+        query += (
+            " UNION ALL SELECT amount_base_units FROM transactions "
+            "WHERE chain_id = ? AND token_address = ? AND recipient_normalized = ? "
+            "AND executed_day = ? AND status = 'executed_simulated'"
+        )
+        args.extend([chain_id, normalized_token, normalized_recipient, today])
+        if exclude_transaction_id is not None:
+            query += " AND transaction_id != ?"
+            args.append(exclude_transaction_id)
+        return WorkflowStore._sum_amount_rows(db.execute(query, args))
 
     def create_evaluated(
         self, proposal: dict[str, Any], idempotency_key: str | None,
@@ -375,6 +516,9 @@ class WorkflowStore:
                     db.execute("COMMIT")
                     return "replayed", record
 
+            # Idempotency replays validate the prior record first so proposal
+            # tampering remains a conflict (409); new reservations fail closed.
+            self._assert_accounting_integrity(db)
             spent = self._daily_spend(
                 db, int(proposal["chain_id"]), str(proposal["token_address"])
             )
@@ -387,15 +531,17 @@ class WorkflowStore:
                 """INSERT INTO transactions (
                     transaction_id, fingerprint, proposal_json, policy_decision,
                     policy_reasons_json, risk_score, risk_level, risk_reasons_json, status,
-                    idempotency_key, chain_id, token_address, amount_base_units
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    idempotency_key, chain_id, token_address, amount_base_units,
+                    recipient_normalized, created_day
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, date('now'))""",
                 (
                     record["transaction_id"], record["fingerprint"],
                     json.dumps(record["proposal"], sort_keys=True),
                     record["policy_decision"], json.dumps(record["policy_reasons"]),
                     record["risk_score"], record["risk_level"], json.dumps(record["risk_reasons"]),
                     record["status"], idempotency_key, int(proposal["chain_id"]),
-                    str(proposal["token_address"]).lower(), int(proposal["amount_base_units"]),
+                    str(proposal["token_address"]).strip().lower(), int(proposal["amount_base_units"]),
+                    str(proposal["recipient"]).strip().lower(),
                 ),
             )
             self._append_audit(
@@ -412,22 +558,24 @@ class WorkflowStore:
 
     def create(self, record: dict[str, Any], actor_role: str = "system") -> None:
         proposal = record["proposal"]
+        executed_at = _utc_now().isoformat() if record["status"] == "executed_simulated" else None
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             db.execute(
                 """INSERT INTO transactions (
                     transaction_id, fingerprint, proposal_json, policy_decision,
                     policy_reasons_json, risk_score, risk_level, risk_reasons_json, status,
-                    chain_id, token_address, amount_base_units, executed_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    chain_id, token_address, amount_base_units, executed_at, executed_day,
+                    recipient_normalized, created_day
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, date(?), ?, date('now'))""",
                 (
                     record["transaction_id"], record["fingerprint"],
                     json.dumps(proposal, sort_keys=True), record["policy_decision"],
                     json.dumps(record["policy_reasons"]), record["risk_score"],
                     record["risk_level"], json.dumps(record["risk_reasons"]), record["status"],
-                    int(proposal.get("chain_id", 0)), str(proposal.get("token_address", "")).lower(),
+                    int(proposal.get("chain_id", 0)), str(proposal.get("token_address", "")).strip().lower(),
                     int(proposal.get("amount_base_units", 0)),
-                    _utc_now().isoformat() if record["status"] == "executed_simulated" else None,
+                    executed_at, executed_at, str(proposal.get("recipient", "")).strip().lower(),
                 ),
             )
             self._append_audit(
@@ -673,11 +821,12 @@ class WorkflowStore:
                 return "approval_required", record
 
             reference = "simulated:" + record["fingerprint"][:24]
+            executed_at = _utc_now().isoformat()
             db.execute(
                 """UPDATE transactions SET status = 'executed_simulated',
-                   execution_reference = ?, executed_at = ?, updated_at = CURRENT_TIMESTAMP
-                   WHERE transaction_id = ?""",
-                (reference, _utc_now().isoformat(), transaction_id),
+                   execution_reference = ?, executed_at = ?, executed_day = date(?),
+                   updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
+                (reference, executed_at, executed_at, transaction_id),
             )
             self._append_audit(
                 db, transaction_id, "simulated_execution", actor_role,
