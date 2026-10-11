@@ -620,6 +620,19 @@ class WorkflowStore:
     @staticmethod
     def _decode(row: sqlite3.Row) -> dict[str, Any]:
         record = dict(row)
+        workflow_fields = ("policy_decision", "risk_level", "status")
+        if any(not isinstance(record.get(name), str) for name in workflow_fields):
+            raise WorkflowDataError("Stored workflow data is invalid")
+        if (
+            record["policy_decision"] not in {"allow", "require_approval", "block"}
+            or record["risk_level"] not in {"low", "medium", "high"}
+            or record["status"] not in {
+                "blocked", "ready", "awaiting_approval", "approved", "executed_simulated"
+            }
+            or type(record.get("risk_score")) is not int
+            or not 0 <= record["risk_score"] <= 100
+        ):
+            raise WorkflowDataError("Stored workflow data is invalid")
         try:
             proposal = json.loads(record.pop("proposal_json"))
             policy_reasons = json.loads(record.pop("policy_reasons_json"))
