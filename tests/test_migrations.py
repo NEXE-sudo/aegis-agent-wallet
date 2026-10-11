@@ -377,3 +377,71 @@ def test_partial_migration_preserves_existing_columns_and_backfills_missing_acco
     assert idempotency_index is not None
     assert "UNIQUE INDEX" in idempotency_index[0].upper()
     assert store.daily_spend(84532, proposal["token_address"]) == 2_500_000
+
+
+
+def test_fresh_database_initialization_creates_indexes_and_append_only_audit(tmp_path):
+    db_path = tmp_path / "fresh-workflow.sqlite3"
+
+    store = WorkflowStore(db_path)
+
+    with sqlite3.connect(db_path) as db:
+        columns = {row[1] for row in db.execute("PRAGMA table_info(transactions)")}
+        indexes = {
+            row[1]: row[2]
+            for row in db.execute("PRAGMA index_list(transactions)")
+        }
+        audit_indexes = {
+            row[1]
+            for row in db.execute("PRAGMA index_list(audit_events)")
+        }
+        triggers = {
+            row[0]
+            for row in db.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'trigger'"
+            )
+        }
+
+    assert {
+        "idempotency_key",
+        "approved_at",
+        "chain_id",
+        "token_address",
+        "amount_base_units",
+    } <= columns
+    assert indexes["idx_transactions_idempotency"] == 1
+    assert "idx_transactions_fingerprint" in indexes
+    assert "idx_transactions_daily_spend" in indexes
+    assert "idx_audit_events_transaction" in audit_indexes
+    assert {"audit_events_no_update", "audit_events_no_delete"} <= triggers
+
+    with sqlite3.connect(db_path) as db:
+        db.execute(
+            """
+            INSERT INTO audit_events (
+                transaction_id, event_type, actor_role, details_json
+            ) VALUES (?, ?, ?, ?)
+            """,
+            ("fresh-init", "proposal_created", "agent", "{}"),
+        )
+        for statement in (
+            "UPDATE audit_events SET details_json = '{\"changed\": true}'",
+            "DELETE FROM audit_events",
+        ):
+            try:
+                db.execute(statement)
+            except sqlite3.IntegrityError:
+                pass
+            else:
+                raise AssertionError("Audit events must reject updates and deletes")
+
+    # Initialization must be idempotent and must retain the schema protections.
+    WorkflowStore(db_path)
+    with sqlite3.connect(db_path) as db:
+        assert db.execute("SELECT COUNT(*) FROM audit_events").fetchone()[0] == 1
+        assert {
+            row[0]
+            for row in db.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'trigger'"
+            )
+        } >= {"audit_events_no_update", "audit_events_no_delete"}
