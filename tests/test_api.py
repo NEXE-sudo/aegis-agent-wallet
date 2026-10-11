@@ -1341,6 +1341,7 @@ def test_invalid_persisted_audit_metadata_returns_sanitized_server_error(
     assert response.json() == {"detail": "Stored workflow data is invalid"}
     assert "corrupt-audit" not in response.text
 
+
 @pytest.mark.parametrize(
     ("column", "invalid_value"),
     [
