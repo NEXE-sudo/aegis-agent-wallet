@@ -109,6 +109,38 @@ def test_workflow_requires_distinct_authentication():
     assert owner_post(f"/transactions/{record['transaction_id']}/execute").status_code == 200
 
 
+def test_simulated_execution_is_terminal_and_cannot_be_approved():
+    record = propose().json()
+    transaction_id = record["transaction_id"]
+
+    executed = owner_post(f"/transactions/{transaction_id}/execute")
+    assert executed.status_code == 200
+    assert executed.json()["status"] == "executed_simulated"
+
+    approval = owner_post(
+        f"/transactions/{transaction_id}/approve",
+        json={
+            "transaction_fingerprint": record["fingerprint"],
+            "confirmation": "APPROVE",
+        },
+    )
+    assert approval.status_code == 409
+
+    current = client.get(
+        f"/transactions/{transaction_id}", headers=OWNER_HEADERS
+    )
+    assert current.status_code == 200
+    assert current.json()["status"] == "executed_simulated"
+    assert current.json()["approval_fingerprint"] is None
+
+    events = client.get(
+        f"/transactions/{transaction_id}/audit", headers=OWNER_HEADERS
+    ).json()
+    event_types = [event["event_type"] for event in events]
+    assert event_types.count("simulated_execution") == 1
+    assert "approval_granted" not in event_types
+
+
 def test_low_risk_transaction_can_be_simulated_once():
     proposed = propose()
     assert proposed.status_code == 201
