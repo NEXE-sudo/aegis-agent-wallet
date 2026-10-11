@@ -101,6 +101,35 @@ def test_risk_endpoint_rejects_unknown_agent():
     assert response.status_code == 404
 
 
+@pytest.mark.parametrize("endpoint", ["/policy/evaluate", "/risk/assess"])
+@pytest.mark.parametrize(
+    ("overrides", "case"),
+    [
+        ({"daily_spent_base_units": -1}, "negative-daily-spend"),
+        ({"daily_spent_base_units": 2**63}, "daily-spend-above-sqlite-range"),
+        ({"amount_base_units": 0}, "zero-amount"),
+        ({"amount_base_units": 2**63}, "amount-above-sqlite-range"),
+        ({"chain_id": 0}, "nonpositive-chain-id"),
+        ({"token_decimals": 37}, "decimals-above-supported-range"),
+    ],
+    ids=[
+        "negative-daily-spend",
+        "daily-spend-above-sqlite-range",
+        "zero-amount",
+        "amount-above-sqlite-range",
+        "nonpositive-chain-id",
+        "decimals-above-supported-range",
+    ],
+)
+def test_standalone_evaluation_endpoints_reject_out_of_range_inputs(endpoint, overrides, case):
+    response = client.post(
+        endpoint,
+        json={**_payload(), "daily_spent_base_units": 0, **overrides},
+    )
+
+    assert response.status_code == 422
+
+
 def test_workflow_requires_distinct_authentication():
     assert client.post("/transactions/propose", json=_payload()).status_code == 401
     assert client.post("/transactions/propose", headers=OWNER_HEADERS, json=_payload()).status_code == 401
