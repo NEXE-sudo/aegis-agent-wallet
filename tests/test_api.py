@@ -323,6 +323,26 @@ def test_proposal_blocks_caller_supplied_token_symbol_tampering():
     assert any("symbol does not match" in reason.lower() for reason in response.json()["policy_reasons"])
 
 
+def test_documented_demo_token_symbol_mismatch_is_hard_blocked():
+    response = propose(_payload(token_symbol="FAKE"))
+    assert response.status_code == 201
+    record = response.json()
+    assert record["status"] == "blocked"
+    assert record["policy_decision"] == "block"
+    assert any("symbol does not match" in reason.lower() for reason in record["policy_reasons"])
+
+    approval = owner_post(
+        f"/transactions/{record['transaction_id']}/approve",
+        json={
+            "transaction_fingerprint": record["fingerprint"],
+            "confirmation": "APPROVE",
+        },
+    )
+    assert approval.status_code == 409
+    execution = owner_post(f"/transactions/{record['transaction_id']}/execute")
+    assert execution.status_code == 403
+
+
 def test_malformed_recipient_is_blocked_and_cannot_be_approved_or_executed():
     response = propose(_payload(recipient="0x1234"))
     assert response.status_code == 201
