@@ -39,7 +39,7 @@ def _decode_abi_string(value: str) -> str:
     if len(raw) < 64:
         raise RpcRequestError("RPC returned truncated ABI string data")
     offset = int.from_bytes(raw[:32], "big")
-    if offset + 32 > len(raw):
+    if offset < 32 or offset % 32 != 0 or offset + 32 > len(raw):
         raise RpcRequestError("RPC returned invalid ABI string offset")
     length = int.from_bytes(raw[offset:offset + 32], "big")
     start = offset + 32
