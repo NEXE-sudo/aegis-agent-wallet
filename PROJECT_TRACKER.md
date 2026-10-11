@@ -113,7 +113,7 @@ Remaining candidate work (inspect current implementation and tests before select
 Goal: make the workflow easy to understand and demonstrate end to end.
 - [x] Define a reproducible demo scenario and expected outcomes (`docs/demo-scenario.md`; added in PR #32).
 - [x] Add a minimal agent/client example that proposes transactions through the authenticated API (PR #33).
-- [ ] Verify the documented allowed, hard-blocked, approval-required, expired-approval, and replay/conflict paths end to end (`docs/demo-scenario.md`; the expired-approval walkthrough was added in PR #34).
+- [x] Verify the documented allowed, hard-blocked, approval-required, expired-approval, and replay/conflict paths end to end (`docs/demo-scenario.md`; regression coverage in PRs #55–#60, with the expired-approval walkthrough added in PR #34).
 - [x] Keep the demo deterministic and simulation-only.
 - [x] Add a concise documented command sequence and expected outcomes.
 - [x] Ensure secrets and provider credentials are supplied via environment variables and never committed.
@@ -238,6 +238,23 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #41 | Test token endpoint RPC error mapping | Merged |
 | #42 | Test wrong-chain Base Sepolia status response | Merged |
 | #43 | Validate Base Sepolia contract bytecode responses | Merged |
+| #44 | Update project tracker through PR #43 | Merged |
+| #45 | Correct simulated execution status in demo guide | Merged |
+| #46 | Test 404 responses for missing transaction reads | Merged |
+| #47 | Test validation of malformed approval requests | Merged |
+| #48 | Test concurrent transaction spend reservations | Merged |
+| #49 | Test malformed persisted reason data handling | Merged |
+| #50 | Test persisted reason list item validation | Merged |
+| #51 | Test malformed JSON-RPC response envelopes | Merged |
+| #52 | Validate ERC-20 decimals ABI responses | Merged |
+| #53 | Validate malformed ERC-20 symbol ABI responses | Merged |
+| #54 | Test malformed ERC-20 ABI string offsets | Merged |
+| #55 | Test documented demo token hard block | Merged |
+| #56 | Test documented approval-required demo path | Merged |
+| #57 | Test documented allowed demo execution path | Merged |
+| #58 | Test documented demo hard-blocked path | Merged |
+| #59 | Test documented expired-approval demo path | Merged |
+| #60 | Test documented demo idempotency replay and conflict | Merged |
 
 ## 6. Current architecture and useful code locations
 
