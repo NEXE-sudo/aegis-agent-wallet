@@ -14,6 +14,27 @@ from app.policy.models import MAX_SQLITE_INTEGER
 
 DEFAULT_DB_PATH = os.environ.get("AEGIS_DB_PATH", "aegis-workflow.sqlite3")
 RESERVED_STATUSES = ("ready", "awaiting_approval", "approved", "executed_simulated")
+AUDIT_EVENT_TYPES = {
+    "approval_expired",
+    "approval_granted",
+    "idempotency_conflict",
+    "policy_revalidation_blocked",
+    "policy_revalidation_requires_approval",
+    "proposal_created",
+    "proposal_integrity_mismatch",
+    "proposal_replayed",
+    "risk_escalation_requires_approval",
+    "simulated_execution",
+}
+AUDIT_ACTOR_ROLES = {"agent", "owner", "system"}
+AUDIT_STATUSES = {
+    "approved",
+    "awaiting_approval",
+    "blocked",
+    "executed_simulated",
+    "ready",
+}
+
 
 def _proposal_fingerprint(proposal: dict[str, Any]) -> str:
     """Recompute the canonical fingerprint from the persisted proposal payload."""
@@ -195,6 +216,8 @@ class WorkflowStore:
                     not isinstance(event.get(name), str) or not event[name]
                     for name in ("transaction_id", "event_type", "actor_role", "created_at")
                 )
+                or event.get("event_type") not in AUDIT_EVENT_TYPES
+                or event.get("actor_role") not in AUDIT_ACTOR_ROLES
                 or any(
                     value is not None and not isinstance(value, str)
                     for value in (
@@ -202,6 +225,10 @@ class WorkflowStore:
                         event.get("to_status"),
                         event.get("fingerprint"),
                     )
+                )
+                or any(
+                    value is not None and value not in AUDIT_STATUSES
+                    for value in (event.get("from_status"), event.get("to_status"))
                 )
             ):
                 raise WorkflowDataError("Stored workflow data is invalid")
