@@ -5,8 +5,8 @@
 > **Last updated:** 2026-10-11  
 > **Repository:** [NEXE-sudo/aegis-agent-wallet](https://github.com/NEXE-sudo/aegis-agent-wallet)  
 > **Current package/API version:** 1.10.0  
-> **Current phase:** Milestone 4 — Testing and Reliability  
-> **Current status:** Milestones 1–3 complete; Milestone 4 in progress; 5–7 planned; Milestone 8 is optional and out of current scope.
+> **Current phase:** Milestone 5 — Observability and Operations  
+> **Current status:** Milestones 1–4 complete; Milestones 5–7 planned; Milestone 8 is optional and out of current scope.
 
 ## 1. Project mission and non-negotiable boundary
 
@@ -132,7 +132,7 @@ Goal: make the workflow easy to understand and demonstrate end to end.
 **Exit criteria:** a new developer can run the app and reproduce the documented happy path and important rejection paths.
 
 ### Milestone 4 — Testing and Reliability
-**Status: IN PROGRESS**
+**Status: COMPLETE**
 
 Goal: test correctness under failures, concurrency, and persistence changes.
 - [x] Review test coverage by API endpoint, policy rule, and workflow transition (reviewed API routes in `app/main.py` and `app/chain/router.py` against `tests/test_api.py`, `tests/test_chain_api.py`, and `tests/test_workflow_transitions.py`; focused endpoint and policy-boundary gaps were covered in PRs #101–#110).
@@ -145,7 +145,7 @@ Goal: test correctness under failures, concurrency, and persistence changes.
 - [x] Test lower-bound validation for standalone evaluation inputs (PR #98) and policy-engine token decimals outside the supported range (PR #99).
 - [x] Keep tests deterministic; avoid live RPC dependence in the unit-test suite (Base Sepolia RPC tests use `httpx.MockTransport`; chain/API tests substitute fake RPC clients, and no live RPC is required by the reviewed unit tests).
 
-**Exit criteria:** automated checks run reproducibly and important failure modes have regression coverage.
+**Exit criteria:** automated checks run reproducibly and important failure modes have regression coverage. All listed Milestone 4 criteria have been reviewed and checked off; the focused regression coverage in PRs #101–#112 is merged, and the project owner confirmed both required checks after the latest merges.
 
 ### Milestone 5 — Observability and Operations
 **Status: PLANNED**
@@ -319,6 +319,9 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #108 | Test recipient token allowlist normalization | Merged |
 | #109 | Test successful transaction read endpoint | Merged |
 | #110 | Test global token address normalization | Merged |
+| #111 | Record Milestone 4 test coverage review | Merged |
+| #112 | Test case-insensitive risk recipient matching | Merged |
+| #113 | Mark Milestone 4 complete and Milestone 5 in progress | Planned |
 
 ## 6. Current architecture and useful code locations
 
