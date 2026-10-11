@@ -103,14 +103,14 @@ def test_risk_endpoint_rejects_unknown_agent():
 
 @pytest.mark.parametrize("endpoint", ["/policy/evaluate", "/risk/assess"])
 @pytest.mark.parametrize(
-    ("overrides", "case"),
+    "overrides",
     [
-        ({"daily_spent_base_units": -1}, "negative-daily-spend"),
-        ({"daily_spent_base_units": 2**63}, "daily-spend-above-sqlite-range"),
-        ({"amount_base_units": 0}, "zero-amount"),
-        ({"amount_base_units": 2**63}, "amount-above-sqlite-range"),
-        ({"chain_id": 0}, "nonpositive-chain-id"),
-        ({"token_decimals": 37}, "decimals-above-supported-range"),
+        {"daily_spent_base_units": -1},
+        {"daily_spent_base_units": 2**63},
+        {"amount_base_units": 0},
+        {"amount_base_units": 2**63},
+        {"chain_id": 0},
+        {"token_decimals": 37},
     ],
     ids=[
         "negative-daily-spend",
@@ -121,7 +121,7 @@ def test_risk_endpoint_rejects_unknown_agent():
         "decimals-above-supported-range",
     ],
 )
-def test_standalone_evaluation_endpoints_reject_out_of_range_inputs(endpoint, overrides, case):
+def test_standalone_evaluation_endpoints_reject_out_of_range_inputs(endpoint, overrides):
     response = client.post(
         endpoint,
         json={**_payload(), "daily_spent_base_units": 0, **overrides},
