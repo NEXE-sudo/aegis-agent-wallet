@@ -123,3 +123,30 @@ def test_recipient_address_validation_rejects_wrong_length(policy):
     result = evaluate_transaction(proposal(recipient="0x2222"), policy)
     assert result.decision == PolicyDecision.BLOCK
     assert any("valid EVM address" in reason for reason in result.reasons)
+
+
+@pytest.mark.parametrize(
+    ("recipient_daily_spent", "expected_decision"),
+    [
+        (10_000_000, PolicyDecision.ALLOW),
+        (10_000_001, PolicyDecision.BLOCK),
+    ],
+)
+def test_recipient_daily_limit_boundary(policy, recipient_daily_spent, expected_decision):
+    limited_policy = AgentPolicy(
+        **{
+            **policy.__dict__,
+            "recipient_daily_limits_base_units": {RECIPIENT_A: 30_000_000},
+        }
+    )
+
+    result = evaluate_transaction(
+        proposal(),
+        limited_policy,
+        recipient_daily_spent_base_units=recipient_daily_spent,
+    )
+
+    assert result.decision == expected_decision
+    if expected_decision == PolicyDecision.BLOCK:
+        assert any("recipient daily spending limit" in reason.lower() for reason in result.reasons)
+
