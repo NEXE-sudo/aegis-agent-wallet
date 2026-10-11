@@ -1334,12 +1334,12 @@ def test_persisted_proposal_rejects_invalid_integer_types_and_ranges(corrupt_amo
 @pytest.mark.parametrize(
     ("column", "corrupt_value"),
     [
-        ("fingerprint", None),
+        ("fingerprint", sqlite3.Binary(b"123")),
         ("approval_fingerprint", sqlite3.Binary(b"123")),
         ("approved_at", sqlite3.Binary(b"123")),
         ("execution_reference", sqlite3.Binary(b"123")),
-        ("created_at", None),
-        ("updated_at", None),
+        ("created_at", sqlite3.Binary(b"123")),
+        ("updated_at", sqlite3.Binary(b"123")),
     ],
     ids=[
         "non-string-fingerprint",
