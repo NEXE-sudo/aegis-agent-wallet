@@ -1250,6 +1250,31 @@ def test_api_rejects_values_outside_sqlite_integer_range():
     assert evaluation.status_code == 422
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("chain_id", -1),
+        ("chain_id", 0),
+        ("token_decimals", -1),
+        ("token_decimals", 37),
+    ],
+    ids=[
+        "negative-chain-id",
+        "zero-chain-id",
+        "negative-token-decimals",
+        "decimals-above-supported-range",
+    ],
+)
+def test_proposal_rejects_out_of_range_chain_id_and_token_decimals(field, value):
+    response = client.post(
+        "/transactions/propose",
+        headers=AGENT_HEADERS,
+        json=_payload(**{field: value}),
+    )
+
+    assert response.status_code == 422
+
+
 def test_spend_aggregation_does_not_overflow_sqlite_integer_range(tmp_path):
     recipient = "0x2222222222222222222222222222222222222222"
     amount = 2**62
