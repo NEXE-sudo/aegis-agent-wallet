@@ -13,7 +13,6 @@ from typing import Any
 from app.policy.models import MAX_SQLITE_INTEGER
 
 DEFAULT_DB_PATH = os.environ.get("AEGIS_DB_PATH", "aegis-workflow.sqlite3")
-RESERVED_STATUSES = ("ready", "awaiting_approval", "approved", "executed_simulated")
 AUDIT_EVENT_TYPES = {
     "approval_expired",
     "approval_granted",
