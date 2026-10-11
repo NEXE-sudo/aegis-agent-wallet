@@ -900,6 +900,32 @@ def test_audit_events_reject_update_and_delete(tmp_path):
             db.execute("DELETE FROM audit_events WHERE transaction_id = ?",
                        (record["transaction_id"],))
 
+        original = db.execute(
+            """SELECT event_id, transaction_id, event_type, actor_role, from_status,
+                      to_status, fingerprint, details_json, created_at
+               FROM audit_events WHERE transaction_id = ?""",
+            (record["transaction_id"],),
+        ).fetchone()
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            db.execute(
+                """INSERT OR REPLACE INTO audit_events (
+                       event_id, transaction_id, event_type, actor_role, from_status,
+                       to_status, fingerprint, details_json, created_at
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    original["event_id"], original["transaction_id"], "approval_granted",
+                    "owner", original["from_status"], "approved", original["fingerprint"],
+                    original["details_json"], original["created_at"],
+                ),
+            )
+
+        unchanged = db.execute(
+            """SELECT event_type, actor_role, to_status FROM audit_events
+               WHERE event_id = ?""",
+            (original["event_id"],),
+        ).fetchone()
+        assert tuple(unchanged) == ("proposal_created", "agent", "ready")
+
     assert len(local_store.audit_events(record["transaction_id"])) == 1
 
 
