@@ -106,6 +106,33 @@ def test_rpc_error_is_not_treated_as_valid_result():
         rpc.chain_id()
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        [],
+        {"jsonrpc": "1.0", "id": 1, "result": "0x14a34"},
+        {"jsonrpc": "2.0", "id": "1", "result": "0x14a34"},
+        {"jsonrpc": "2.0", "id": 2, "result": "0x14a34"},
+        {"jsonrpc": "2.0", "id": 1},
+    ],
+    ids=[
+        "non-object-envelope",
+        "wrong-jsonrpc-version",
+        "string-request-id",
+        "mismatched-request-id",
+        "missing-result",
+    ],
+)
+def test_rpc_rejects_malformed_json_rpc_envelopes(payload):
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, json=payload)
+    )
+    rpc = BaseSepoliaRpc("https://rpc.invalid", transport=transport)
+
+    with pytest.raises(RpcRequestError):
+        rpc.chain_id()
+
+
 @pytest.mark.parametrize("malformed_code", [[], "6000", "0x600", "0xgg"])
 def test_get_code_rejects_malformed_bytecode_result(malformed_code):
     rpc = BaseSepoliaRpc(
