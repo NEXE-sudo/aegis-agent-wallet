@@ -71,3 +71,74 @@ def test_chain_status_reports_wrong_chain_without_claiming_base_sepolia(monkeypa
         "expected_chain_id": 84532,
         "mode": "read-only",
     }
+
+
+
+def test_chain_token_endpoint_returns_read_only_metadata(monkeypatch):
+    monkeypatch.setenv("AEGIS_APPROVAL_TOKEN", OWNER_HEADERS["Authorization"].split()[-1])
+    expected = {
+        "address": "0x1111111111111111111111111111111111111111",
+        "chain_id": 84532,
+        "has_contract_code": True,
+        "erc20_metadata_readable": True,
+        "name": "Example Token",
+        "symbol": "EXT",
+        "decimals": 18,
+        "verified": True,
+        "warnings": ["Metadata readability does not prove token authenticity."],
+    }
+
+    class FakeRpc:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+        def verify_token(self, address):
+            assert address == expected["address"]
+            return expected
+
+    monkeypatch.setattr(chain_router, "BaseSepoliaRpc", FakeRpc)
+    response = client.get(
+        "/chain/base-sepolia/token/0x1111111111111111111111111111111111111111",
+        headers=OWNER_HEADERS,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == expected
+
+
+def test_chain_token_endpoint_preserves_unverified_no_code_result(monkeypatch):
+    monkeypatch.setenv("AEGIS_APPROVAL_TOKEN", OWNER_HEADERS["Authorization"].split()[-1])
+    expected = {
+        "address": "0x1111111111111111111111111111111111111111",
+        "chain_id": 84532,
+        "has_contract_code": False,
+        "erc20_metadata_readable": False,
+        "name": None,
+        "symbol": None,
+        "decimals": None,
+        "verified": False,
+        "warnings": ["No contract bytecode found at this address."],
+    }
+
+    class FakeRpc:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+        def verify_token(self, address):
+            assert address == expected["address"]
+            return expected
+
+    monkeypatch.setattr(chain_router, "BaseSepoliaRpc", FakeRpc)
+    response = client.get(
+        "/chain/base-sepolia/token/0x1111111111111111111111111111111111111111",
+        headers=OWNER_HEADERS,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == expected
