@@ -15,11 +15,11 @@ This is a focused repository-level review of dependency declarations and secret-
 
 - Runtime dependencies are declared in `pyproject.toml`: FastAPI, Uvicorn, Pydantic, and HTTPX.
 - Development dependencies are pytest and Ruff.
-- Version ranges constrain the declared packages to supported major-version ranges, but do not pin exact versions or fully lock transitive dependencies.
-- No committed lockfile was found among the conventional paths checked in this review. Reproducibility therefore depends on package resolution at installation time.
+- `pyproject.toml` declares supported version ranges, while the committed `uv.lock` records the resolved dependency versions for reproducible installation through the project's `uv` workflow.
+- PR #141 added `uv.lock` and updated `.github/workflows/python-checks.yml` to install dependencies with `uv sync --locked --extra dev` and run tests and Ruff using `uv run --locked`. The `--locked` option makes the workflow fail if the lockfile needs to be updated.
 - At the time of the original review, no Dependabot configuration was found at the conventional `.github/dependabot.yml` path. PR #126 subsequently added weekly Python dependency updates, capped at five open PRs and labeled `dependencies`. This automates update PR creation; it is not itself a vulnerability scan and does not establish whether repository-level security settings or other monitoring services are enabled.
 
-**Implication:** version ranges help avoid unreviewed major-version upgrades but do not by themselves provide reproducible installs or fully reproducible dependency resolution. The CI workflow runs `pip-audit` against installed non-editable Python packages on pull requests and pushes to `main`; it upgrades the CI tooling `setuptools` to at least 83.0.0 before auditing, based on a finding in the runner's build-tool environment. This checks the resolved environment at that run and is not a substitute for repository dependency alerts, secret scanning, or a committed lockfile. Before a release, decide whether to add a lockfile or another repeatable dependency-resolution mechanism and verify the repository-level security settings.
+**Implication:** the committed lockfile and locked CI installation improve dependency reproducibility, while pip-audit checks the installed environment for known vulnerabilities at the time of each run. These controls do not replace reviewing dependency-update PRs, repository dependency alerts, secret scanning, or push protection. Dependency updates should keep uv.lock synchronized with pyproject.toml and should pass the locked CI workflow.
 
 ### Secrets and local configuration
 
@@ -34,7 +34,7 @@ This is a focused repository-level review of dependency declarations and secret-
 ## Follow-up checklist
 
 - [x] Verify repository-level secret scanning and push protection settings; the repository owner confirmed both are enabled in GitHub settings on 2026-10-12.
-- [ ] Decide whether the project needs a committed lockfile or another reproducible dependency-resolution workflow before release.
+- [x] Commit `uv.lock` and enforce locked dependency installation in CI (PR #141).
 - [x] Add a CI dependency-audit step for the resolved Python environment using `pip-audit`; continue reviewing Dependabot PRs and any repository dependency alerts.
 - [ ] If a credential is ever exposed, revoke/rotate it and follow the relevant provider's incident guidance; removing it from the latest commit alone is insufficient.
 - [ ] Revisit these findings before any production-readiness scope change.

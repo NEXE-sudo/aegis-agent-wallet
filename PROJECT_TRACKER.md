@@ -345,8 +345,12 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #133 | Log unhandled request failures safely without exposing exception details | Merged |
 | #134 | Record security review progress through PR #133 | Merged |
 | #135 | Configure weekly GitHub Actions dependency updates | Merged |
+| #136 | Update GitHub Actions `setup-python` to v7 | Merged |
+| #137 | Update GitHub Actions `checkout` to v7 | Merged |
 | #138 | Record security review progress through PR #135 | Merged |
 | #139 | Audit installed Python dependencies in CI with `pip-audit` | Merged |
+| #140 | Document repository secret scanning and push protection settings | Merged |
+| #141 | Add reproducible Python dependency lockfile and locked CI installation | Merged |
 
 ## 6. Current architecture and useful code locations
 
