@@ -97,3 +97,92 @@ def test_documented_standalone_evaluation_endpoints_remain_public(path):
     response = client.post(path, json=payload)
 
     assert response.status_code == 200
+
+@pytest.mark.parametrize(
+    ("method", "path", "valid_token"),
+    [
+        ("post", "/transactions/propose", AGENT_TOKEN),
+        ("get", "/transactions/security-review-id", OWNER_TOKEN),
+        ("get", "/transactions/security-review-id/audit", OWNER_TOKEN),
+        ("post", "/transactions/security-review-id/approve", OWNER_TOKEN),
+        ("post", "/transactions/security-review-id/execute", OWNER_TOKEN),
+        ("get", "/chain/base-sepolia/status", OWNER_TOKEN),
+        (
+            "get",
+            "/chain/base-sepolia/token/0x1111111111111111111111111111111111111111",
+            OWNER_TOKEN,
+        ),
+    ],
+    ids=[
+        "agent-proposal",
+        "owner-transaction-read",
+        "owner-audit-read",
+        "owner-approval",
+        "owner-simulated-execution",
+        "owner-chain-status",
+        "owner-token-inspection",
+    ],
+)
+def test_protected_endpoint_fails_closed_when_tokens_are_identical(
+    monkeypatch, method, path, valid_token
+):
+    monkeypatch.setenv("AEGIS_AGENT_TOKEN", "shared-security-review-token")
+    monkeypatch.setenv("AEGIS_APPROVAL_TOKEN", "shared-security-review-token")
+
+    if path.startswith("/chain/"):
+        def unexpected_rpc():
+            raise AssertionError("RPC must not be initialized when authentication configuration is invalid")
+
+        monkeypatch.setattr(chain_router, "BaseSepoliaRpc", unexpected_rpc)
+
+    response = _request(
+        method,
+        path,
+        {"Authorization": "Bearer shared-security-review-token"},
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "AEGIS_AGENT_TOKEN and AEGIS_APPROVAL_TOKEN must be different; endpoint fails closed"
+    }
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "configured_env", "configured_token"),
+    [
+        ("post", "/transactions/propose", "AEGIS_AGENT_TOKEN", AGENT_TOKEN),
+        ("get", "/transactions/security-review-id", "AEGIS_APPROVAL_TOKEN", OWNER_TOKEN),
+        ("get", "/transactions/security-review-id/audit", "AEGIS_APPROVAL_TOKEN", OWNER_TOKEN),
+        ("post", "/transactions/security-review-id/approve", "AEGIS_APPROVAL_TOKEN", OWNER_TOKEN),
+        ("post", "/transactions/security-review-id/execute", "AEGIS_APPROVAL_TOKEN", OWNER_TOKEN),
+    ],
+    ids=[
+        "agent-proposal-missing-owner-token",
+        "owner-transaction-read-missing-agent-token",
+        "owner-audit-read-missing-agent-token",
+        "owner-approval-missing-agent-token",
+        "owner-execution-missing-agent-token",
+    ],
+)
+def test_workflow_endpoint_fails_closed_when_other_token_is_missing(
+    monkeypatch, method, path, configured_env, configured_token
+):
+    monkeypatch.setenv(configured_env, configured_token)
+    missing_env = (
+        "AEGIS_APPROVAL_TOKEN"
+        if configured_env == "AEGIS_AGENT_TOKEN"
+        else "AEGIS_AGENT_TOKEN"
+    )
+    monkeypatch.delenv(missing_env, raising=False)
+
+    response = _request(
+        method,
+        path,
+        {"Authorization": f"Bearer {configured_token}"},
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Both AEGIS_AGENT_TOKEN and AEGIS_APPROVAL_TOKEN must be configured; endpoint fails closed"
+    }
+
