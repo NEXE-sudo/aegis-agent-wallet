@@ -201,7 +201,7 @@ Goal: conduct a deliberate review of attack surfaces and documented guarantees.
 
 Goal: package the prototype as a clear, reproducible portfolio/demo project.
 - [x] Keep README setup instructions aligned with actual code and configuration (PR #144 aligns setup and run commands with the locked `uv` workflow).
-- [ ] Add architecture/workflow diagrams if they improve understanding.
+- [x] Add architecture/workflow diagrams if they improve understanding (`docs/workflow-state-transitions.md` state-transition diagram; PR #150).
 - [x] Document API examples, approval semantics, hard blocks, and simulation-only execution (README workflow endpoint reference, `docs/demo-scenario.md`, `docs/python-client.md`, and `docs/workflow-state-transitions.md`).
 - [x] Record known limitations and a release checklist (`docs/release-checklist.md`; PR adds the release gate and documents prototype limitations).
 - [ ] Verify a clean setup from a fresh checkout.
@@ -382,6 +382,7 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #146 | Align demo walkthrough with the locked `uv` workflow | Merged |
 | #147 | Add release checklist and document known limitations | Merged |
 | #148 | Align Python client walkthrough with the locked `uv` workflow | Merged |
+| #149 | Align tracker with current workflow and restore merged PR history | Merged |
 
 ## 6. Current architecture and useful code locations
 

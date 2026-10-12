@@ -2,6 +2,31 @@
 
 This document describes the state transitions implemented by `TransactionController` and `WorkflowStore`. It is a behavioral contract for the simulation-only workflow, not a claim that transactions are submitted on-chain.
 
+## State-transition diagram
+
+The diagram summarizes the state-changing paths in the table below. Rejected and idempotent operations leave the stored status unchanged; they are listed separately because they are not state transitions.
+
+```mermaid
+stateDiagram-v2
+    [*] --> blocked: Initial policy hard block
+    [*] --> awaiting_approval: Approval required or high risk
+    [*] --> ready: Allowed without approval
+
+    awaiting_approval --> approved: Valid owner approval
+    approved --> awaiting_approval: Approval missing, malformed, future-dated, or expired
+
+    ready --> blocked: Execution-time policy hard block
+    approved --> blocked: Execution-time policy hard block
+
+    ready --> awaiting_approval: Risk escalation or newly required approval
+    approved --> awaiting_approval: Risk escalation or newly required approval
+
+    ready --> executed_simulated: Simulation succeeds
+    approved --> executed_simulated: Simulation succeeds
+```
+
+`executed_simulated` is terminal. No path in this diagram signs or submits an on-chain transaction. For exact audit-event names and the conditions governing reuse of an existing approval, use the transition table and notes below.
+
 ## States
 
 - `ready`: proposal passed initial policy checks and does not currently require approval.
