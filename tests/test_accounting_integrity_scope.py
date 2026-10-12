@@ -104,3 +104,33 @@ def test_corruption_for_an_unrelated_chain_does_not_block_accounting(tmp_path):
         WorkflowStore._assert_accounting_integrity(
             db, OTHER_CHAIN_ID, "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         )
+
+
+def test_integrity_guard_clears_flag_after_accounting_fields_are_repaired(tmp_path):
+    store = WorkflowStore(tmp_path / "repair-corrupt-row.sqlite3")
+    store.create(_record("repairable"))
+    _corrupt_amount(store, "repairable")
+
+    with store._connect() as db:
+        flagged = db.execute(
+            "SELECT accounting_integrity FROM transactions WHERE transaction_id = ?",
+            ("repairable",),
+        ).fetchone()[0]
+    assert flagged == 0
+
+    with store._connect() as db:
+        db.execute(
+            "UPDATE transactions SET amount_base_units = amount_base_units - 1 "
+            "WHERE transaction_id = ?",
+            ("repairable",),
+        )
+        repaired = db.execute(
+            "SELECT accounting_integrity FROM transactions WHERE transaction_id = ?",
+            ("repairable",),
+        ).fetchone()[0]
+    assert repaired == 1
+
+    with store._connect() as db:
+        WorkflowStore._assert_accounting_integrity(
+            db, CHAIN_ID, BASE_SEPOLIA_USDC_ADDRESS
+        )
