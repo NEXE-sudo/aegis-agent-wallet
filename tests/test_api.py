@@ -1955,3 +1955,30 @@ def test_chain_token_endpoint_maps_rpc_failure_to_502(monkeypatch):
 
     assert response.status_code == 502
     assert response.json() == {"detail": "RPC request failed"}
+
+
+
+def test_sqlite_operational_error_returns_sanitized_503_on_transaction_read(monkeypatch):
+    def unavailable(_transaction_id):
+        raise sqlite3.OperationalError("unable to open database file: /sensitive/path")
+
+    monkeypatch.setattr(main.store, "get", unavailable)
+
+    response = client.get("/transactions/missing", headers=OWNER_HEADERS)
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Workflow database is unavailable"}
+    assert "/sensitive/path" not in response.text
+
+
+def test_sqlite_operational_error_returns_sanitized_503_on_proposal(monkeypatch):
+    def unavailable(_proposal, _idempotency_key):
+        raise sqlite3.OperationalError("database is locked: /sensitive/path")
+
+    monkeypatch.setattr(main.controller, "propose", unavailable)
+
+    response = propose()
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Workflow database is unavailable"}
+    assert "/sensitive/path" not in response.text
