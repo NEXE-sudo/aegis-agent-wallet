@@ -1982,3 +1982,57 @@ def test_sqlite_operational_error_returns_sanitized_503_on_proposal(monkeypatch)
     assert response.status_code == 503
     assert response.json() == {"detail": "Workflow database is unavailable"}
     assert "/sensitive/path" not in response.text
+
+
+
+def test_execution_blocks_when_policy_changes_after_proposal():
+    record = propose().json()
+    assert record["status"] == "ready"
+
+    # A policy change after proposal creation must be enforced at execution time.
+    main.controller.policy = replace(main.DEMO_POLICY, allowed_chain_ids={1})
+
+    response = owner_post(f"/transactions/{record['transaction_id']}/execute")
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Policy-blocked transactions cannot execute"
+
+    refreshed = client.get(
+        f"/transactions/{record['transaction_id']}", headers=OWNER_HEADERS
+    ).json()
+    assert refreshed["status"] == "blocked"
+    assert refreshed["policy_decision"] == "block"
+
+    events = client.get(
+        f"/transactions/{record['transaction_id']}/audit", headers=OWNER_HEADERS
+    ).json()
+    assert [event["event_type"] for event in events][-1] == "policy_revalidation_blocked"
+
+
+def test_execution_requires_new_approval_when_policy_tightens_after_proposal():
+    record = propose().json()
+    assert record["status"] == "ready"
+
+    # Removing the recipient from the allowlist changes this proposal from allowed
+    # to approval-required. Execution must not use the stale "ready" decision.
+    main.controller.policy = replace(
+        main.DEMO_POLICY,
+        allowed_recipients=set(),
+        recipient_token_allowlist={},
+    )
+
+    response = owner_post(f"/transactions/{record['transaction_id']}/execute")
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Human approval is required before execution"
+
+    refreshed = client.get(
+        f"/transactions/{record['transaction_id']}", headers=OWNER_HEADERS
+    ).json()
+    assert refreshed["status"] == "awaiting_approval"
+    assert refreshed["policy_decision"] == "require_approval"
+
+    events = client.get(
+        f"/transactions/{record['transaction_id']}/audit", headers=OWNER_HEADERS
+    ).json()
+    assert [event["event_type"] for event in events][-1] == "policy_revalidation_requires_approval"
