@@ -222,6 +222,8 @@ class WorkflowStore:
                     UPDATE transactions
                     SET accounting_integrity = CASE
                         WHEN CASE
+                            WHEN NEW.proposal_json != OLD.proposal_json THEN 1
+                            WHEN NEW.recipient_normalized != OLD.recipient_normalized THEN 1
                             WHEN json_valid(NEW.proposal_json) = 0 THEN 1
                             WHEN json_type(NEW.proposal_json) != 'object' THEN 1
                             WHEN json_type(NEW.proposal_json, '$.chain_id') != 'integer' THEN 1
@@ -232,8 +234,6 @@ class WorkflowStore:
                             WHEN NEW.amount_base_units != json_extract(NEW.proposal_json, '$.amount_base_units') THEN 1
                             WHEN lower(trim(NEW.token_address)) !=
                                  lower(trim(json_extract(NEW.proposal_json, '$.token_address'))) THEN 1
-                            WHEN NEW.recipient_normalized IS NULL OR NEW.recipient_normalized !=
-                                 normalize_recipient(json_extract(NEW.proposal_json, '$.recipient')) THEN 1
                             WHEN NEW.created_day IS NULL OR NEW.created_day != date(NEW.created_at) THEN 1
                             WHEN NEW.status = 'executed_simulated' AND (
                                 NEW.executed_at IS NULL OR NEW.executed_day IS NULL
