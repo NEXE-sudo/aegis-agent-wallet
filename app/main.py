@@ -1,6 +1,7 @@
 """Aegis Agent Wallet API. Workflow execution is simulation-only."""
 import logging
 import os
+import sqlite3
 from contextlib import asynccontextmanager
 from time import perf_counter
 from typing import Literal
@@ -167,6 +168,12 @@ async def log_http_requests(request: Request, call_next):
         },
     )
     return response
+
+
+@app.exception_handler(sqlite3.OperationalError)
+async def sqlite_operational_error_handler(_: Request, _exc: sqlite3.OperationalError) -> JSONResponse:
+    """Return a stable, sanitized response when SQLite operations are unavailable."""
+    return JSONResponse(status_code=503, content={"detail": "Workflow database is unavailable"})
 
 
 @app.exception_handler(WorkflowDataError)
