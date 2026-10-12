@@ -65,6 +65,7 @@ Both chain routes require the owner/approval bearer token and are read-only. A r
 ## Operational cautions
 
 - SQLite state persists in the configured database file. Do not delete it as a casual troubleshooting step; it contains workflow and audit history.
+- For concrete backup, restore, integrity-check, and reversible reset steps, see the [SQLite backup and restore guide](sqlite-backup-restore.md).
 - Back up the database only while following a consistent SQLite backup procedure, and protect backup files as sensitive application data.
 - Audit triggers guard against ordinary row updates/deletes through the application database connection. They are not cryptographic tamper protection against someone who controls the database file.
 - This is a local prototype: transaction execution remains simulated, and no private key is loaded, no transaction is signed, and no transaction is submitted.
