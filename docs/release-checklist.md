@@ -4,13 +4,13 @@ Aegis Agent Wallet is a local, simulation-only portfolio prototype. This checkli
 
 ## Release gate
 
-- [x] Start from a fresh checkout of the intended release commit (fresh clone of `main` at `c6a37a1`; see PR #151).
-- [x] Install the locked dependencies with `uv sync --locked --extra dev` (completed in the fresh checkout; PR #151).
-- [x] Run `python -m pytest -q` and confirm the full suite passes (349 passed; PR #151).
-- [x] Run `ruff check .` and confirm lint passes (PR #151).
+- [ ] Start from a fresh checkout of the final intended release commit. The earlier fresh-clone check at `c6a37a1` (PR #151) verified the setup workflow, but it predates the final documentation changes and is not evidence for the final release candidate.
+- [x] Install the locked dependencies with `uv sync --locked --extra dev` (completed in the earlier fresh checkout; repeat against the final candidate when completing the fresh-checkout gate, PR #151).
+- [x] Run `python -m pytest -q` and confirm the full suite passes (349 passed in the earlier fresh checkout; owner also confirmed local post-merge tests passed after PR #156. Repeat from the final candidate checkout to close the fresh-checkout gate).
+- [x] Run `ruff check .` and confirm lint passes (passed in the earlier fresh checkout; owner also confirmed local post-merge Ruff passed after PR #156. Repeat from the final candidate checkout to close the fresh-checkout gate).
 - [x] Follow [the reproducible demo scenario](demo-scenario.md), including allowed simulation, approval-required flow, hard block, idempotency replay/conflict, and audit retrieval (manually exercised on 2026-10-12; the approval audit showed `proposal_created → awaiting_approval`, `approval_granted → approved`, and `simulated_execution → executed_simulated`).
 - [x] Confirm the API is bound to localhost for the local demo and that agent and owner bearer tokens are distinct and supplied through environment variables (verified during the 2026-10-12 walkthrough).
-- [x] Review the current CI results and dependency-audit results for the release commit; resolve or explicitly document actionable failures (main commit `8cb0b3f4dd67e7860faee5274d5ff8fb059fba6a`; GitHub Actions run #38260425361 passed tests, `pip-audit`, and Ruff).
+- [x] Review CI and dependency-audit results for the current main commit `780b0038e3f9c8e55b37a114ee8a1f54ab6bf3c6`; GitHub Actions run [#38263562443](https://github.com/NEXE-sudo/aegis-agent-wallet/actions/runs/38263562443) completed successfully on that exact SHA, including tests, `pip-audit`, and Ruff.
 - [x] Review README setup commands, runtime configuration, and demo commands against the locked `uv` workflow (the walkthrough uses `uv sync --locked --extra dev`, `uv run --locked`, and loopback binding; the RPC URL is optional for simulation).
 - [x] Review tracked paths, representative secret/token patterns, and Git history for accidentally committed secrets, private keys, local databases, and provider credentials (2026-10-12: current-tree/path and selected-pattern checks found no suspicious matches; `gitleaks git --redact --verbose .` passed after PR #155 added a narrowly scoped allowlist for the public Base Sepolia USDC contract address used in `docs/demo-scenario.md`. The three reported historical findings were the same public contract address, not a credential. This is evidence from these checks, not proof that no secret has ever existed in repository history or outside the scanned patterns).
 - [x] Confirm all documentation describes execution as simulated and Base Sepolia inspection as read-only (reviewed README, runtime configuration, demo scenario, and threat model).
