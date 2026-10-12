@@ -17,7 +17,7 @@ This is a focused repository-level review of dependency declarations and secret-
 - Development dependencies are pytest and Ruff.
 - Version ranges constrain the declared packages to supported major-version ranges, but do not pin exact versions or fully lock transitive dependencies.
 - No committed lockfile was found among the conventional paths checked in this review. Reproducibility therefore depends on package resolution at installation time.
-- No Dependabot configuration was found at the conventional `.github/dependabot.yml` path. This review did not establish whether other dependency-monitoring services or repository-level security settings are enabled.
+- At the time of the original review, no Dependabot configuration was found at the conventional `.github/dependabot.yml` path. PR #126 subsequently added weekly Python dependency updates, capped at five open PRs and labeled `dependencies`. This automates update PR creation; it is not itself a vulnerability scan and does not establish whether repository-level security settings or other monitoring services are enabled.
 
 **Implication:** version ranges help avoid unreviewed major-version upgrades but do not by themselves provide reproducible installs or automated vulnerability remediation. Before a release, decide whether to add a lockfile or another repeatable dependency-resolution mechanism, and enable/verify an appropriate dependency-alert/update process.
 

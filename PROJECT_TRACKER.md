@@ -5,8 +5,8 @@
 > **Last updated:** 2026-10-12  
 > **Repository:** [NEXE-sudo/aegis-agent-wallet](https://github.com/NEXE-sudo/aegis-agent-wallet)  
 > **Current package/API version:** 1.10.0  
-> **Current phase:** Milestone 5 — Observability and Operations  
-> **Current status:** Milestones 1–5 complete; Milestones 6–7 planned; Milestone 8 is optional and out of current scope.
+> **Current phase:** Milestone 6 — Security Review  
+> **Current status:** Milestones 1–5 complete; Milestone 6 in progress; Milestone 7 planned; Milestone 8 is optional and out of current scope.
 
 ## 1. Project mission and non-negotiable boundary
 
@@ -161,15 +161,15 @@ Goal: make local operation and debugging safer and clearer.
 **Exit criteria:** operators can configure, run, diagnose, and reset the local prototype safely. The listed criteria were reviewed against the current implementation, documentation, and regression tests; PRs #114 and #119–#121 complete the observability and operations work. This remains a local simulation-only prototype, not a production deployment claim.
 
 ### Milestone 6 — Security Review
-**Status: PLANNED**
+**Status: IN PROGRESS**
 
 Goal: conduct a deliberate review of attack surfaces and documented guarantees.
-- [ ] Maintain a concise threat model and assets/trust-boundary inventory.
-- [ ] Review authentication/authorization on every endpoint.
-- [ ] Review input validation, policy override resistance, replay behavior, and audit integrity assumptions.
-- [ ] Add adversarial tests for tampering, invalid states, oversized inputs, and policy changes.
-- [ ] Review dependency and secret-management practices.
-- [ ] Document findings, mitigations, residual risks, and out-of-scope production controls.
+- [x] Maintain a concise threat model and assets/trust-boundary inventory (`docs/threat-model.md`; PR #26, with later review).
+- [x] Review authentication/authorization on every endpoint; add a protected-endpoint missing/wrong-role token matrix (PR #123).
+- [x] Review input validation, policy override resistance, replay behavior, and audit integrity assumptions against the implementation and existing regression coverage; add execution-time policy revalidation tests (PR #124).
+- [x] Add/review adversarial regression tests for persisted-data tampering, invalid states, oversized inputs, authorization, and policy changes (including PRs #123–#124 and earlier workflow-hardening PRs).
+- [x] Review dependency declarations and secret-management conventions (PR #125); configure weekly Python Dependabot updates (PR #126).
+- [x] Document findings, mitigations, residual risks, and out-of-scope production controls (`docs/threat-model.md`, `docs/security-dependency-review.md`).
 
 **Exit criteria:** findings are tracked and addressed or explicitly accepted; no unsupported production-security claims are made.
 
@@ -331,6 +331,10 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #120 | Document SQLite backup, restore, and safe reset | Merged |
 | #121 | Return sanitized 503 responses for SQLite operational failures | Merged |
 | #122 | Mark Milestone 5 complete and record merged operations work | In progress |
+| #123 | Test authorization across protected API endpoints | Merged |
+| #124 | Test policy changes before simulated execution | Merged |
+| #125 | Document dependency and secret-management review | Merged |
+| #126 | Configure weekly Python dependency updates | Merged |
 
 ## 6. Current architecture and useful code locations
 
