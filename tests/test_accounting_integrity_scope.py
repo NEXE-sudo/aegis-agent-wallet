@@ -66,11 +66,12 @@ def test_corrupt_current_reservation_fails_closed_for_its_chain_and_token(tmp_pa
     store.create(_record("current-reservation"))
     _corrupt_amount(store, "current-reservation")
 
-    with store._connect() as db:
-        with pytest.raises(WorkflowDataError, match="Stored workflow data is invalid"):
-            WorkflowStore._assert_accounting_integrity(
-                db, CHAIN_ID, BASE_SEPOLIA_USDC_ADDRESS
-            )
+    with store._connect() as db, pytest.raises(
+        WorkflowDataError, match="Stored workflow data is invalid"
+    ):
+        WorkflowStore._assert_accounting_integrity(
+            db, CHAIN_ID, BASE_SEPOLIA_USDC_ADDRESS
+        )
 
 
 def test_original_proposal_keys_catch_corruption_of_denormalized_keys(tmp_path):
@@ -82,11 +83,12 @@ def test_original_proposal_keys_catch_corruption_of_denormalized_keys(tmp_path):
             (OTHER_CHAIN_ID, "key-mismatch"),
         )
 
-    with store._connect() as db:
-        with pytest.raises(WorkflowDataError, match="Stored workflow data is invalid"):
-            WorkflowStore._assert_accounting_integrity(
-                db, CHAIN_ID, BASE_SEPOLIA_USDC_ADDRESS
-            )
+    with store._connect() as db, pytest.raises(
+        WorkflowDataError, match="Stored workflow data is invalid"
+    ):
+        WorkflowStore._assert_accounting_integrity(
+            db, CHAIN_ID, BASE_SEPOLIA_USDC_ADDRESS
+        )
 
 
 def test_corruption_for_an_unrelated_chain_does_not_block_accounting(tmp_path):
