@@ -1,7 +1,5 @@
 """Regression tests for scoped accounting-integrity checks."""
 
-import sqlite3
-
 import pytest
 
 from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
