@@ -391,11 +391,55 @@ class WorkflowStore:
             raise WorkflowDataError("Stored workflow data is invalid")
 
     @staticmethod
-    def _assert_accounting_integrity(db: sqlite3.Connection) -> None:
-        """Fail closed on corrupted accounting keys before relying on indexed totals."""
+    def _assert_accounting_integrity(
+        db: sqlite3.Connection, chain_id: int, token_address: str
+    ) -> None:
+        """Reject flagged rows that could affect today's spend for this chain/token.
+
+        A corrupt historical or blocked row must not disable unrelated proposals.
+        Check both denormalized accounting keys and the original proposal fields:
+        a mismatch in either representation must not hide a relevant row.
+        """
+        today = _utc_now().date().isoformat()
+        normalized_token = token_address.strip().lower()
         invalid = db.execute(
-            "SELECT transaction_id FROM transactions "
-            "WHERE accounting_integrity != 1 LIMIT 1"
+            """
+            SELECT transaction_id FROM transactions
+            WHERE accounting_integrity = 0
+              AND (
+                (
+                  chain_id = ? AND lower(trim(token_address)) = ?
+                  AND (
+                    (status IN ('ready', 'awaiting_approval', 'approved')
+                     AND (created_day = ? OR date(created_at) = ?))
+                    OR
+                    (status = 'executed_simulated'
+                     AND (executed_day = ? OR date(executed_at) = ?))
+                  )
+                )
+                OR
+                (
+                  json_valid(proposal_json) = 1
+                  AND json_type(proposal_json) = 'object'
+                  AND json_type(proposal_json, '$.chain_id') = 'integer'
+                  AND json_type(proposal_json, '$.token_address') = 'text'
+                  AND json_extract(proposal_json, '$.chain_id') = ?
+                  AND lower(trim(json_extract(proposal_json, '$.token_address'))) = ?
+                  AND (
+                    (status IN ('ready', 'awaiting_approval', 'approved')
+                     AND (created_day = ? OR date(created_at) = ?))
+                    OR
+                    (status = 'executed_simulated'
+                     AND (executed_day = ? OR date(executed_at) = ?))
+                  )
+                )
+              )
+            LIMIT 1
+            """,
+            (
+                chain_id, normalized_token, today, today, today, today,
+                chain_id, normalized_token, today, today, today, today,
+            ),
         ).fetchone()
         if invalid is not None:
             raise WorkflowDataError("Stored workflow data is invalid")
@@ -531,7 +575,9 @@ class WorkflowStore:
 
             # Idempotency replays validate the prior record first so proposal
             # tampering remains a conflict (409); new reservations fail closed.
-            self._assert_accounting_integrity(db)
+            self._assert_accounting_integrity(
+                db, int(proposal["chain_id"]), str(proposal["token_address"])
+            )
             spent = self._daily_spend(
                 db, int(proposal["chain_id"]), str(proposal["token_address"])
             )
