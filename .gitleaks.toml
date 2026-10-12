@@ -1,0 +1,4 @@
+[allowlist]
+description = "The public Base Sepolia USDC contract address in the demo documentation is not a credential."
+paths = ['''docs/demo-scenario\.md''']
+regexes = ['''^0x036CbD53842c5426634e7929541eC2318f3dCF7e$''']
