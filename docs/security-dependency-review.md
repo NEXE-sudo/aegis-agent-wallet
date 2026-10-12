@@ -19,7 +19,7 @@ This is a focused repository-level review of dependency declarations and secret-
 - No committed lockfile was found among the conventional paths checked in this review. Reproducibility therefore depends on package resolution at installation time.
 - At the time of the original review, no Dependabot configuration was found at the conventional `.github/dependabot.yml` path. PR #126 subsequently added weekly Python dependency updates, capped at five open PRs and labeled `dependencies`. This automates update PR creation; it is not itself a vulnerability scan and does not establish whether repository-level security settings or other monitoring services are enabled.
 
-**Implication:** version ranges help avoid unreviewed major-version upgrades but do not by themselves provide reproducible installs or automated vulnerability remediation. Before a release, decide whether to add a lockfile or another repeatable dependency-resolution mechanism, and enable/verify an appropriate dependency-alert/update process.
+**Implication:** version ranges help avoid unreviewed major-version upgrades but do not by themselves provide reproducible installs or fully reproducible dependency resolution. The CI workflow runs `pip-audit` against installed non-editable Python packages on pull requests and pushes to `main`; it upgrades the CI tooling `setuptools` to at least 83.0.0 before auditing, based on a finding in the runner's build-tool environment. This checks the resolved environment at that run and is not a substitute for repository dependency alerts, secret scanning, or a committed lockfile. Before a release, decide whether to add a lockfile or another repeatable dependency-resolution mechanism and verify the repository-level security settings.
 
 ### Secrets and local configuration
 
@@ -35,7 +35,7 @@ This is a focused repository-level review of dependency declarations and secret-
 
 - [ ] Verify repository-level secret scanning and push protection settings; do not infer their status from application files.
 - [ ] Decide whether the project needs a committed lockfile or another reproducible dependency-resolution workflow before release.
-- [ ] Establish a routine for reviewing dependency alerts and updating vulnerable packages.
+- [x] Add a CI dependency-audit step for the resolved Python environment using `pip-audit`; continue reviewing Dependabot PRs and any repository dependency alerts.
 - [ ] If a credential is ever exposed, revoke/rotate it and follow the relevant provider's incident guidance; removing it from the latest commit alone is insufficient.
 - [ ] Revisit these findings before any production-readiness scope change.
 
