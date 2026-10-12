@@ -419,19 +419,19 @@ class WorkflowStore:
                 )
                 OR
                 (
-                  json_valid(proposal_json) = 1
-                  AND json_type(proposal_json) = 'object'
-                  AND json_type(proposal_json, '$.chain_id') = 'integer'
-                  AND json_type(proposal_json, '$.token_address') = 'text'
-                  AND json_extract(proposal_json, '$.chain_id') = ?
-                  AND lower(trim(json_extract(proposal_json, '$.token_address'))) = ?
-                  AND (
-                    (status IN ('ready', 'awaiting_approval', 'approved')
-                     AND (created_day = ? OR date(created_at) = ?))
-                    OR
-                    (status = 'executed_simulated'
-                     AND (executed_day = ? OR date(executed_at) = ?))
-                  )
+                  CASE
+                    WHEN json_valid(proposal_json) = 0 THEN 0
+                    WHEN json_type(proposal_json) != 'object' THEN 0
+                    WHEN json_type(proposal_json, '$.chain_id') != 'integer' THEN 0
+                    WHEN json_type(proposal_json, '$.token_address') != 'text' THEN 0
+                    WHEN json_extract(proposal_json, '$.chain_id') != ? THEN 0
+                    WHEN lower(trim(json_extract(proposal_json, '$.token_address'))) != ? THEN 0
+                    WHEN status IN ('ready', 'awaiting_approval', 'approved')
+                      AND (created_day = ? OR date(created_at) = ?) THEN 1
+                    WHEN status = 'executed_simulated'
+                      AND (executed_day = ? OR date(executed_at) = ?) THEN 1
+                    ELSE 0
+                  END = 1
                 )
               )
             LIMIT 1
