@@ -29,7 +29,7 @@ These rules are part of the project, not optional suggestions. Follow them in ev
 1. **Use small, focused PRs.** Prefer one cohesive security, reliability, test, or documentation change per PR. Avoid bundling unrelated refactors.
 2. **Work from current `main`.** Before creating a branch, inspect the current repository state and base the branch on the latest `main`.
 3. **Do not merge on your own test claims.** The human runs local validation and explicitly reports that both `python -m pytest -q` and `ruff check .` passed.
-4. **Only after that explicit confirmation:** fetch the PR again; verify it is open, not already merged, and mergeable; use squash merge with the latest PR head SHA as the expected SHA; fetch the PR again and verify that it is closed and merged.
+4. **After the user reports both checks passed:** automatically fetch the PR again; verify it is open, not already merged, and mergeable; squash-merge using the latest PR head SHA as the expected SHA; then fetch the PR again and verify it is closed and merged. Do not ask for a separate merge confirmation.
 5. **After merge:** give the human the commands to sync local `main` and rerun both checks. Wait for confirmation before proceeding to the next implementation PR.
 6. **Never claim local tests ran** unless the human actually reports the result or an available execution environment genuinely ran them.
 7. Keep execution simulation-only; fail closed on security-sensitive uncertainty; add regression tests for bug fixes and security controls.
@@ -77,7 +77,7 @@ fi
 
 Use this only after verifying the PR is merged and local `main` is synced. Never delete `main` or a branch with unmerged work.
 
-**Merge gate:** do not merge until the user explicitly confirms both test commands passed for the PR branch.
+**Merge gate:** wait for the user to explicitly report that both `python -m pytest -q` and `ruff check .` passed for the PR branch; then automatically squash-merge after verifying the current PR state and head SHA. No separate merge approval is needed.
 
 ## 3. Milestone roadmap
 
@@ -200,7 +200,7 @@ Goal: conduct a deliberate review of attack surfaces and documented guarantees.
 **Status: IN PROGRESS**
 
 Goal: package the prototype as a clear, reproducible portfolio/demo project.
-- [ ] Keep README setup instructions aligned with actual code and configuration.
+- [x] Keep README setup instructions aligned with actual code and configuration (PR #144 aligns setup and run commands with the locked `uv` workflow).
 - [ ] Add architecture/workflow diagrams if they improve understanding.
 - [x] Document API examples, approval semantics, hard blocks, and simulation-only execution (README workflow endpoint reference, `docs/demo-scenario.md`, `docs/python-client.md`, and `docs/workflow-state-transitions.md`).
 - [x] Record known limitations and a release checklist (`docs/release-checklist.md`; PR adds the release gate and documents prototype limitations).
@@ -376,6 +376,12 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #140 | Document repository secret scanning and push protection settings | Merged |
 | #141 | Add reproducible Python dependency lockfile and locked CI installation | Merged |
 | #142 | Record locked dependency workflow and close out security-review documentation | Merged |
+| #143 | Mark Milestone 6 complete and begin Milestone 7 | Merged |
+| #144 | Align README and runtime setup with the locked `uv` workflow | Merged |
+| #145 | Record Milestone 7 progress and README setup alignment | Merged |
+| #146 | Align demo walkthrough with the locked `uv` workflow | Merged |
+| #147 | Add release checklist and document known limitations | Merged |
+| #148 | Align Python client walkthrough with the locked `uv` workflow | Merged |
 
 ## 6. Current architecture and useful code locations
 
@@ -398,7 +404,7 @@ At the start of a new chat or when switching AI assistants:
 
 1. Read this file from the latest `main`.
 2. Inspect the current GitHub PR list and repository state; do not assume the PR numbers or branch state in a past conversation are current.
-3. Check for any open PR and ask whether its local tests and Ruff checks have passed before considering a merge.
+3. Check for any open PR; once the project owner reports that both local checks passed, automatically follow the squash-merge protocol in Section 2 without asking for separate merge approval.
 4. Confirm the latest merged milestone/PR and current local branch status with the project owner if not evident.
 5. Pick one small next task from the current milestone, inspect relevant code/tests, and explain its scope before editing.
 6. Create a branch from current `main`; make one focused change with regression tests as appropriate.
