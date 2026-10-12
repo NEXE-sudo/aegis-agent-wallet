@@ -2,11 +2,11 @@
 
 > **Purpose:** This is the canonical project status and continuation guide for humans and AI assistants. Read this file before proposing or implementing the next change.
 >
-> **Last updated:** 2026-10-11  
+> **Last updated:** 2026-10-12  
 > **Repository:** [NEXE-sudo/aegis-agent-wallet](https://github.com/NEXE-sudo/aegis-agent-wallet)  
 > **Current package/API version:** 1.10.0  
 > **Current phase:** Milestone 5 — Observability and Operations  
-> **Current status:** Milestones 1–4 complete; Milestones 5–7 planned; Milestone 8 is optional and out of current scope.
+> **Current status:** Milestones 1–5 complete; Milestones 6–7 planned; Milestone 8 is optional and out of current scope.
 
 ## 1. Project mission and non-negotiable boundary
 
@@ -148,17 +148,17 @@ Goal: test correctness under failures, concurrency, and persistence changes.
 **Exit criteria:** automated checks run reproducibly and important failure modes have regression coverage. All listed Milestone 4 criteria have been reviewed and checked off; the focused regression coverage in PRs #101–#112 is merged, and the project owner confirmed both required checks after the latest merges.
 
 ### Milestone 5 — Observability and Operations
-**Status: PLANNED**
+**Status: COMPLETE**
 
 Goal: make local operation and debugging safer and clearer.
-- [ ] Review structured logging and request/error observability.
-- [ ] Ensure secrets, bearer tokens, and provider API keys are never logged.
-- [ ] Document environment variables, defaults, validation, and safe local binding.
-- [ ] Add a practical health/readiness and troubleshooting guide without overstating what health checks prove.
-- [ ] Document SQLite backup, restore, and local data-reset expectations.
-- [ ] Review operational behavior when the database or RPC endpoint is unavailable.
+- [x] Review structured logging and request/error observability (PR #114 request metadata logging; PR #121 SQLite operational error handling; existing chain RPC error mappings and regression tests).
+- [x] Ensure secrets, bearer tokens, and provider API keys are never logged (request logs use route templates and omit raw URLs/headers; regression tests assert bearer and query secrets are absent).
+- [x] Document environment variables, defaults, validation, and safe local binding (`docs/runtime-configuration.md`, PR #119).
+- [x] Add a practical health/readiness and troubleshooting guide without overstating what health checks prove (the guide explicitly describes `/health` as a lightweight process/API check, not a database or RPC readiness check).
+- [x] Document SQLite backup, restore, and local data-reset expectations (`docs/sqlite-backup-restore.md`, PR #120).
+- [x] Review operational behavior when the database or RPC endpoint is unavailable (SQLite `OperationalError` returns a sanitized HTTP 503; chain configuration failures return 503 and RPC request failures return 502; regression coverage exercises these paths).
 
-**Exit criteria:** operators can configure, run, diagnose, and reset the local prototype safely.
+**Exit criteria:** operators can configure, run, diagnose, and reset the local prototype safely. The listed criteria were reviewed against the current implementation, documentation, and regression tests; PRs #114 and #119–#121 complete the observability and operations work. This remains a local simulation-only prototype, not a production deployment claim.
 
 ### Milestone 6 — Security Review
 **Status: PLANNED**
@@ -321,7 +321,16 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #110 | Test global token address normalization | Merged |
 | #111 | Record Milestone 4 test coverage review | Merged |
 | #112 | Test case-insensitive risk recipient matching | Merged |
-| #113 | Mark Milestone 4 complete and Milestone 5 in progress | Planned |
+| #113 | Mark Milestone 4 complete and Milestone 5 in progress | Merged |
+| #114 | Add sanitised structured HTTP request logging | Merged |
+| #115 | Harden authentication headers and proposal inputs | Merged |
+| #116 | Count daily spend by simulated execution date | Merged |
+| #117 | Optimize indexed daily spend accounting | Merged |
+| #118 | Prevent audit event replacement bypass | Merged |
+| #119 | Document runtime configuration and safe local startup | Merged |
+| #120 | Document SQLite backup, restore, and safe reset | Merged |
+| #121 | Return sanitized 503 responses for SQLite operational failures | Merged |
+| #122 | Mark Milestone 5 complete and record merged operations work | In progress |
 
 ## 6. Current architecture and useful code locations
 
