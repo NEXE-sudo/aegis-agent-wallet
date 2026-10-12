@@ -61,16 +61,7 @@ The examples below use:
 
 The addresses are demo inputs, not verified identities or a recommendation to transfer funds.
 
-For convenience, set these in the client terminal:
-
-```bash
-export API="http://127.0.0.1:8000"
-export TOKEN="0x036CbD53842c5426634e7929541eC2318f3dCF7e"
-export AGENT_TOKEN="paste-the-same-agent-token-here"
-export OWNER_TOKEN="paste-the-same-owner-token-here"
-export ALLOWED_RECIPIENT="0x2222222222222222222222222222222222222222"
-export UNKNOWN_RECIPIENT="0x4444444444444444444444444444444444444444"
-```
+The client variables above are now set in Terminal 2; continue with the proposal requests below.
 
 ## 2. Allowed proposal and simulated execution
 
