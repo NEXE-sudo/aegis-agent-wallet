@@ -4,10 +4,10 @@ Aegis Agent Wallet is a local, simulation-only portfolio prototype. This checkli
 
 ## Release gate
 
-- [ ] Start from a fresh checkout of the intended release commit.
-- [ ] Install the locked dependencies with `uv sync --locked --extra dev`.
-- [ ] Run `python -m pytest -q` and confirm the full suite passes.
-- [ ] Run `ruff check .` and confirm lint passes.
+- [x] Start from a fresh checkout of the intended release commit (fresh clone of `main` at `c6a37a1`; see PR #151).
+- [x] Install the locked dependencies with `uv sync --locked --extra dev` (completed in the fresh checkout; PR #151).
+- [x] Run `python -m pytest -q` and confirm the full suite passes (349 passed; PR #151).
+- [x] Run `ruff check .` and confirm lint passes (PR #151).
 - [ ] Follow [the reproducible demo scenario](demo-scenario.md), including allowed simulation, approval-required flow, hard block, idempotency replay/conflict, and audit retrieval.
 - [ ] Confirm the API is bound to localhost for the local demo and that agent and owner bearer tokens are distinct and supplied through environment variables.
 - [ ] Review the current CI results and dependency-audit results for the release commit; resolve or explicitly document actionable failures.
