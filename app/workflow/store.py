@@ -200,33 +200,37 @@ class WorkflowStore:
                 """
             )
             db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_accounting_integrity ON transactions(accounting_integrity)")
+            db.execute("DROP TRIGGER IF EXISTS transactions_accounting_integrity_guard")
             db.execute("""
-                CREATE TRIGGER IF NOT EXISTS transactions_accounting_integrity_guard
+                CREATE TRIGGER transactions_accounting_integrity_guard
                 AFTER UPDATE OF proposal_json, chain_id, token_address, amount_base_units,
                     recipient_normalized, created_day, executed_day, created_at, executed_at, status
                 ON transactions
-                WHEN CASE
-                    WHEN json_valid(NEW.proposal_json) = 0 THEN 1
-                    WHEN json_type(NEW.proposal_json) != 'object' THEN 1
-                    WHEN json_type(NEW.proposal_json, '$.chain_id') != 'integer' THEN 1
-                    WHEN json_type(NEW.proposal_json, '$.amount_base_units') != 'integer' THEN 1
-                    WHEN json_type(NEW.proposal_json, '$.token_address') != 'text' THEN 1
-                    WHEN json_type(NEW.proposal_json, '$.recipient') != 'text' THEN 1
-                    WHEN NEW.chain_id != json_extract(NEW.proposal_json, '$.chain_id') THEN 1
-                    WHEN NEW.amount_base_units != json_extract(NEW.proposal_json, '$.amount_base_units') THEN 1
-                    WHEN lower(trim(NEW.token_address)) !=
-                         lower(trim(json_extract(NEW.proposal_json, '$.token_address'))) THEN 1
-                    WHEN NEW.recipient_normalized IS NULL OR NEW.recipient_normalized !=
-                         lower(trim(json_extract(NEW.proposal_json, '$.recipient'))) THEN 1
-                    WHEN NEW.created_day IS NULL OR NEW.created_day != date(NEW.created_at) THEN 1
-                    WHEN NEW.status = 'executed_simulated' AND (
-                        NEW.executed_at IS NULL OR NEW.executed_day IS NULL
-                        OR NEW.executed_day != date(NEW.executed_at)
-                    ) THEN 1
-                    ELSE 0
-                END = 1
                 BEGIN
-                    UPDATE transactions SET accounting_integrity = 0
+                    UPDATE transactions
+                    SET accounting_integrity = CASE
+                        WHEN CASE
+                            WHEN json_valid(NEW.proposal_json) = 0 THEN 1
+                            WHEN json_type(NEW.proposal_json) != 'object' THEN 1
+                            WHEN json_type(NEW.proposal_json, '$.chain_id') != 'integer' THEN 1
+                            WHEN json_type(NEW.proposal_json, '$.amount_base_units') != 'integer' THEN 1
+                            WHEN json_type(NEW.proposal_json, '$.token_address') != 'text' THEN 1
+                            WHEN json_type(NEW.proposal_json, '$.recipient') != 'text' THEN 1
+                            WHEN NEW.chain_id != json_extract(NEW.proposal_json, '$.chain_id') THEN 1
+                            WHEN NEW.amount_base_units != json_extract(NEW.proposal_json, '$.amount_base_units') THEN 1
+                            WHEN lower(trim(NEW.token_address)) !=
+                                 lower(trim(json_extract(NEW.proposal_json, '$.token_address'))) THEN 1
+                            WHEN NEW.recipient_normalized IS NULL OR NEW.recipient_normalized !=
+                                 lower(trim(json_extract(NEW.proposal_json, '$.recipient'))) THEN 1
+                            WHEN NEW.created_day IS NULL OR NEW.created_day != date(NEW.created_at) THEN 1
+                            WHEN NEW.status = 'executed_simulated' AND (
+                                NEW.executed_at IS NULL OR NEW.executed_day IS NULL
+                                OR NEW.executed_day != date(NEW.executed_at)
+                            ) THEN 1
+                            ELSE 0
+                        END = 1 THEN 0
+                        ELSE 1
+                    END
                     WHERE transaction_id = NEW.transaction_id;
                 END
             """)
@@ -391,11 +395,55 @@ class WorkflowStore:
             raise WorkflowDataError("Stored workflow data is invalid")
 
     @staticmethod
-    def _assert_accounting_integrity(db: sqlite3.Connection) -> None:
-        """Fail closed on corrupted accounting keys before relying on indexed totals."""
+    def _assert_accounting_integrity(
+        db: sqlite3.Connection, chain_id: int, token_address: str
+    ) -> None:
+        """Reject flagged rows that could affect today's spend for this chain/token.
+
+        A corrupt historical or blocked row must not disable unrelated proposals.
+        Check both denormalized accounting keys and the original proposal fields:
+        a mismatch in either representation must not hide a relevant row.
+        """
+        today = _utc_now().date().isoformat()
+        normalized_token = token_address.strip().lower()
         invalid = db.execute(
-            "SELECT transaction_id FROM transactions "
-            "WHERE accounting_integrity != 1 LIMIT 1"
+            """
+            SELECT transaction_id FROM transactions
+            WHERE accounting_integrity = 0
+              AND (
+                (
+                  chain_id = ? AND lower(trim(token_address)) = ?
+                  AND (
+                    (status IN ('ready', 'awaiting_approval', 'approved')
+                     AND (created_day = ? OR date(created_at) = ?))
+                    OR
+                    (status = 'executed_simulated'
+                     AND (executed_day = ? OR date(executed_at) = ?))
+                  )
+                )
+                OR
+                (
+                  CASE
+                    WHEN json_valid(proposal_json) = 0 THEN 0
+                    WHEN json_type(proposal_json) != 'object' THEN 0
+                    WHEN json_type(proposal_json, '$.chain_id') != 'integer' THEN 0
+                    WHEN json_type(proposal_json, '$.token_address') != 'text' THEN 0
+                    WHEN json_extract(proposal_json, '$.chain_id') != ? THEN 0
+                    WHEN lower(trim(json_extract(proposal_json, '$.token_address'))) != ? THEN 0
+                    WHEN status IN ('ready', 'awaiting_approval', 'approved')
+                      AND (created_day = ? OR date(created_at) = ?) THEN 1
+                    WHEN status = 'executed_simulated'
+                      AND (executed_day = ? OR date(executed_at) = ?) THEN 1
+                    ELSE 0
+                  END = 1
+                )
+              )
+            LIMIT 1
+            """,
+            (
+                chain_id, normalized_token, today, today, today, today,
+                chain_id, normalized_token, today, today, today, today,
+            ),
         ).fetchone()
         if invalid is not None:
             raise WorkflowDataError("Stored workflow data is invalid")
@@ -531,7 +579,9 @@ class WorkflowStore:
 
             # Idempotency replays validate the prior record first so proposal
             # tampering remains a conflict (409); new reservations fail closed.
-            self._assert_accounting_integrity(db)
+            self._assert_accounting_integrity(
+                db, int(proposal["chain_id"]), str(proposal["token_address"])
+            )
             spent = self._daily_spend(
                 db, int(proposal["chain_id"]), str(proposal["token_address"])
             )
