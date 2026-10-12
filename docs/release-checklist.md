@@ -10,11 +10,11 @@ Aegis Agent Wallet is a local, simulation-only portfolio prototype. This checkli
 - [x] Run `ruff check .` and confirm lint passes (PR #151).
 - [x] Follow [the reproducible demo scenario](demo-scenario.md), including allowed simulation, approval-required flow, hard block, idempotency replay/conflict, and audit retrieval (manually exercised on 2026-10-12; the approval audit showed `proposal_created → awaiting_approval`, `approval_granted → approved`, and `simulated_execution → executed_simulated`).
 - [x] Confirm the API is bound to localhost for the local demo and that agent and owner bearer tokens are distinct and supplied through environment variables (verified during the 2026-10-12 walkthrough).
-- [ ] Review the current CI results and dependency-audit results for the release commit; resolve or explicitly document actionable failures.
+- [x] Review the current CI results and dependency-audit results for the release commit; resolve or explicitly document actionable failures (main commit `8cb0b3f4dd67e7860faee5274d5ff8fb059fba6a`; GitHub Actions run #38260425361 passed tests, `pip-audit`, and Ruff).
 - [x] Review README setup commands, runtime configuration, and demo commands against the locked `uv` workflow (the walkthrough uses `uv sync --locked --extra dev`, `uv run --locked`, and loopback binding; the RPC URL is optional for simulation).
 - [ ] Confirm no secrets, private keys, local database files, or provider credentials are committed.
 - [x] Confirm all documentation describes execution as simulated and Base Sepolia inspection as read-only (reviewed README, runtime configuration, demo scenario, and threat model).
-- [ ] Review the known limitations below and the [threat model](threat-model.md); do not describe this prototype as production-ready.
+- [x] Review the known limitations below and the [threat model](threat-model.md); confirm they accurately describe simulation-only execution, development bearer-token authentication, heuristic risk scoring, local accounting, and the audit-integrity boundary without claiming production readiness (reviewed 2026-10-12).
 - [ ] Only after every required item is checked, choose an intentional version/tag and publish release notes that state the simulation-only scope.
 
 Do not mark a checklist item complete based on intention alone. Record any accepted exception and its rationale in the release notes.
