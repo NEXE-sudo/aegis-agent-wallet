@@ -95,13 +95,15 @@ def test_trigger_uses_unicode_aware_normalization_and_can_clear_flag(tmp_path):
             "SELECT accounting_integrity FROM transactions WHERE transaction_id = ?",
             ("recipient-trigger",),
         ).fetchone()[0]
-        db.execute(
-            "UPDATE transactions SET recipient_normalized = ? WHERE transaction_id = ?",
-            (RECIPIENT, "recipient-trigger"),
-        )
-        repaired = db.execute(
-            "SELECT accounting_integrity FROM transactions WHERE transaction_id = ?",
-            ("recipient-trigger",),
-        ).fetchone()[0]
     assert flagged == 0
-    assert repaired == 1
+
+    # Startup migration canonicalizes the derived key and restores the flag.
+    repaired_store = WorkflowStore(store.db_path)
+    with repaired_store._connect() as db:
+        repaired = db.execute(
+            "SELECT recipient_normalized, accounting_integrity FROM transactions "
+            "WHERE transaction_id = ?",
+            ("recipient-trigger",),
+        ).fetchone()
+    assert repaired["recipient_normalized"] == RECIPIENT
+    assert repaired["accounting_integrity"] == 1
