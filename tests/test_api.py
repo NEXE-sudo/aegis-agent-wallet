@@ -61,6 +61,29 @@ def test_api_version_matches_package_version():
     assert main.app.version == project_version
 
 
+def test_recent_transactions_list_requires_owner_and_returns_persisted_records():
+    unauthorized = client.get("/transactions")
+    assert unauthorized.status_code == 401
+
+    first = propose()
+    second = propose(_payload(recipient="0x4444444444444444444444444444444444444444"))
+    assert first.status_code == 201
+    assert second.status_code == 201
+
+    response = client.get("/transactions?limit=10", headers=OWNER_HEADERS)
+    assert response.status_code == 200
+    records = response.json()
+    assert {record["transaction_id"] for record in records} == {
+        first.json()["transaction_id"], second.json()["transaction_id"]
+    }
+    assert all("proposal" in record and "risk_score" in record for record in records)
+
+
+def test_recent_transactions_list_validates_limit():
+    response = client.get("/transactions?limit=0", headers=OWNER_HEADERS)
+    assert response.status_code == 422
+
+
 def test_health():
     response = client.get("/health")
     assert response.status_code == 200

@@ -3,11 +3,12 @@ import logging
 import os
 import sqlite3
 from contextlib import asynccontextmanager
+from pathlib import Path
 from time import perf_counter
 from typing import Literal
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from app.auth import require_agent, require_owner
@@ -265,6 +266,12 @@ def propose_transaction(
     return _record_response(record)
 
 
+@app.get("/transactions", response_model=list[TransactionResponse], dependencies=[Depends(require_owner)])
+def list_transactions(limit: int = Query(default=50, ge=1, le=100)) -> list[TransactionResponse]:
+    """List recent persisted workflow records for the local owner-facing UI."""
+    return [_record_response(record) for record in store.list_recent(limit)]
+
+
 @app.get("/transactions/{transaction_id}/audit", dependencies=[Depends(require_owner)])
 def get_transaction_audit(transaction_id: str) -> list[dict]:
     if store.get(transaction_id) is None:
@@ -328,3 +335,13 @@ def execute_transaction(transaction_id: str) -> TransactionResponse:
 
 # Read-only chain inspection; this router exposes no signing or submission methods.
 app.include_router(base_sepolia_router)
+
+
+# Serve the dependency-free local control centre without a catch-all static mount.
+_frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
+
+
+@app.get("/", include_in_schema=False)
+def frontend_index() -> FileResponse:
+    """Serve the local control centre at the site root."""
+    return FileResponse(_frontend_dir / "index.html")
