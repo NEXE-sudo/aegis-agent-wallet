@@ -10,23 +10,46 @@ Run from the repository root. Install the locked development dependencies first:
 uv sync --locked --extra dev
 ```
 
-Use the same terminal for the following environment variables and server commands.
+Create a temporary, owner-readable-only file so both terminal sessions can load the same distinct tokens without printing or manually copying them. This file lives outside the repository and should be removed when the demo is finished.
 
 ```bash
-export AEGIS_AGENT_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
-export AEGIS_APPROVAL_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+umask 077
+python -c '
+import json, secrets
+with open("/tmp/aegis-demo-tokens.json", "w") as f:
+    json.dump({
+        "agent": secrets.token_urlsafe(32),
+        "owner": secrets.token_urlsafe(32)
+    }, f)
+'
+export AEGIS_AGENT_TOKEN="$(python -c 'import json; print(json.load(open("/tmp/aegis-demo-tokens.json"))["agent"])')"
+export AEGIS_APPROVAL_TOKEN="$(python -c 'import json; print(json.load(open("/tmp/aegis-demo-tokens.json"))["owner"])')"
 export AEGIS_DB_PATH="./aegis-demo.sqlite3"
 export AEGIS_APPROVAL_EXPIRES_SECONDS="300"
-export BASE_SEPOLIA_RPC_URL="https://YOUR_BASE_SEPOLIA_RPC_PROVIDER_URL"
 ```
 
-Keep the tokens distinct and private. Start the API in one terminal:
+Keep both tokens private and distinct. The RPC URL is optional for this simulation-only workflow; configure `BASE_SEPOLIA_RPC_URL` only if you plan to use the separate read-only chain-inspection endpoints.
+
+Start the API in Terminal 1:
 
 ```bash
 uv run --locked uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-In another terminal, set the same token values. If using a fresh shell, copy the values securely rather than generating new ones. The API should respond to `GET /health` with `{"status":"ok","mode":"approval-workflow-simulation-only"}`.
+In Terminal 2, load the same tokens from the temporary file, then configure the client variables:
+
+```bash
+export AEGIS_AGENT_TOKEN="$(python -c 'import json; print(json.load(open("/tmp/aegis-demo-tokens.json"))["agent"])')"
+export AEGIS_APPROVAL_TOKEN="$(python -c 'import json; print(json.load(open("/tmp/aegis-demo-tokens.json"))["owner"])')"
+export API="http://127.0.0.1:8000"
+export TOKEN="0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+export AGENT_TOKEN="$AEGIS_AGENT_TOKEN"
+export OWNER_TOKEN="$AEGIS_APPROVAL_TOKEN"
+export ALLOWED_RECIPIENT="0x2222222222222222222222222222222222222222"
+export UNKNOWN_RECIPIENT="0x4444444444444444444444444444444444444444"
+```
+
+The API should respond to `GET /health` with `{"status":"ok","mode":"approval-workflow-simulation-only"}`.
 
 The examples below use:
 
@@ -188,6 +211,13 @@ Expected: the transaction response shows its current state, while the audit resp
 | Audit retrieval | Ordered workflow events visible to owner; secrets remain redacted |
 
 The exact risk score and reason strings are implementation details; validate the stable decision/status and HTTP behavior above. This demo does not use live RPC calls as part of the transaction workflow and does not establish token authenticity or recipient identity.
+
+
+After stopping the API and finishing the demo, remove the temporary token file. Do not remove the SQLite database until you no longer need its transaction and audit history:
+
+```bash
+rm -f /tmp/aegis-demo-tokens.json
+```
 
 ## Resetting the demo
 
