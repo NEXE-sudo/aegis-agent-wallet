@@ -384,7 +384,9 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #148 | Align Python client walkthrough with the locked `uv` workflow | Merged |
 | #149 | Align tracker with current workflow and restore merged PR history | Merged |
 | #150 | Add workflow state-transition diagram | Merged |
-| #151 | Record successful fresh-checkout verification for Milestone 7 | Pending checks |
+| #150 | Add workflow state-transition diagram | Merged |
+| #151 | Record successful fresh-checkout verification for Milestone 7 | Merged |
+| #152 | Record completed baseline release checks | Pending checks |
 
 ## 6. Current architecture and useful code locations
 
