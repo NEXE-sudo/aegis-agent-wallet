@@ -41,6 +41,13 @@ def _proposal_fingerprint(proposal: dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _normalize_recipient(value: Any) -> str | None:
+    """Use the same Unicode-aware canonicalization as application-side lookups."""
+    if not isinstance(value, str):
+        return None
+    return value.strip().lower()
+
+
 
 
 class WorkflowDataError(RuntimeError):
@@ -60,6 +67,9 @@ class WorkflowStore:
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.db_path, timeout=10, isolation_level=None)
         connection.row_factory = sqlite3.Row
+        connection.create_function(
+            "normalize_recipient", 1, _normalize_recipient, deterministic=True
+        )
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute("PRAGMA busy_timeout = 10000")
         return connection
@@ -110,6 +120,8 @@ class WorkflowStore:
             for name, declaration in migrations.items():
                 if name not in existing:
                     db.execute(f"ALTER TABLE transactions ADD COLUMN {name} {declaration}")
+            # Drop the old guard before canonicalizing legacy rows in Python.
+            db.execute("DROP TRIGGER IF EXISTS transactions_accounting_integrity_guard")
             # Older simulated executions used updated_at as their execution timestamp.
             db.execute(
                 """UPDATE transactions SET executed_at = updated_at
@@ -126,8 +138,7 @@ class WorkflowStore:
                 "AND (executed_day IS NULL OR executed_day = '')"
             )
             rows = db.execute(
-                "SELECT transaction_id, proposal_json FROM transactions "
-                "WHERE recipient_normalized IS NULL"
+                "SELECT transaction_id, proposal_json FROM transactions"
             ).fetchall()
             for row in rows:
                 try:
@@ -176,8 +187,8 @@ class WorkflowStore:
             # Mark any legacy accounting inconsistency once, then keep this guard indexed.
             db.execute(
                 """
-                UPDATE transactions SET accounting_integrity = 0
-                WHERE CASE
+                UPDATE transactions SET accounting_integrity = CASE
+                    WHEN CASE
                     WHEN json_valid(proposal_json) = 0 THEN 1
                     WHEN json_type(proposal_json) != 'object' THEN 1
                     WHEN json_type(proposal_json, '$.chain_id') != 'integer' THEN 1
@@ -189,14 +200,15 @@ class WorkflowStore:
                     WHEN lower(trim(token_address)) !=
                          lower(trim(json_extract(proposal_json, '$.token_address'))) THEN 1
                     WHEN recipient_normalized IS NULL OR recipient_normalized !=
-                         lower(trim(json_extract(proposal_json, '$.recipient'))) THEN 1
+                         normalize_recipient(json_extract(proposal_json, '$.recipient')) THEN 1
                     WHEN created_day IS NULL OR created_day != date(created_at) THEN 1
                     WHEN status = 'executed_simulated' AND (
                         executed_at IS NULL OR executed_day IS NULL
                         OR executed_day != date(executed_at)
                     ) THEN 1
                     ELSE 0
-                END = 1
+                END = 1 THEN 0 ELSE 1
+                END
                 """
             )
             db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_accounting_integrity ON transactions(accounting_integrity)")
@@ -210,6 +222,8 @@ class WorkflowStore:
                     UPDATE transactions
                     SET accounting_integrity = CASE
                         WHEN CASE
+                            WHEN NEW.proposal_json != OLD.proposal_json THEN 1
+                            WHEN NEW.recipient_normalized != OLD.recipient_normalized THEN 1
                             WHEN json_valid(NEW.proposal_json) = 0 THEN 1
                             WHEN json_type(NEW.proposal_json) != 'object' THEN 1
                             WHEN json_type(NEW.proposal_json, '$.chain_id') != 'integer' THEN 1
@@ -220,8 +234,6 @@ class WorkflowStore:
                             WHEN NEW.amount_base_units != json_extract(NEW.proposal_json, '$.amount_base_units') THEN 1
                             WHEN lower(trim(NEW.token_address)) !=
                                  lower(trim(json_extract(NEW.proposal_json, '$.token_address'))) THEN 1
-                            WHEN NEW.recipient_normalized IS NULL OR NEW.recipient_normalized !=
-                                 lower(trim(json_extract(NEW.proposal_json, '$.recipient'))) THEN 1
                             WHEN NEW.created_day IS NULL OR NEW.created_day != date(NEW.created_at) THEN 1
                             WHEN NEW.status = 'executed_simulated' AND (
                                 NEW.executed_at IS NULL OR NEW.executed_day IS NULL
