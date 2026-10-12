@@ -205,6 +205,7 @@ Goal: package the prototype as a clear, reproducible portfolio/demo project.
 - [x] Document API examples, approval semantics, hard blocks, and simulation-only execution (README workflow endpoint reference, `docs/demo-scenario.md`, `docs/python-client.md`, and `docs/workflow-state-transitions.md`).
 - [x] Record known limitations and a release checklist (`docs/release-checklist.md`; PR adds the release gate and documents prototype limitations).
 - [x] Verify a clean setup from a fresh checkout (fresh clone of `main` at `c6a37a1`; locked dependency sync completed, 349 tests passed, and Ruff passed. The shell had `VIRTUAL_ENV` set to the original checkout, so `uv` warned and correctly ignored that mismatched environment; this warning was recorded rather than treated as a test failure).
+- [x] Run Gitleaks against Git history and resolve the public demo contract false positive (PR #155; owner reported Gitleaks passed on the post-merge `main` checkout on 2026-10-12; release checklist records the precise scope and limitation).
 - [ ] Tag/version only after the release criteria and checks are satisfied.
 
 **Exit criteria:** a reviewer can understand the architecture, run the demo, inspect tests, and distinguish implemented guarantees from limitations.
@@ -386,7 +387,10 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #150 | Add workflow state-transition diagram | Merged |
 | #150 | Add workflow state-transition diagram | Merged |
 | #151 | Record successful fresh-checkout verification for Milestone 7 | Merged |
-| #152 | Record completed baseline release checks | Pending checks |
+| #152 | Record completed baseline release checks | Merged |
+| #153 | Improve demo token setup and record walkthrough verification | Merged |
+| #154 | Record release CI and threat model review | Merged |
+| #155 | Suppress public demo contract false positive and clarify variable name | Merged |
 
 ## 6. Current architecture and useful code locations
 
