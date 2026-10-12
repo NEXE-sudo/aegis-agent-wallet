@@ -200,8 +200,9 @@ class WorkflowStore:
                 """
             )
             db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_accounting_integrity ON transactions(accounting_integrity)")
+            db.execute("DROP TRIGGER IF EXISTS transactions_accounting_integrity_guard")
             db.execute("""
-                CREATE TRIGGER IF NOT EXISTS transactions_accounting_integrity_guard
+                CREATE TRIGGER transactions_accounting_integrity_guard
                 AFTER UPDATE OF proposal_json, chain_id, token_address, amount_base_units,
                     recipient_normalized, created_day, executed_day, created_at, executed_at, status
                 ON transactions
