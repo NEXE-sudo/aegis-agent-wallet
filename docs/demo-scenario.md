@@ -4,7 +4,13 @@ This walkthrough exercises the Aegis Agent Wallet API against a fresh local SQLi
 
 ## 1. Start from a clean local demo environment
 
-Run from the repository root in an activated virtual environment with development dependencies installed.
+Run from the repository root. Install the locked development dependencies first:
+
+```bash
+uv sync --locked --extra dev
+```
+
+Use the same terminal for the following environment variables and server commands.
 
 ```bash
 export AEGIS_AGENT_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
@@ -17,7 +23,7 @@ export BASE_SEPOLIA_RPC_URL="https://YOUR_BASE_SEPOLIA_RPC_PROVIDER_URL"
 Keep the tokens distinct and private. Start the API in one terminal:
 
 ```bash
-uvicorn app.main:app --reload
+uv run --locked uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 In another terminal, set the same token values. If using a fresh shell, copy the values securely rather than generating new ones. The API should respond to `GET /health` with `{"status":"ok","mode":"approval-workflow-simulation-only"}`.
@@ -120,7 +126,7 @@ This path is intentionally time-based. Use a separate demo database and restart 
 ```bash
 export AEGIS_DB_PATH="./aegis-expiry-demo.sqlite3"
 export AEGIS_APPROVAL_EXPIRES_SECONDS="3"
-uvicorn app.main:app --reload
+uv run --locked uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 In the client terminal, use the same tokens as the server and submit a proposal to the unknown placeholder recipient:
