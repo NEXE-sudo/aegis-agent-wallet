@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from app import main
 from app.chain import router as chain_router
+from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
 
 AGENT_TOKEN = "security-review-agent-token"
 OWNER_TOKEN = "security-review-owner-token"
@@ -26,7 +27,7 @@ def _request(method, path, headers=None):
             "agent_id": "devops-01",
             "chain_id": 84532,
             "token_symbol": "USDC",
-            "token_address": main.DEMO_POLICY.allowed_token_addresses.copy().pop(),
+            "token_address": BASE_SEPOLIA_USDC_ADDRESS,
             "recipient": "0x2222222222222222222222222222222222222222",
             "amount_base_units": 1_000_000,
             "token_decimals": 6,
