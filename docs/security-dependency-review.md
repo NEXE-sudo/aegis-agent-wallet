@@ -29,11 +29,11 @@ This is a focused repository-level review of dependency declarations and secret-
 - The runtime guide recommends loopback binding, warns against exposing the development API to untrusted networks, and cautions against committing credential-bearing RPC URLs.
 - The application uses static bearer tokens supplied through the environment. This is a development control, not a production secret-management system; rotation, centralized secret storage, identity management, and deployment hardening are out of scope.
 
-**Implication:** these conventions reduce accidental commits but cannot guarantee that secrets were never committed, copied into shell history, exposed through process inspection, or included in local backups. Repository history and secret-scanning configuration were not exhaustively audited as part of this file-level review.
+**Implication:** these conventions reduce accidental commits but cannot guarantee that secrets were never committed, copied into shell history, exposed through process inspection, or included in local backups. On 2026-10-12, the repository owner checked GitHub's repository security settings and confirmed that secret scanning and push protection are enabled. This records the settings-page confirmation; it is not an exhaustive audit of repository history and does not prove that no secret was ever committed.
 
 ## Follow-up checklist
 
-- [ ] Verify repository-level secret scanning and push protection settings; do not infer their status from application files.
+- [x] Verify repository-level secret scanning and push protection settings; the repository owner confirmed both are enabled in GitHub settings on 2026-10-12.
 - [ ] Decide whether the project needs a committed lockfile or another reproducible dependency-resolution workflow before release.
 - [x] Add a CI dependency-audit step for the resolved Python environment using `pip-audit`; continue reviewing Dependabot PRs and any repository dependency alerts.
 - [ ] If a credential is ever exposed, revoke/rotate it and follow the relevant provider's incident guidance; removing it from the latest commit alone is insufficient.
