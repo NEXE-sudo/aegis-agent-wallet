@@ -15,6 +15,7 @@ Aegis Agent Wallet is a testnet-focused AI-agent wallet prototype that demonstra
 **Execution is simulation-only.** The project does not load private keys, sign transactions, or submit transactions. The Base Sepolia integration is read-only. Do not enable real signing or transaction submission as part of the current roadmap without an explicit, separate scope decision.
 
 Important current limitations:
+
 - The risk score is a heuristic, not a validated fraud detector.
 - Bearer tokens are development authentication, not a production identity system.
 - SQLite audit triggers provide application-level tamper resistance, not cryptographic proof against someone controlling the database file.
@@ -38,6 +39,7 @@ These rules are part of the project, not optional suggestions. Follow them in ev
 ### Local validation commands
 
 For a new remote branch:
+
 ```bash
 git fetch origin
 git switch -c <branch-name> --track origin/<branch-name>
@@ -46,6 +48,7 @@ ruff check .
 ```
 
 For an existing local branch:
+
 ```bash
 git pull --ff-only origin <branch-name>
 python -m pytest -q
@@ -53,6 +56,7 @@ ruff check .
 ```
 
 After a PR is merged:
+
 ```bash
 git switch main
 git pull --ff-only origin main
@@ -61,6 +65,7 @@ ruff check .
 ```
 
 After both post-merge checks pass, remove that PR's feature branch (replace `<branch-name>` with the exact branch used for the PR):
+
 ```bash
 git branch -D <branch-name>
 if git ls-remote --exit-code --heads origin <branch-name> >/dev/null 2>&1; then
@@ -69,6 +74,7 @@ else
   echo "Remote branch already deleted."
 fi
 ```
+
 Use this only after verifying the PR is merged and local `main` is synced. Never delete `main` or a branch with unmerged work.
 
 **Merge gate:** do not merge until the user explicitly confirms both test commands passed for the PR branch.
@@ -78,22 +84,26 @@ Use this only after verifying the PR is merged and local `main` is synced. Never
 Estimates below are planning ranges, not promises. Actual PR count depends on test findings and the scope chosen at each milestone.
 
 ### Milestone 1 — Foundation
+
 **Status: COMPLETE**
 
 Goal: establish the API, policy/risk model, workflow persistence, and the first simulation-only transaction path.
 
 Completed foundations include:
+
 - FastAPI service and protected agent/owner operations.
 - Policy evaluation and explainable risk assessment.
 - SQLite-backed workflow state and simulated execution.
 - Read-only Base Sepolia JSON-RPC/token metadata inspection.
 
 ### Milestone 2 — Safe Transaction Flow
+
 **Status: COMPLETE**
 
 Goal: ensure proposed transactions are bound to validated policy, explicit approvals, reliable state transitions, spending controls, replay protection, and an auditable history.
 
 Completed controls include:
+
 - Trusted-token chain/symbol/decimals validation and hard blocks for mismatches.
 - EVM recipient format validation.
 - Risk/policy revalidation before simulated execution; high-risk escalation requires fresh approval.
@@ -106,6 +116,7 @@ Completed controls include:
 - Idempotency conflict handling and audit events.
 
 Remaining candidate work (inspect current implementation and tests before selecting a task; do not assume every item is a confirmed defect):
+
 - [x] Review all workflow state transitions against a written state-transition table (PR #23 documentation and regression tests).
 - [x] Add targeted negative tests for malformed/missing/future approval timestamps and expiry boundaries.
 - [x] Review idempotency-key uniqueness behavior and concurrent retries under SQLite write locking.
@@ -119,9 +130,11 @@ Remaining candidate work (inspect current implementation and tests before select
 **Exit criteria:** the important state transitions and failure paths are documented and regression-tested; the test suite and Ruff pass; remaining limitations are explicit. This is a prototype milestone, not a claim of production security.
 
 ### Milestone 3 — Agent and Demo
+
 **Status: COMPLETE**
 
 Goal: make the workflow easy to understand and demonstrate end to end.
+
 - [x] Define a reproducible demo scenario and expected outcomes (`docs/demo-scenario.md`; added in PR #32).
 - [x] Add a minimal agent/client example that proposes transactions through the authenticated API (PR #33).
 - [x] Verify the documented allowed, hard-blocked, approval-required, expired-approval, and replay/conflict paths end to end (`docs/demo-scenario.md`; regression coverage in PRs #55–#60, with the expired-approval walkthrough added in PR #34).
@@ -132,9 +145,11 @@ Goal: make the workflow easy to understand and demonstrate end to end.
 **Exit criteria:** a new developer can run the app and reproduce the documented happy path and important rejection paths.
 
 ### Milestone 4 — Testing and Reliability
+
 **Status: COMPLETE**
 
 Goal: test correctness under failures, concurrency, and persistence changes.
+
 - [x] Review test coverage by API endpoint, policy rule, and workflow transition (reviewed API routes in `app/main.py` and `app/chain/router.py` against `tests/test_api.py`, `tests/test_chain_api.py`, and `tests/test_workflow_transitions.py`; focused endpoint and policy-boundary gaps were covered in PRs #101–#110).
 - [x] Add explicit regression coverage for risk-score amount and projected daily-spend thresholds (PR #89).
 - [x] Add concurrency tests for competing proposals/reservations and idempotent retries where practical (PRs #48, #20, #66, and #84).
@@ -148,9 +163,11 @@ Goal: test correctness under failures, concurrency, and persistence changes.
 **Exit criteria:** automated checks run reproducibly and important failure modes have regression coverage. All listed Milestone 4 criteria have been reviewed and checked off; the focused regression coverage in PRs #101–#112 is merged, and the project owner confirmed both required checks after the latest merges.
 
 ### Milestone 5 — Observability and Operations
+
 **Status: COMPLETE**
 
 Goal: make local operation and debugging safer and clearer.
+
 - [x] Review structured logging and request/error observability (PR #114 request metadata logging; PR #121 SQLite operational error handling; existing chain RPC error mappings and regression tests).
 - [x] Ensure secrets, bearer tokens, and provider API keys are never logged (request logs use route templates and omit raw URLs/headers; regression tests assert bearer and query secrets are absent).
 - [x] Document environment variables, defaults, validation, and safe local binding (`docs/runtime-configuration.md`, PR #119).
@@ -161,9 +178,11 @@ Goal: make local operation and debugging safer and clearer.
 **Exit criteria:** operators can configure, run, diagnose, and reset the local prototype safely. The listed criteria were reviewed against the current implementation, documentation, and regression tests; PRs #114 and #119–#121 complete the observability and operations work. This remains a local simulation-only prototype, not a production deployment claim.
 
 ### Milestone 6 — Security Review
+
 **Status: COMPLETE**
 
 Goal: conduct a deliberate review of attack surfaces and documented guarantees.
+
 - [x] Maintain a concise threat model and assets/trust-boundary inventory (`docs/threat-model.md`; PR #26, with later review).
 - [x] Review authentication/authorization on every endpoint; add a protected-endpoint missing/wrong-role token matrix (PR #123).
 - [x] Review input validation, policy override resistance, replay behavior, and audit integrity assumptions against the implementation and existing regression coverage; add execution-time policy revalidation tests (PR #124).
@@ -177,10 +196,11 @@ Goal: conduct a deliberate review of attack surfaces and documented guarantees.
 **Completion record:** The security-review checklist is complete. Findings and residual risks are documented in `docs/threat-model.md` and `docs/security-dependency-review.md`. PRs #139–#142 completed the dependency audit, repository secret-protection documentation, locked dependency workflow, and security-review tracking updates. This completion applies to the simulation-only prototype; it is not an independent security audit or production-readiness certification.
 
 ### Milestone 7 — Documentation and Release
+
 **Status: IN PROGRESS**
 
 Goal: package the prototype as a clear, reproducible portfolio/demo project.
-- [x] Keep README setup instructions aligned with actual code and configuration (PR #144 aligns setup and run commands with the locked `uv` workflow).
+- [ ] Keep README setup instructions aligned with actual code and configuration.
 - [ ] Add architecture/workflow diagrams if they improve understanding.
 - [x] Document API examples, approval semantics, hard blocks, and simulation-only execution (README workflow endpoint reference, `docs/demo-scenario.md`, `docs/python-client.md`, and `docs/workflow-state-transitions.md`).
 - [x] Record known limitations and a release checklist (`docs/release-checklist.md`; PR adds the release gate and documents prototype limitations).
@@ -190,6 +210,7 @@ Goal: package the prototype as a clear, reproducible portfolio/demo project.
 **Exit criteria:** a reviewer can understand the architecture, run the demo, inspect tests, and distinguish implemented guarantees from limitations.
 
 ### Milestone 8 — Optional production-readiness investigation
+
 **Status: OUT OF CURRENT SCOPE — separate decision required**
 
 This would be a separate design/security project, not a simple continuation of the simulation prototype. It may involve secure key custody, transaction signing, nonce management, submission idempotency, receipt reconciliation, RPC trust, chain reorgs, monitoring, incident response, and independent security review. Do not implement real signing or submission unless the project owner explicitly authorizes this new scope after a dedicated design review.
@@ -197,6 +218,7 @@ This would be a separate design/security project, not a simple continuation of t
 ## 4. Iteration estimate
 
 A reasonable current planning range is **about 13–23 additional focused PRs** to reach a strong simulation-only showcase:
+
 - Milestone 2: complete.
 - Milestone 3: roughly 3–5 PRs.
 - Milestone 4: roughly 3–5 PRs.
@@ -354,11 +376,6 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #140 | Document repository secret scanning and push protection settings | Merged |
 | #141 | Add reproducible Python dependency lockfile and locked CI installation | Merged |
 | #142 | Record locked dependency workflow and close out security-review documentation | Merged |
-| #143 | Mark Milestone 6 complete and begin Milestone 7 | Merged |
-| #144 | Align README and runtime setup with the locked `uv` workflow | Merged |
-| #145 | Record Milestone 7 progress and README setup alignment | Merged |
-| #146 | Align demo walkthrough with the locked `uv` workflow | Merged |
-| #147 | Add release checklist and document known limitations | Merged |
 
 ## 6. Current architecture and useful code locations
 
