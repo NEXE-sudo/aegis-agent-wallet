@@ -8,12 +8,12 @@ Aegis Agent Wallet is a local, simulation-only portfolio prototype. This checkli
 - [x] Install the locked dependencies with `uv sync --locked --extra dev` (completed in the fresh checkout; PR #151).
 - [x] Run `python -m pytest -q` and confirm the full suite passes (349 passed; PR #151).
 - [x] Run `ruff check .` and confirm lint passes (PR #151).
-- [ ] Follow [the reproducible demo scenario](demo-scenario.md), including allowed simulation, approval-required flow, hard block, idempotency replay/conflict, and audit retrieval.
-- [ ] Confirm the API is bound to localhost for the local demo and that agent and owner bearer tokens are distinct and supplied through environment variables.
+- [x] Follow [the reproducible demo scenario](demo-scenario.md), including allowed simulation, approval-required flow, hard block, idempotency replay/conflict, and audit retrieval (manually exercised on 2026-10-12; the approval audit showed `proposal_created → awaiting_approval`, `approval_granted → approved`, and `simulated_execution → executed_simulated`).
+- [x] Confirm the API is bound to localhost for the local demo and that agent and owner bearer tokens are distinct and supplied through environment variables (verified during the 2026-10-12 walkthrough).
 - [ ] Review the current CI results and dependency-audit results for the release commit; resolve or explicitly document actionable failures.
-- [ ] Review README setup commands, runtime configuration, and demo commands against the locked `uv` workflow.
+- [x] Review README setup commands, runtime configuration, and demo commands against the locked `uv` workflow (the walkthrough uses `uv sync --locked --extra dev`, `uv run --locked`, and loopback binding; the RPC URL is optional for simulation).
 - [ ] Confirm no secrets, private keys, local database files, or provider credentials are committed.
-- [ ] Confirm all documentation describes execution as simulated and Base Sepolia inspection as read-only.
+- [x] Confirm all documentation describes execution as simulated and Base Sepolia inspection as read-only (reviewed README, runtime configuration, demo scenario, and threat model).
 - [ ] Review the known limitations below and the [threat model](threat-model.md); do not describe this prototype as production-ready.
 - [ ] Only after every required item is checked, choose an intentional version/tag and publish release notes that state the simulation-only scope.
 

@@ -19,7 +19,8 @@ export AEGIS_AGENT_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsa
 export AEGIS_APPROVAL_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
 export AEGIS_DB_PATH="./aegis-workflow.sqlite3"
 export AEGIS_APPROVAL_EXPIRES_SECONDS="300"
-export BASE_SEPOLIA_RPC_URL="https://YOUR_BASE_SEPOLIA_RPC_PROVIDER_URL"
+# Optional: set this only for the separate read-only chain-inspection endpoints.
+# export BASE_SEPOLIA_RPC_URL="https://YOUR_BASE_SEPOLIA_RPC_PROVIDER_URL"
 uv run --locked python -m pytest -q
 uv run --locked ruff check .
 uv run --locked uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
