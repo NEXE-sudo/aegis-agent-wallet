@@ -4,10 +4,16 @@ This example submits a **proposal only** to the local Aegis API. It does not app
 
 ## 1. Start the API
 
-From the repository root, activate your virtual environment and configure distinct local agent and owner tokens as described in the [README setup](../README.md#macos-setup). Start the API:
+From the repository root, install the locked development dependencies and configure distinct local agent and owner tokens as described in the [README setup](../README.md#macos-setup):
 
 ```bash
-uvicorn app.main:app --reload
+uv sync --locked --extra dev
+```
+
+Start the API on localhost:
+
+```bash
+uv run --locked uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 ## 2. Configure and run the client
@@ -16,7 +22,7 @@ In another terminal, set `AEGIS_AGENT_TOKEN` to the **exact same value configure
 
 ```bash
 export AEGIS_AGENT_TOKEN="paste-the-same-agent-token-used-by-the-server"
-python examples/propose_transaction.py
+uv run --locked python examples/propose_transaction.py
 ```
 
 The script sends `POST /transactions/propose` with the agent bearer token and prints the returned transaction record. Defaults match the repository's local demo policy: Base Sepolia (chain ID `84532`), the demo USDC testnet contract, the configured placeholder recipient, and `1_000_000` base units (1 USDC at 6 decimals).
