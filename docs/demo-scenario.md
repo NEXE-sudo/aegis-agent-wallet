@@ -42,7 +42,7 @@ In Terminal 2, load the same tokens from the temporary file, then configure the 
 export AEGIS_AGENT_TOKEN="$(python -c 'import json; print(json.load(open("/tmp/aegis-demo-tokens.json"))["agent"])')"
 export AEGIS_APPROVAL_TOKEN="$(python -c 'import json; print(json.load(open("/tmp/aegis-demo-tokens.json"))["owner"])')"
 export API="http://127.0.0.1:8000"
-export TOKEN="0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+export TOKEN_ADDRESS="0x036CbD53842c5426634e7929541eC2318f3dCF7e"
 export AGENT_TOKEN="$AEGIS_AGENT_TOKEN"
 export OWNER_TOKEN="$AEGIS_APPROVAL_TOKEN"
 export ALLOWED_RECIPIENT="0x2222222222222222222222222222222222222222"
@@ -72,7 +72,7 @@ curl -sS -X POST "$API/transactions/propose" \
   -H "Authorization: Bearer $AGENT_TOKEN" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: demo-allowed-001" \
-  -d "{\"chain_id\":84532,\"token_symbol\":\"USDC\",\"token_address\":\"$TOKEN\",\"recipient\":\"$ALLOWED_RECIPIENT\",\"amount_base_units\":1000000,\"token_decimals\":6}"
+  -d "{\"chain_id\":84532,\"token_symbol\":\"USDC\",\"token_address\":\"$TOKEN_ADDRESS\",\"recipient\":\"$ALLOWED_RECIPIENT\",\"amount_base_units\":1000000,\"token_decimals\":6}"
 ```
 
 Expected: HTTP `201` and a transaction record whose `status` is `ready` for this low-risk, allowed demo proposal. Record the returned `transaction_id` as `TX_ID`. Then simulate execution:
@@ -94,7 +94,7 @@ curl -sS -X POST "$API/transactions/propose" \
   -H "Authorization: Bearer $AGENT_TOKEN" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: demo-approval-001" \
-  -d "{\"chain_id\":84532,\"token_symbol\":\"USDC\",\"token_address\":\"$TOKEN\",\"recipient\":\"$UNKNOWN_RECIPIENT\",\"amount_base_units\":1000000,\"token_decimals\":6}"
+  -d "{\"chain_id\":84532,\"token_symbol\":\"USDC\",\"token_address\":\"$TOKEN_ADDRESS\",\"recipient\":\"$UNKNOWN_RECIPIENT\",\"amount_base_units\":1000000,\"token_decimals\":6}"
 ```
 
 Expected: HTTP `201` with `status` `awaiting_approval`. Attempting execution before approval should return HTTP `409` because human approval is required.
@@ -121,7 +121,7 @@ curl -sS -X POST "$API/transactions/propose" \
   -H "Authorization: Bearer $AGENT_TOKEN" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: demo-blocked-001" \
-  -d "{\"chain_id\":84532,\"token_symbol\":\"FAKE\",\"token_address\":\"$TOKEN\",\"recipient\":\"$ALLOWED_RECIPIENT\",\"amount_base_units\":1000000,\"token_decimals\":6}"
+  -d "{\"chain_id\":84532,\"token_symbol\":\"FAKE\",\"token_address\":\"$TOKEN_ADDRESS\",\"recipient\":\"$ALLOWED_RECIPIENT\",\"amount_base_units\":1000000,\"token_decimals\":6}"
 ```
 
 Expected: HTTP `201` containing a transaction whose policy decision/status indicates a hard block. A blocked proposal cannot be approved or executed; the execute endpoint returns HTTP `403`. This demonstrates that approval cannot override a policy hard block.
@@ -150,7 +150,7 @@ curl -sS -X POST "$API/transactions/propose" \
   -H "Authorization: Bearer $AGENT_TOKEN" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: demo-expiry-001" \
-  -d "{\"chain_id\":84532,\"token_symbol\":\"USDC\",\"token_address\":\"$TOKEN\",\"recipient\":\"$UNKNOWN_RECIPIENT\",\"amount_base_units\":1000000,\"token_decimals\":6}"
+  -d "{\"chain_id\":84532,\"token_symbol\":\"USDC\",\"token_address\":\"$TOKEN_ADDRESS\",\"recipient\":\"$UNKNOWN_RECIPIENT\",\"amount_base_units\":1000000,\"token_decimals\":6}"
 ```
 
 Copy the returned `transaction_id` and `fingerprint` into the variables below, then approve using the owner token:
