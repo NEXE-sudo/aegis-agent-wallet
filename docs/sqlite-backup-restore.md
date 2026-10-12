@@ -52,6 +52,30 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 Restoring an older backup rolls workflow and audit history back to the state captured in that backup. Do not merge an old database into a newer one by manually editing SQLite tables.
 
+## Repair legacy recipient accounting indexes
+
+Older versions compared `recipient_normalized` using Python's Unicode-aware
+`strip().lower()` during backfill but SQLite's narrower `lower(trim(...))`
+during integrity checks. Existing rows containing tabs, newlines, or other
+Unicode whitespace could therefore be marked inconsistent and prevent new
+proposals.
+
+To repair a database when upgrading to a version containing the normalization
+fix:
+
+1. Stop the API process.
+2. Make a consistent backup using the instructions above and keep the original.
+3. Start the application with the updated code and the same `AEGIS_DB_PATH`.
+   Startup recomputes each stored `recipient_normalized` value using the
+   application's canonicalization and recalculates the accounting-integrity
+   flag. Do not manually edit `accounting_integrity` or the SQLite tables.
+4. Verify the application can read existing records and accept a new simulated
+   proposal before relying on the upgraded database.
+
+This repair preserves the original proposal JSON and audit history. It repairs
+the derived recipient lookup key and its integrity flag; it does not rewrite
+proposal fingerprints or establish on-chain execution.
+
 ## Reset local demo data safely
 
 A reset discards the active demo's visible workflow state and audit history. For a reversible reset, **use a new database path rather than deleting the existing database**.
