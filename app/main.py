@@ -155,7 +155,23 @@ request_logger = logging.getLogger("aegis.request")
 async def log_http_requests(request: Request, call_next):
     """Log request metadata without recording raw URLs, headers, or exception text."""
     started = perf_counter()
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception:
+        # Record the failure status and route metadata, but never exception text.
+        route = request.scope.get("route")
+        route_template = getattr(route, "path", "<unmatched>")
+        request_logger.info(
+            "http_request",
+            extra={
+                "http_method": request.method,
+                "http_route": route_template,
+                "http_status_code": 500,
+                "duration_ms": round((perf_counter() - started) * 1000, 2),
+            },
+        )
+        raise
+
     route = request.scope.get("route")
     route_template = getattr(route, "path", "<unmatched>")
     request_logger.info(
