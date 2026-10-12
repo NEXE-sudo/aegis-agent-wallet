@@ -186,3 +186,44 @@ def test_workflow_endpoint_fails_closed_when_other_token_is_missing(
         "detail": "Both AEGIS_AGENT_TOKEN and AEGIS_APPROVAL_TOKEN must be configured; endpoint fails closed"
     }
 
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/chain/base-sepolia/status",
+        "/chain/base-sepolia/token/0x1111111111111111111111111111111111111111",
+    ],
+    ids=["chain-status", "token-inspection"],
+)
+def test_read_only_chain_endpoints_accept_owner_token_without_agent_token(
+    monkeypatch, path
+):
+    monkeypatch.setenv("AEGIS_APPROVAL_TOKEN", OWNER_TOKEN)
+    monkeypatch.delenv("AEGIS_AGENT_TOKEN", raising=False)
+
+    class FakeRpc:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+        def chain_id(self):
+            return 84532
+
+        def verify_token(self, address):
+            return {"address": address, "mode": "read-only"}
+
+    monkeypatch.setattr(chain_router, "BaseSepoliaRpc", FakeRpc)
+    response = client.get(path, headers={"Authorization": f"Bearer {OWNER_TOKEN}"})
+
+    assert response.status_code == 200
+    if path.endswith("/status"):
+        assert response.json()["mode"] == "read-only"
+        assert response.json()["is_base_sepolia"] is True
+    else:
+        assert response.json() == {
+            "address": "0x1111111111111111111111111111111111111111",
+            "mode": "read-only",
+        }
