@@ -6,12 +6,10 @@ For the environment-variable reference, safe local binding, and operational trou
 
 ## macOS setup
 
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) if needed (on macOS, use `brew install uv`). From the repository root, install the exact dependencies recorded in `uv.lock`:
+
 ```bash
-python3 --version
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install -e ".[dev]"
+uv sync --locked --extra dev
 ```
 
 Create local secrets and configure the environment before starting the API:
@@ -22,8 +20,9 @@ export AEGIS_APPROVAL_TOKEN="$(python -c 'import secrets; print(secrets.token_ur
 export AEGIS_DB_PATH="./aegis-workflow.sqlite3"
 export AEGIS_APPROVAL_EXPIRES_SECONDS="300"
 export BASE_SEPOLIA_RPC_URL="https://YOUR_BASE_SEPOLIA_RPC_PROVIDER_URL"
-python -m pytest -q
-uvicorn app.main:app --reload
+uv run --locked python -m pytest -q
+uv run --locked ruff check .
+uv run --locked uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Keep both tokens private. The agent token and owner/approval token must be different; protected endpoints fail closed with HTTP 503 if either token is blank or both configured tokens are identical. A wrong or missing request token returns HTTP 401. An empty or whitespace-only `AEGIS_DB_PATH` is rejected at startup rather than silently using a temporary SQLite database. API docs: http://127.0.0.1:8000/docs

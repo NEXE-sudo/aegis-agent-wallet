@@ -16,13 +16,10 @@ The application does not require an RPC URL to perform its simulation-only trans
 
 ## Start locally
 
-From the repository root on macOS or another Unix-like shell:
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) if needed, then run these commands from the repository root on macOS or another Unix-like shell. `uv sync --locked --extra dev` creates the project environment and installs the exact locked dependencies; it fails if `uv.lock` is out of sync with the project metadata.
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install -e ".[dev]"
+uv sync --locked --extra dev
 
 export AEGIS_AGENT_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
 export AEGIS_APPROVAL_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
@@ -32,9 +29,9 @@ export AEGIS_APPROVAL_EXPIRES_SECONDS="300"
 # Optional: set this only if you intend to use the read-only chain endpoints.
 # export BASE_SEPOLIA_RPC_URL="https://YOUR_BASE_SEPOLIA_RPC_PROVIDER_URL"
 
-python -m pytest -q
-ruff check .
-uvicorn app.main:app --host 127.0.0.1 --port 8000
+uv run --locked python -m pytest -q
+uv run --locked ruff check .
+uv run --locked uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 Generate two distinct tokens. Do not paste real tokens or provider credentials into source files, issue reports, screenshots, or logs. The checked-in `.env.example` contains placeholders only; it is a reference, not a secret store. The commands above explicitly export the variables into the current shell.
