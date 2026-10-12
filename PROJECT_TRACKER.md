@@ -330,11 +330,18 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #119 | Document runtime configuration and safe local startup | Merged |
 | #120 | Document SQLite backup, restore, and safe reset | Merged |
 | #121 | Return sanitized 503 responses for SQLite operational failures | Merged |
-| #122 | Mark Milestone 5 complete and record merged operations work | In progress |
+| #122 | Mark Milestone 5 complete and record merged operations work | Merged |
 | #123 | Test authorization across protected API endpoints | Merged |
 | #124 | Test policy changes before simulated execution | Merged |
 | #125 | Document dependency and secret-management review | Merged |
 | #126 | Configure weekly Python dependency updates | Merged |
+| #127 | Update pytest development dependency range | Merged |
+| #128 | Record security review progress through PR #126 | Merged |
+| #129 | Test protected endpoints fail closed on invalid auth configuration | Merged |
+| #130 | Test owner-only authentication on read-only chain endpoints | Merged |
+| #131 | Scope accounting integrity checks to relevant spend | Merged |
+| #132 | Normalize legacy recipient accounting keys consistently | Merged |
+| #133 | Log unhandled request failures safely without exposing exception details | Merged |
 
 ## 6. Current architecture and useful code locations
 
