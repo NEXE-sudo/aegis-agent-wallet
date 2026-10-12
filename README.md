@@ -30,6 +30,12 @@ Keep both tokens private. The agent token and owner/approval token must be diffe
 
 For requests, send `Authorization: Bearer <AEGIS_AGENT_TOKEN>` to `POST /transactions/propose`. Use `Authorization: Bearer <AEGIS_APPROVAL_TOKEN>` for transaction retrieval, approval, and simulated execution. `/health`, `/policy/evaluate`, and `/risk/assess` are demo endpoints; the latter two accept caller-provided spend only for isolated evaluation and do not create transactions.
 
+## Local frontend control centre
+
+Start the API with the commands above, then open [http://127.0.0.1:8000/](http://127.0.0.1:8000/). The dependency-free frontend shares the API origin and supports proposal creation, policy/risk review, owner approvals, simulated execution, and audit inspection. Connect with distinct local agent and owner tokens. The browser keeps them in memory only; reload to clear them. See [the frontend guide](docs/frontend.md) for scope and safety notes.
+
+This UI reflects the current USDC-on-Base-Sepolia demo workflow. It does not provide live stock/crypto market data, broker/exchange order routing, or real transaction execution.
+
 ## Base Sepolia integration (v0.7.0)
 
 Set `BASE_SEPOLIA_RPC_URL` to an HTTPS JSON-RPC endpoint from your RPC provider. Do not commit provider URLs containing private API keys. The following endpoints require the owner bearer token:

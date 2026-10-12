@@ -670,6 +670,17 @@ class WorkflowStore:
             row = db.execute("SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)).fetchone()
         return self._decode(row) if row else None
 
+    def list_recent(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Return the newest persisted workflow records for owner-facing inspection."""
+        if not 1 <= limit <= 100:
+            raise ValueError("limit must be between 1 and 100")
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT * FROM transactions ORDER BY created_at DESC, transaction_id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [self._decode(row) for row in rows]
+
     def approve(
         self, transaction_id: str, fingerprint: str, actor_role: str = "owner",
         approval_expires_seconds: int = 300,

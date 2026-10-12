@@ -36,7 +36,7 @@ uv run --locked uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 Generate two distinct tokens. Do not paste real tokens or provider credentials into source files, issue reports, screenshots, or logs. The checked-in `.env.example` contains placeholders only; it is a reference, not a secret store. The commands above explicitly export the variables into the current shell.
 
-Use `http://127.0.0.1:8000/docs` for the interactive API documentation. Keep the `--host 127.0.0.1` binding for local use. Do not change it to `0.0.0.0` or expose this development API to an untrusted network: the project does not provide production identity, TLS termination, rate limiting, or deployment hardening.
+Open `http://127.0.0.1:8000/` for the local frontend control centre, or use `http://127.0.0.1:8000/docs` for the interactive API documentation. The frontend uses the same origin and requires no CORS configuration. Keep the `--host 127.0.0.1` binding for local use. Do not change it to `0.0.0.0` or expose this development API to an untrusted network: the project does not provide production identity, TLS termination, rate limiting, or deployment hardening.
 
 ## Health endpoint: what it does and does not prove
 
