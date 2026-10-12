@@ -204,7 +204,7 @@ Goal: package the prototype as a clear, reproducible portfolio/demo project.
 - [x] Add architecture/workflow diagrams if they improve understanding (`docs/workflow-state-transitions.md` state-transition diagram; PR #150).
 - [x] Document API examples, approval semantics, hard blocks, and simulation-only execution (README workflow endpoint reference, `docs/demo-scenario.md`, `docs/python-client.md`, and `docs/workflow-state-transitions.md`).
 - [x] Record known limitations and a release checklist (`docs/release-checklist.md`; PR adds the release gate and documents prototype limitations).
-- [ ] Verify a clean setup from a fresh checkout.
+- [x] Verify a clean setup from a fresh checkout (fresh clone of `main` at `c6a37a1`; locked dependency sync completed, 349 tests passed, and Ruff passed. The shell had `VIRTUAL_ENV` set to the original checkout, so `uv` warned and correctly ignored that mismatched environment; this warning was recorded rather than treated as a test failure).
 - [ ] Tag/version only after the release criteria and checks are satisfied.
 
 **Exit criteria:** a reviewer can understand the architecture, run the demo, inspect tests, and distinguish implemented guarantees from limitations.
@@ -383,6 +383,8 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #147 | Add release checklist and document known limitations | Merged |
 | #148 | Align Python client walkthrough with the locked `uv` workflow | Merged |
 | #149 | Align tracker with current workflow and restore merged PR history | Merged |
+| #150 | Add workflow state-transition diagram | Merged |
+| #151 | Record successful fresh-checkout verification for Milestone 7 | Pending checks |
 
 ## 6. Current architecture and useful code locations
 
