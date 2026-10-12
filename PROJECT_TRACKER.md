@@ -180,7 +180,7 @@ Goal: conduct a deliberate review of attack surfaces and documented guarantees.
 **Status: IN PROGRESS**
 
 Goal: package the prototype as a clear, reproducible portfolio/demo project.
-- [ ] Keep README setup instructions aligned with actual code and configuration.
+- [x] Keep README setup instructions aligned with actual code and configuration (PR #144 aligns setup and run commands with the locked `uv` workflow).
 - [ ] Add architecture/workflow diagrams if they improve understanding.
 - [ ] Document API examples, approval semantics, hard blocks, and simulation-only execution.
 - [ ] Record known limitations and a release checklist.
@@ -354,6 +354,8 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #140 | Document repository secret scanning and push protection settings | Merged |
 | #141 | Add reproducible Python dependency lockfile and locked CI installation | Merged |
 | #142 | Record locked dependency workflow and close out security-review documentation | Merged |
+| #143 | Mark Milestone 6 complete and begin Milestone 7 | Merged |
+| #144 | Align README and runtime setup with the locked `uv` workflow | Merged |
 
 ## 6. Current architecture and useful code locations
 
