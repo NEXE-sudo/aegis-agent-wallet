@@ -3,13 +3,12 @@ import logging
 import os
 import sqlite3
 from contextlib import asynccontextmanager
-from time import perf_counter
 from pathlib import Path
+from time import perf_counter
 from typing import Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from app.auth import require_agent, require_owner
@@ -338,6 +337,11 @@ def execute_transaction(transaction_id: str) -> TransactionResponse:
 app.include_router(base_sepolia_router)
 
 
-# Serve the dependency-free local control centre from the same origin as the API.
+# Serve the dependency-free local control centre without a catch-all static mount.
 _frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
-app.mount("/", StaticFiles(directory=_frontend_dir, html=True), name="frontend")
+
+
+@app.get("/", include_in_schema=False)
+def frontend_index() -> FileResponse:
+    """Serve the local control centre at the site root."""
+    return FileResponse(_frontend_dir / "index.html")
