@@ -5,8 +5,8 @@
 > **Last updated:** 2026-10-12  
 > **Repository:** [NEXE-sudo/aegis-agent-wallet](https://github.com/NEXE-sudo/aegis-agent-wallet)  
 > **Current package/API version:** 1.10.0  
-> **Current phase:** Milestone 6 — Security Review  
-> **Current status:** Milestones 1–5 complete; Milestone 6 in progress; Milestone 7 planned; Milestone 8 is optional and out of current scope.
+> **Current phase:** Milestone 7 — Documentation and Release
+> **Current status:** Milestones 1–6 complete; Milestone 7 in progress; Milestone 8 is optional and out of current scope.
 
 ## 1. Project mission and non-negotiable boundary
 
@@ -161,7 +161,7 @@ Goal: make local operation and debugging safer and clearer.
 **Exit criteria:** operators can configure, run, diagnose, and reset the local prototype safely. The listed criteria were reviewed against the current implementation, documentation, and regression tests; PRs #114 and #119–#121 complete the observability and operations work. This remains a local simulation-only prototype, not a production deployment claim.
 
 ### Milestone 6 — Security Review
-**Status: IN PROGRESS**
+**Status: COMPLETE**
 
 Goal: conduct a deliberate review of attack surfaces and documented guarantees.
 - [x] Maintain a concise threat model and assets/trust-boundary inventory (`docs/threat-model.md`; PR #26, with later review).
@@ -174,8 +174,10 @@ Goal: conduct a deliberate review of attack surfaces and documented guarantees.
 
 **Exit criteria:** findings are tracked and addressed or explicitly accepted; no unsupported production-security claims are made.
 
+**Completion record:** The security-review checklist is complete. Findings and residual risks are documented in `docs/threat-model.md` and `docs/security-dependency-review.md`. PRs #139–#142 completed the dependency audit, repository secret-protection documentation, locked dependency workflow, and security-review tracking updates. This completion applies to the simulation-only prototype; it is not an independent security audit or production-readiness certification.
+
 ### Milestone 7 — Documentation and Release
-**Status: PLANNED**
+**Status: IN PROGRESS**
 
 Goal: package the prototype as a clear, reproducible portfolio/demo project.
 - [ ] Keep README setup instructions aligned with actual code and configuration.
@@ -351,6 +353,7 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #139 | Audit installed Python dependencies in CI with `pip-audit` | Merged |
 | #140 | Document repository secret scanning and push protection settings | Merged |
 | #141 | Add reproducible Python dependency lockfile and locked CI installation | Merged |
+| #142 | Record locked dependency workflow and close out security-review documentation | Merged |
 
 ## 6. Current architecture and useful code locations
 
