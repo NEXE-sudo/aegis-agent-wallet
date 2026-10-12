@@ -205,28 +205,31 @@ class WorkflowStore:
                 AFTER UPDATE OF proposal_json, chain_id, token_address, amount_base_units,
                     recipient_normalized, created_day, executed_day, created_at, executed_at, status
                 ON transactions
-                WHEN CASE
-                    WHEN json_valid(NEW.proposal_json) = 0 THEN 1
-                    WHEN json_type(NEW.proposal_json) != 'object' THEN 1
-                    WHEN json_type(NEW.proposal_json, '$.chain_id') != 'integer' THEN 1
-                    WHEN json_type(NEW.proposal_json, '$.amount_base_units') != 'integer' THEN 1
-                    WHEN json_type(NEW.proposal_json, '$.token_address') != 'text' THEN 1
-                    WHEN json_type(NEW.proposal_json, '$.recipient') != 'text' THEN 1
-                    WHEN NEW.chain_id != json_extract(NEW.proposal_json, '$.chain_id') THEN 1
-                    WHEN NEW.amount_base_units != json_extract(NEW.proposal_json, '$.amount_base_units') THEN 1
-                    WHEN lower(trim(NEW.token_address)) !=
-                         lower(trim(json_extract(NEW.proposal_json, '$.token_address'))) THEN 1
-                    WHEN NEW.recipient_normalized IS NULL OR NEW.recipient_normalized !=
-                         lower(trim(json_extract(NEW.proposal_json, '$.recipient'))) THEN 1
-                    WHEN NEW.created_day IS NULL OR NEW.created_day != date(NEW.created_at) THEN 1
-                    WHEN NEW.status = 'executed_simulated' AND (
-                        NEW.executed_at IS NULL OR NEW.executed_day IS NULL
-                        OR NEW.executed_day != date(NEW.executed_at)
-                    ) THEN 1
-                    ELSE 0
-                END = 1
                 BEGIN
-                    UPDATE transactions SET accounting_integrity = 0
+                    UPDATE transactions
+                    SET accounting_integrity = CASE
+                        WHEN CASE
+                            WHEN json_valid(NEW.proposal_json) = 0 THEN 1
+                            WHEN json_type(NEW.proposal_json) != 'object' THEN 1
+                            WHEN json_type(NEW.proposal_json, '$.chain_id') != 'integer' THEN 1
+                            WHEN json_type(NEW.proposal_json, '$.amount_base_units') != 'integer' THEN 1
+                            WHEN json_type(NEW.proposal_json, '$.token_address') != 'text' THEN 1
+                            WHEN json_type(NEW.proposal_json, '$.recipient') != 'text' THEN 1
+                            WHEN NEW.chain_id != json_extract(NEW.proposal_json, '$.chain_id') THEN 1
+                            WHEN NEW.amount_base_units != json_extract(NEW.proposal_json, '$.amount_base_units') THEN 1
+                            WHEN lower(trim(NEW.token_address)) !=
+                                 lower(trim(json_extract(NEW.proposal_json, '$.token_address'))) THEN 1
+                            WHEN NEW.recipient_normalized IS NULL OR NEW.recipient_normalized !=
+                                 lower(trim(json_extract(NEW.proposal_json, '$.recipient'))) THEN 1
+                            WHEN NEW.created_day IS NULL OR NEW.created_day != date(NEW.created_at) THEN 1
+                            WHEN NEW.status = 'executed_simulated' AND (
+                                NEW.executed_at IS NULL OR NEW.executed_day IS NULL
+                                OR NEW.executed_day != date(NEW.executed_at)
+                            ) THEN 1
+                            ELSE 0
+                        END = 1 THEN 0
+                        ELSE 1
+                    END
                     WHERE transaction_id = NEW.transaction_id;
                 END
             """)
