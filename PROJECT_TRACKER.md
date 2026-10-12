@@ -168,7 +168,7 @@ Goal: conduct a deliberate review of attack surfaces and documented guarantees.
 - [x] Review authentication/authorization on every endpoint; add a protected-endpoint missing/wrong-role token matrix (PR #123).
 - [x] Review input validation, policy override resistance, replay behavior, and audit integrity assumptions against the implementation and existing regression coverage; add execution-time policy revalidation tests (PR #124).
 - [x] Add/review adversarial regression tests for persisted-data tampering, invalid states, oversized inputs, authorization, and policy changes (including PRs #123–#124 and earlier workflow-hardening PRs).
-- [x] Review dependency declarations and secret-management conventions (PR #125); configure weekly Python Dependabot updates (PR #126).
+- [x] Review dependency declarations and secret-management conventions (PR #125); configure weekly Python and GitHub Actions Dependabot updates (PRs #126 and #135).
 - [x] Document findings, mitigations, residual risks, and out-of-scope production controls (`docs/threat-model.md`, `docs/security-dependency-review.md`).
 
 **Exit criteria:** findings are tracked and addressed or explicitly accepted; no unsupported production-security claims are made.
@@ -342,6 +342,8 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #131 | Scope accounting integrity checks to relevant spend | Merged |
 | #132 | Normalize legacy recipient accounting keys consistently | Merged |
 | #133 | Log unhandled request failures safely without exposing exception details | Merged |
+| #134 | Record security review progress through PR #133 | Merged |
+| #135 | Configure weekly GitHub Actions dependency updates | Merged |
 
 ## 6. Current architecture and useful code locations
 
