@@ -34,7 +34,7 @@ For requests, send `Authorization: Bearer <AEGIS_AGENT_TOKEN>` to `POST /transac
 
 Start the API with the commands above, then open [http://127.0.0.1:8000/](http://127.0.0.1:8000/). The dependency-free frontend shares the API origin and supports proposal creation, policy/risk review, owner approvals, simulated execution, and audit inspection. Connect with distinct local agent and owner tokens. The browser keeps them in memory only; reload to clear them. See [the frontend guide](docs/frontend.md) for scope and safety notes.
 
-This UI reflects the current USDC-on-Base-Sepolia demo workflow. It does not provide live stock/crypto market data, broker/exchange order routing, or real transaction execution.
+This UI reflects the current USDC-on-Base-Sepolia demo workflow and does not display live market quotes. A separate owner-authenticated, read-only market-data API supports a limited set of crypto and US equity quotes; see [the market-data guide](docs/market-data.md). No broker/exchange order routing or real transaction execution is provided.
 
 ## Base Sepolia integration (v0.7.0)
 

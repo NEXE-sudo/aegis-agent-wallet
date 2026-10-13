@@ -3,6 +3,7 @@ import logging
 import os
 import sqlite3
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 from time import perf_counter
 from typing import Literal
@@ -14,6 +15,12 @@ from pydantic import BaseModel, Field, ValidationInfo, field_validator
 from app.auth import require_agent, require_owner
 from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
 from app.chain.router import router as base_sepolia_router
+from app.market_data import (
+    CompositeMarketDataProvider,
+    MarketDataError,
+    MarketQuote,
+    UnsupportedMarketSymbol,
+)
 from app.policy.engine import evaluate_transaction
 from app.policy.models import (
     MAX_SQLITE_INTEGER,
@@ -88,6 +95,16 @@ class RiskResponse(BaseModel):
     projected_daily_spend_base_units: int
 
 
+class MarketDataResponse(BaseModel):
+    asset_class: Literal["crypto", "equity"]
+    symbol: str
+    price: float = Field(gt=0)
+    currency: Literal["USD"]
+    as_of: datetime
+    source: str
+    is_stale: bool
+
+
 class ApprovalRequest(BaseModel):
     transaction_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     confirmation: Literal["APPROVE"]
@@ -134,6 +151,7 @@ DEMO_POLICY = AgentPolicy(
 
 store = WorkflowStore(os.environ.get("AEGIS_DB_PATH", "aegis-workflow.sqlite3"))
 controller = TransactionController(DEMO_POLICY, store)
+market_data_provider = CompositeMarketDataProvider()
 
 
 @asynccontextmanager
@@ -331,6 +349,22 @@ def execute_transaction(transaction_id: str) -> TransactionResponse:
     if outcome in {"invalid_state", "approval_mismatch"}:
         raise HTTPException(status_code=409, detail="Transaction is not in an executable state")
     return _record_response(record or {})
+
+
+@app.get(
+    "/market-data/{asset_class}/{symbol}",
+    response_model=MarketDataResponse,
+    dependencies=[Depends(require_owner)],
+)
+def get_market_quote(asset_class: str, symbol: str) -> MarketDataResponse:
+    """Return a validated, read-only crypto or equity quote."""
+    try:
+        quote = market_data_provider.get_quote(asset_class, symbol)
+    except UnsupportedMarketSymbol as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except MarketDataError as exc:
+        raise HTTPException(status_code=502, detail="Market-data provider unavailable") from exc
+    return MarketDataResponse(**quote.__dict__)
 
 
 # Read-only chain inspection; this router exposes no signing or submission methods.
