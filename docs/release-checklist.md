@@ -2,6 +2,28 @@
 
 Aegis Agent Wallet is a local, simulation-only portfolio prototype. This checklist is a release gate for a tagged demo/portfolio version; completing it does not certify production readiness or independently audit security.
 
+## Repeatable final-candidate verification
+
+Run this from a separate directory so the result cannot depend on an existing virtual environment, untracked files, local database, or developer-only configuration. Replace `<FINAL_RELEASE_COMMIT_SHA>` with the exact commit intended for the release; do not use a moving branch name as the evidence identifier.
+
+```bash
+git clone https://github.com/NEXE-sudo/aegis-agent-wallet.git aegis-agent-wallet-release-check
+cd aegis-agent-wallet-release-check
+git checkout --detach <FINAL_RELEASE_COMMIT_SHA>
+
+uv sync --locked --extra dev
+uv run --locked python -m pytest -q
+
+# Match the dependency-audit tooling and invocation used by CI.
+uv pip install --python .venv/bin/python "setuptools>=83.0.0" pip-audit
+.venv/bin/python -m pip_audit --skip-editable
+
+uv run --locked ruff check .
+git rev-parse HEAD
+```
+
+Record the resolved commit SHA and the actual output/result of each command in the release evidence. If any command fails, stop and resolve it before considering a tag. The dependency-audit tool is installed into the disposable verification environment after the locked project sync, matching CI; it is not added to the application dependency set. Remove the temporary checkout after recording the results.
+
 ## Release gate
 
 - [ ] Start from a fresh checkout of the final intended release commit. The earlier fresh-clone check at `c6a37a1` (PR #151) predates the frontend and market-data additions, so it is not evidence for the final release candidate.
