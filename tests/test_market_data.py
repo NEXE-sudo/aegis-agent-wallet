@@ -233,7 +233,6 @@ def test_market_data_providers_sanitize_upstream_http_failures(provider_factory)
         provider.get_quote(asset_class, symbol)
 
 
-
 @pytest.mark.parametrize("provider_factory", [CoinGeckoProvider, StooqProvider])
 def test_market_data_providers_do_not_follow_redirects(provider_factory):
     requests = []
