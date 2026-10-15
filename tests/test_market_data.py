@@ -155,3 +155,79 @@ def test_market_data_endpoint_sanitizes_provider_errors(monkeypatch):
 
     assert response.status_code == 502
     assert response.json() == {"detail": "Market-data provider unavailable"}
+
+
+@pytest.mark.parametrize(
+    "price",
+    [0, -1, "Infinity", "NaN", True, "not-a-price", None],
+)
+def test_crypto_provider_rejects_invalid_prices(price):
+    updated = int(datetime.now(UTC).timestamp())
+    provider = CoinGeckoProvider(
+        _transport(
+            lambda request: httpx.Response(
+                200,
+                json={"bitcoin": {"usd": price, "last_updated_at": updated}},
+            )
+        )
+    )
+
+    with pytest.raises(MarketDataError, match="invalid price"):
+        provider.get_quote("crypto", "BTC")
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"bitcoin": {}},
+        {"bitcoin": {"usd": 100}},
+        {"bitcoin": {"usd": 100, "last_updated_at": True}},
+        {"bitcoin": {"usd": 100, "last_updated_at": "not-a-timestamp"}},
+        [],
+        None,
+    ],
+)
+def test_crypto_provider_rejects_malformed_responses(payload):
+    def handler(request):
+        if payload is None:
+            return httpx.Response(
+                200,
+                content=b"null",
+                headers={"Content-Type": "application/json"},
+            )
+        return httpx.Response(200, json=payload)
+
+    provider = CoinGeckoProvider(_transport(handler))
+
+    with pytest.raises(MarketDataError, match="invalid response"):
+        provider.get_quote("crypto", "BTC")
+
+
+def test_crypto_provider_rejects_future_quote_timestamp():
+    future = int((datetime.now(UTC) + timedelta(hours=1)).timestamp())
+    provider = CoinGeckoProvider(
+        _transport(
+            lambda request: httpx.Response(
+                200,
+                json={"bitcoin": {"usd": 100, "last_updated_at": future}},
+            )
+        )
+    )
+
+    with pytest.raises(MarketDataError, match="future timestamp"):
+        provider.get_quote("crypto", "BTC")
+
+
+@pytest.mark.parametrize("provider_factory", [CoinGeckoProvider, StooqProvider])
+def test_market_data_providers_sanitize_upstream_http_failures(provider_factory):
+    def handler(request):
+        return httpx.Response(503, text="private upstream diagnostic")
+
+    provider = provider_factory(_transport(handler))
+    asset_class, symbol = (
+        ("crypto", "BTC") if provider_factory is CoinGeckoProvider else ("equity", "AAPL")
+    )
+
+    with pytest.raises(MarketDataError, match="provider request failed"):
+        provider.get_quote(asset_class, symbol)
