@@ -159,7 +159,7 @@ def test_market_data_endpoint_sanitizes_provider_errors(monkeypatch):
 
 @pytest.mark.parametrize(
     "price",
-    [0, -1, float("inf"), float("nan"), True, "not-a-price", None],
+    [0, -1, "Infinity", "NaN", True, "not-a-price", None],
 )
 def test_crypto_provider_rejects_invalid_prices(price):
     updated = int(datetime.now(UTC).timestamp())
@@ -189,9 +189,16 @@ def test_crypto_provider_rejects_invalid_prices(price):
     ],
 )
 def test_crypto_provider_rejects_malformed_responses(payload):
-    provider = CoinGeckoProvider(
-        _transport(lambda request: httpx.Response(200, json=payload))
-    )
+    def handler(request):
+        if payload is None:
+            return httpx.Response(
+                200,
+                content=b"null",
+                headers={"Content-Type": "application/json"},
+            )
+        return httpx.Response(200, json=payload)
+
+    provider = CoinGeckoProvider(_transport(handler))
 
     with pytest.raises(MarketDataError, match="invalid response"):
         provider.get_quote("crypto", "BTC")
