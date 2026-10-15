@@ -34,7 +34,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-size:13px;line-height:
 a{color:inherit;text-decoration:none}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:3px}button:disabled{opacity:.55;cursor:not-allowed}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 .app-shell{display:flex;min-height:100vh;min-width:320px}
-.sidebar{position:sticky;top:0;display:flex;flex-direction:column;width:230px;min-width:230px;background:rgba(14,20,29,.96);border-right:1px solid var(--border);padding:22px 14px 16px;backdrop-filter:blur(8px)}
+.sidebar{position:sticky;top:0;display:flex;flex-direction:column;width:230px;min-width:230px;height:100vh;overflow-y:auto;background:rgba(14,20,29,.96);border-right:1px solid var(--border);padding:22px 14px 16px;backdrop-filter:blur(8px)}
 .brand{display:flex;align-items:center;gap:12px;padding:6px 10px 30px}
 .brand-mark{display:flex;align-items:flex-end;gap:3px;transform:skew(-12deg)}
 .brand-mark i{display:block;width:7px;border-radius:4px;background:var(--accent);height:16px;box-shadow:0 0 12px rgba(183,243,107,.25)}
@@ -62,7 +62,7 @@ a{color:inherit;text-decoration:none}button,input,select{font:inherit}button{cur
 .mode-chip{display:flex;align-items:center;justify-content:space-between;padding:16px 8px 0;color:#7c8aa1;font-size:8px;letter-spacing:1.4px;font-weight:800;line-height:1}
 .mode-chip span{color:#cfe9b8}
 .main{flex:1;padding:0 28px 26px;min-width:0}
-.topbar{display:flex;align-items:center;justify-content:space-between;height:70px;border-bottom:1px solid var(--border)}
+.topbar{position:sticky;top:0;z-index:4;display:flex;align-items:center;justify-content:space-between;height:70px;border-bottom:1px solid var(--border);background:rgba(11,16,24,.94);backdrop-filter:blur(10px)}
 .crumb{display:flex;align-items:center;gap:10px;color:#8a9cb0;font-size:11px}
 .crumb strong{color:var(--text);font-weight:700}
 .top-actions{display:flex;align-items:center;gap:12px}
@@ -123,12 +123,14 @@ tbody td{font-size:10px;color:#dce9f8}
 .status-badge:before,.risk-badge:before{content:"";display:block;width:5px;height:5px;border-radius:50%;background:currentColor}
 .status-ready{background:rgba(158,231,178,.08);border-color:rgba(158,231,178,.2);color:var(--green)}
 .status-awaiting{background:rgba(244,198,106,.08);border-color:rgba(244,198,106,.2);color:var(--amber)}
+.status-approved{background:rgba(130,195,255,.08);border-color:rgba(130,195,255,.2);color:var(--blue)}
 .status-blocked{background:rgba(255,143,143,.08);border-color:rgba(255,143,143,.18);color:var(--red)}
 .status-executed{background:rgba(183,243,107,.08);border-color:rgba(183,243,107,.2);color:var(--accent)}
 .status-expired{background:rgba(143,161,255,.08);border-color:rgba(143,161,255,.18);color:#9db5ff}
 .risk-low{background:rgba(158,231,178,.08);border-color:rgba(158,231,178,.18);color:var(--green)}
 .risk-medium{background:rgba(244,198,106,.08);border-color:rgba(244,198,106,.18);color:var(--amber)}
 .risk-high{background:rgba(255,143,143,.08);border-color:rgba(255,143,143,.18);color:var(--red)}
+.risk-unknown{background:#202a36;border-color:#394657;color:var(--muted)}
 .metrics-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .value{font-size:18px;font-weight:700;letter-spacing:-.5px}
 .value.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
@@ -164,6 +166,7 @@ tbody td{font-size:10px;color:#dce9f8}
 .meta-card strong{font-size:18px;letter-spacing:-.5px}
 .approval-list,.activity-list{display:grid;gap:12px;padding:0 18px 18px}
 .approval-card,.audit-card{display:grid;gap:10px;padding:14px;border:1px solid var(--border);border-radius:12px;background:#162434}
+button.audit-card{text-align:left;width:100%;color:inherit}
 .approval-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .approval-head h3{margin:0;font-size:13px}
 .approval-head small{display:block;color:#8a9bb1;font-size:9px;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:4px}
@@ -193,7 +196,29 @@ tbody td{font-size:10px;color:#dce9f8}
 .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:6px}
 .muted{color:var(--muted)}
 .smallcaps{font-size:9px;letter-spacing:1.3px;text-transform:uppercase}
-@media (max-width: 1080px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.grid,.market-grid,.settings-grid,.form-grid{grid-template-columns:1fr}.sidebar{width:200px;min-width:200px}.main{padding:0 18px 22px}}@media (max-width:760px){.app-shell{display:block}.sidebar{position:relative;width:100%;min-width:0;border-right:none;border-bottom:1px solid var(--border)}.nav{grid-template-columns:repeat(2,minmax(0,1fr))}.main{padding:0 14px 20px}.topbar{height:auto;min-height:64px;padding:12px 0;flex-wrap:wrap}.heading{flex-direction:column;align-items:flex-start}.metrics{grid-template-columns:1fr}.button-group,.form-actions{flex-wrap:wrap}.}
+.api-state{display:inline-flex;align-items:center;gap:7px;color:var(--muted);font-size:9px}
+.api-state .dot{width:6px;height:6px;border-radius:50%;background:var(--amber)}
+.api-state.ready .dot{background:var(--green)}
+.api-state.error .dot{background:var(--red)}
+.feedback{display:none;margin:0 0 16px;padding:11px 13px;border:1px solid #3a4a5d;border-radius:9px;background:#152334;color:#dce8f6;font-size:11px}
+.feedback.visible{display:block}
+.feedback.error{border-color:#653d43;background:#2a1b20;color:#ffd9d9}
+.feedback.success{border-color:#3a5941;background:#18291e;color:#d9f2c5}
+.result-card{padding:16px 18px;border-top:1px solid var(--border)}
+.result-card h3{margin:0 0 8px}
+.result-card p{margin:4px 0;color:#c4d0de;font-size:11px}
+.result-card[hidden]{display:none}
+.market-note{padding:0 18px 16px;color:var(--muted);font-size:10px}
+.field-help{color:var(--muted);font-size:9px}
+.table-search{max-width:260px}
+.table-search input{width:100%;padding:8px 10px;border-radius:8px;border:1px solid #2d3d4d;background:#0f1a27;color:var(--text);font-size:10px}
+.event-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;color:#cbd7e5;font-size:10px}
+.event-meta div{min-width:0}
+.event-meta strong{display:block;color:var(--muted);font-size:8px;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px}
+.event-details{padding:10px;border-radius:8px;background:#0e1925;color:#cbd7e5;white-space:pre-wrap;overflow-wrap:anywhere;font:10px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+.loading{color:var(--muted);font-size:10px;padding:12px 18px}
+.inline-error{color:var(--red);font-size:10px;padding:12px 18px}
+@media (max-width: 1080px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.grid,.market-grid,.settings-grid,.form-grid{grid-template-columns:1fr}.sidebar{width:200px;min-width:200px}.main{padding:0 18px 22px}}@media (max-width:760px){.app-shell{display:block}.sidebar{position:relative;width:100%;min-width:0;height:auto;max-height:none;overflow:visible;border-right:none;border-bottom:1px solid var(--border)}.nav{grid-template-columns:repeat(2,minmax(0,1fr))}.main{padding:0 14px 20px}.topbar{height:auto;min-height:64px;padding:12px 0;flex-wrap:wrap}.heading{flex-direction:column;align-items:flex-start}.metrics{grid-template-columns:1fr}.button-group,.form-actions{flex-wrap:wrap}.}
 </style>
 </head>
 <body>
@@ -223,56 +248,58 @@ tbody td{font-size:10px;color:#dce9f8}
           <small id="connection-status">No active session</small>
         </span>
       </button>
-      <div class="mode-chip">◆ <span>SIMULATION MODE</span> <span style="margin-left:auto;color:#8f9fb3;letter-spacing:0;text-transform:none;font-weight:700">v1.10.0 API</span></div>
+      <div class="mode-chip">◆ <span>SIMULATION MODE</span> <span style="margin-left:auto;color:#8f9fb3;letter-spacing:0;text-transform:none;font-weight:700">v1.10.1 API</span></div>
     </div>
   </aside>
   <main class="main">
     <header class="topbar">
       <div class="crumb"><span>Workspace</span><span>/</span><strong id="breadcrumb">Overview</strong></div>
       <div class="top-actions">
+        <span class="api-state" id="api-state"><span class="dot"></span><span id="api-state-label">Checking API</span></span>
         <span class="mode-pill"><span class="dot"></span> SIMULATION ONLY</span>
         <button class="icon-button" type="button" id="refresh" aria-label="Refresh data">↻</button>
         <button class="avatar" type="button" id="avatar" aria-label="Connection settings">A</button>
       </div>
     </header>
+    <div class="feedback" id="global-feedback" role="status" aria-live="polite"></div>
 
     <section class="view active" id="view-overview">
       <div class="heading">
         <div>
           <div class="eyebrow">CONTROL CENTRE</div>
           <h1>Overview</h1>
-          <p class="subtitle">Workflow status, approvals, and live read-only market context.</p>
+          <p class="subtitle">Workflow status, approvals, and read-only market context.</p>
         </div>
         <button class="btn primary" type="button" data-target="proposals">＋ New proposal</button>
       </div>
       <div class="notice">
-        <div class="notice-icon">✓</div>
+        <div class="notice-icon">◇</div>
         <div>
-          <strong>Policy, risk, and approval flow is active</strong>
-          <p>Decision points remain simulation-only and require approved owner action before execution.</p>
+          <strong>Simulation-only workflow</strong>
+          <p>Proposal decisions, approvals, and execution requests are handled by the authenticated backend.</p>
         </div>
-        <span class="notice-tag">MONITORING</span>
+        <span class="notice-tag">NO BROADCAST</span>
       </div>
       <div class="metrics">
         <article class="metric">
-          <div class="metric-top"><span>Total records</span><span class="metric-icon">◫</span></div>
-          <div class="metric-value" id="metric-total">0</div>
-          <div class="metric-foot">Persisted proposals and states</div>
+          <div class="metric-top"><span>Records loaded</span><span class="metric-icon">◫</span></div>
+          <div class="metric-value" id="metric-total">—</div>
+          <div class="metric-foot">Latest records returned by API</div>
         </article>
         <article class="metric">
           <div class="metric-top"><span>Pending approvals</span><span class="metric-icon">◷</span></div>
-          <div class="metric-value" id="metric-approvals">0</div>
-          <div class="metric-foot">Awaiting owner review</div>
+          <div class="metric-value" id="metric-approvals">—</div>
+          <div class="metric-foot">Awaiting owner review in loaded set</div>
         </article>
         <article class="metric">
           <div class="metric-top"><span>Simulated</span><span class="metric-icon">✓</span></div>
-          <div class="metric-value" id="metric-executed">0</div>
-          <div class="metric-foot">Successful simulations</div>
+          <div class="metric-value" id="metric-executed">—</div>
+          <div class="metric-foot">Simulated in loaded set</div>
         </article>
         <article class="metric">
           <div class="metric-top"><span>Blocked / expired</span><span class="metric-icon">✕</span></div>
-          <div class="metric-value" id="metric-blocked">0</div>
-          <div class="metric-foot">Policy blocks and expiry paths</div>
+          <div class="metric-value" id="metric-blocked">—</div>
+          <div class="metric-foot">Blocked / expired in loaded set</div>
         </article>
       </div>
       <div class="grid">
@@ -312,7 +339,7 @@ tbody td{font-size:10px;color:#dce9f8}
               <div>
                 <div class="kicker">MARKET</div>
                 <h2>Snapshot</h2>
-                <p>Read-only market quotes.</p>
+                <p>Informational quotes, not executable prices.</p>
               </div>
               <button class="text-button" type="button" data-view="markets">Open markets →</button>
             </div>
@@ -320,6 +347,17 @@ tbody td{font-size:10px;color:#dce9f8}
           </section>
         </div>
       </div>
+      <section class="panel" style="margin-top:16px">
+        <div class="panel-head">
+          <div>
+            <div class="kicker">AUDIT</div>
+            <h2>Recent audit activity</h2>
+            <p>Events returned by the owner-authenticated audit API.</p>
+          </div>
+          <button class="text-button" type="button" data-view="activity">Open audit explorer →</button>
+        </div>
+        <div class="approval-list" id="audit-summary"></div>
+      </section>
     </section>
 
     <section class="view" id="view-markets">
@@ -330,31 +368,36 @@ tbody td{font-size:10px;color:#dce9f8}
           <p class="subtitle">Read-only market quotes from the supported providers.</p>
         </div>
       </div>
+      <div class="feedback" id="market-feedback" role="status" aria-live="polite"></div>
       <div class="market-grid">
         <section class="panel">
           <div class="panel-head">
             <div>
               <div class="kicker">SELECT</div>
               <h2>Watchlist</h2>
-              <p>Choose a crypto or equity symbol.</p>
+              <p>Supported symbols from CoinGecko and Stooq.</p>
             </div>
           </div>
+          <div class="table-search" style="padding:0 18px 12px"><label class="smallcaps muted" for="market-search">Search watchlist</label><input id="market-search" type="search" placeholder="Filter supported symbols" autocomplete="off"></div>
           <div class="market-list" id="market-list"></div>
+          <div class="market-note">Crypto: BTC, ETH, SOL. US equities: provider-supported Stooq symbols. Quotes are informational only.</div>
         </section>
         <section class="panel">
           <div class="panel-head">
             <div>
               <div class="kicker">DETAIL</div>
               <h2 id="market-header">BTC</h2>
-              <p id="market-source">CoinGecko</p>
+              <p id="market-source">Owner connection required</p>
             </div>
+            <button class="btn secondary" type="button" id="retry-market">Retry quote</button>
           </div>
           <div class="price">
-            <div class="amount" id="market-price">--</div>
-            <span class="tag" id="market-stale">LIVE</span>
+            <div class="amount" id="market-price">—</div>
+            <span class="tag" id="market-stale">UNAVAILABLE</span>
           </div>
+          <div class="market-note" id="market-kind">Quote classification unavailable.</div>
           <div class="meta-grid">
-            <div class="meta-card"><small>Asset class</small><strong id="market-asset">Crypto</strong></div>
+            <div class="meta-card"><small>Asset class</small><strong id="market-asset">—</strong></div>
             <div class="meta-card"><small>Currency</small><strong id="market-currency">USD</strong></div>
             <div class="meta-card"><small>As of</small><strong id="market-time">--</strong></div>
             <div class="meta-card"><small>Freshness</small><strong id="market-freshness">--</strong></div>
@@ -391,25 +434,23 @@ tbody td{font-size:10px;color:#dce9f8}
             </div>
             <div class="field">
               <label for="token-symbol">Token symbol</label>
-              <input id="token-symbol" name="token_symbol" value="USDC" required>
+              <input id="token-symbol" name="token_symbol" value="USDC" readonly>
             </div>
             <div class="field">
               <label for="token-address">Token address</label>
-              <input id="token-address" name="token_address" value="0x036cbd53842c5426634e7929541ec2318f3dcf7e" required>
+              <input id="token-address" name="token_address" value="0x036cbd53842c5426634e7929541ec2318f3dcf7e" readonly>
             </div>
             <div class="field">
               <label for="recipient">Recipient</label>
-              <input id="recipient" name="recipient" value="0x2222222222222222222222222222222222222222" required>
+              <input id="recipient" name="recipient" type="text" maxlength="42" pattern="^0x[a-fA-F0-9]{40}$" spellcheck="false" autocomplete="off" value="0x2222222222222222222222222222222222222222" required>
             </div>
             <div class="field">
-              <label for="amount">Amount (base units)</label>
-              <input id="amount" name="amount_base_units" type="number" min="1" step="1" value="2500000" required>
-            </div>
-            <div class="field full">
-              <label for="comment">Notes</label>
-              <textarea id="comment" name="note" placeholder="Optional reasoning for the proposal preview.">Operational vendor payout.</textarea>
+              <label for="amount">Amount (USDC)</label>
+              <input id="amount" name="amount" type="number" min="0.000001" max="50" step="0.000001" value="2.5" required>
+              <small class="field-help">Maximum 50 USDC; the backend remains authoritative for policy.</small>
             </div>
           </div>
+          <div class="result-card" id="proposal-result" hidden aria-live="polite"></div>
           <div class="form-actions">
             <button class="btn secondary" type="button" data-target="overview">Back to overview</button>
             <button class="btn primary" type="submit">Create proposal</button>
@@ -452,13 +493,14 @@ tbody td{font-size:10px;color:#dce9f8}
             <div>
               <div class="kicker">LEDGER</div>
               <h2>Workflow history</h2>
-              <p>Searchable record of proposal and execution outcomes.</p>
+              <p>Latest persisted workflow records returned by the API.</p>
             </div>
           </div>
+          <div class="table-search" style="padding:0 18px 12px"><label class="smallcaps muted" for="activity-search">Filter loaded records</label><input id="activity-search" type="search" placeholder="Search ID, recipient, asset, state" autocomplete="off"></div>
           <div class="table-wrap">
             <table>
               <thead>
-                <tr><th>ID</th><th>ASSET</th><th>RECIPIENT</th><th>STATUS</th><th>RISK</th><th>UPDATED</th></tr>
+                <tr><th>ID</th><th>ASSET / AMOUNT</th><th>RECIPIENT</th><th>STATUS</th><th>RISK</th><th>UPDATED</th><th>ACTION</th></tr>
               </thead>
               <tbody id="activity-rows"></tbody>
             </table>
@@ -482,7 +524,7 @@ tbody td{font-size:10px;color:#dce9f8}
         <div>
           <div class="eyebrow">SETTINGS</div>
           <h1>Local auth</h1>
-          <p class="subtitle">Development-only bearer tokens are kept in memory only.</p>
+          <p class="subtitle">Separate development bearer tokens are kept in memory only.</p>
         </div>
       </div>
       <div class="settings-grid">
@@ -525,6 +567,7 @@ tbody td{font-size:10px;color:#dce9f8}
       <button class="close" type="button" data-close aria-label="Close">×</button>
     </div>
     <form id="connection-form" class="modal-form">
+      <div class="feedback" id="connection-feedback" role="status" aria-live="polite"></div>
       <div class="field">
         <label for="agent-token">Agent bearer token</label>
         <input id="agent-token" type="password" name="agentToken" placeholder="Paste the local agent token" autocomplete="off">
@@ -543,12 +586,26 @@ tbody td{font-size:10px;color:#dce9f8}
 </div>
 
 <script>
-const proposalEndpointMarker = 'api("/transactions/propose")';
 const state = {
   view: 'overview',
   connected: false,
+  sessionVersion: 0,
+  refreshId: 0,
+  transactionsLoaded: false,
+  transactionError: '',
+  auditLoadFailed: false,
   tokens: {agent: '', owner: ''},
   transactions: [],
+  auditSummary: [],
+  auditSelectedId: '',
+  marketQuotes: {},
+  marketRequestId: 0,
+  marketSnapshotId: 0,
+  busyActions: new Set(),
+  auditRequestId: 0,
+  auditSummaryRequestId: 0,
+  feedbackTimer: null,
+  connectionOpener: null,
   marketWatch: [
     { assetClass: 'crypto', symbol: 'BTC', label: 'Bitcoin', provider: 'CoinGecko' },
     { assetClass: 'crypto', symbol: 'ETH', label: 'Ethereum', provider: 'CoinGecko' },
@@ -558,30 +615,55 @@ const state = {
     { assetClass: 'equity', symbol: 'NVDA', label: 'NVIDIA', provider: 'Stooq' }
   ],
   marketSelected: { assetClass: 'crypto', symbol: 'BTC' },
-  marketQuote: null,
-  audit: []
+  audit: [],
+  proposalAttempt: null
 };
 
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+const notify = (message, kind = '') => {
+  const feedback = document.getElementById('global-feedback');
+  if (state.feedbackTimer) window.clearTimeout(state.feedbackTimer);
+  feedback.textContent = message;
+  feedback.className = `feedback visible${kind ? ` ${kind}` : ''}`;
+  if (kind !== 'error') {
+    state.feedbackTimer = window.setTimeout(() => feedback.classList.remove('visible'), 6000);
+  }
+};
+
+const setApiState = (label, kind = '') => {
+  const status = document.getElementById('api-state');
+  status.className = `api-state${kind ? ` ${kind}` : ''}`;
+  document.getElementById('api-state-label').textContent = label;
+};
+
+const statusLabel = (status) => ({
+  ready: 'Ready to simulate',
+  awaiting_approval: 'Approval required',
+  approved: 'Approved · ready to simulate',
+  blocked: 'Blocked by policy',
+  expired: 'Expired',
+  executed_simulated: 'Simulated'
+}[status] || 'Unknown state');
 
 const kindClass = (status) => {
   const map = {
     ready: 'status-ready',
     awaiting_approval: 'status-awaiting',
+    approved: 'status-approved',
     blocked: 'status-blocked',
     executed_simulated: 'status-executed',
     expired: 'status-expired'
   };
-  return map[status] || 'status-ready';
+  return map[status] || 'status-expired';
 };
 
 const riskClass = (risk) => {
-  if (risk >= 70) return 'risk-high';
-  if (risk >= 40) return 'risk-medium';
-  return 'risk-low';
+  if (risk === 'high') return 'risk-high';
+  if (risk === 'medium') return 'risk-medium';
+  if (risk === 'low') return 'risk-low';
+  return 'risk-unknown';
 };
-
-const scoreLabel = (score) => score >= 70 ? 'High' : score >= 40 ? 'Medium' : 'Low';
 
 const humanTime = (value) => {
   if (!value) return '—';
@@ -594,7 +676,17 @@ const humanTime = (value) => {
   }
 };
 
-const formatMoney = (units, symbol = 'USDC') => `${Number(units).toLocaleString()} ${symbol}`;
+const formatMoney = (units, symbol = 'USDC', decimals = 6) => {
+  if (typeof units === 'number' && !Number.isSafeInteger(units)) return `Precision unavailable · ${symbol}`;
+  const raw = String(units ?? '');
+  if (!/^\d+$/.test(raw) || !Number.isInteger(decimals) || decimals < 0 || decimals > 36) return `— ${symbol}`;
+  const amount = BigInt(raw);
+  const scale = 10n ** BigInt(decimals);
+  const whole = amount / scale;
+  const fraction = (amount % scale).toString().padStart(decimals, '0').replace(/0+$/, '');
+  const formattedWhole = whole.toLocaleString();
+  return `${formattedWhole}${fraction ? `.${fraction}` : ''} ${symbol}`;
+};
 
 const setView = (view) => {
   state.view = view;
@@ -602,6 +694,10 @@ const setView = (view) => {
   document.querySelectorAll('[data-view]').forEach((button) => {
     const active = button.dataset.view === view;
     button.classList.toggle('active', active);
+    if (button.matches('nav [data-view]')) {
+      if (active) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+    }
   });
   document.getElementById('breadcrumb').textContent = {
     overview: 'Overview',
@@ -619,36 +715,95 @@ const setView = (view) => {
 
 const api = async (path, options = {}, role = 'owner') => {
   const headers = new Headers(options.headers || {});
-  const token = role === 'agent' ? state.tokens.agent : state.tokens.owner;
+  const token = role === 'public' ? '' : role === 'agent' ? state.tokens.agent : state.tokens.owner;
   if (token) headers.set('Authorization', `Bearer ${token}`);
   if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
-  const response = await fetch(path, { ...options, headers });
+  let response;
+  try {
+    response = await fetch(path, { ...options, headers });
+  } catch {
+    throw new Error('Cannot reach the local API');
+  }
   if (!response.ok) {
-    let detail = 'Request failed';
-    try {
-      const body = await response.json();
-      detail = body.detail || body.error || 'Request failed';
-    } catch (error) {
-      detail = response.statusText || detail;
+    const messages = {
+      401: 'Authentication failed. Check the token for this operation.',
+      403: 'The backend denied this operation.',
+      404: 'The requested workflow or resource was not found.',
+      409: 'The workflow changed or this action is no longer permitted.',
+      422: 'The request was rejected. Check the supported symbol and required field values.',
+      502: 'The market-data provider is unavailable.',
+      503: 'The API or workflow database is unavailable.'
+    };
+    let detail = '';
+    if (response.status === 403 || response.status === 409) {
+      try {
+        const body = await response.json();
+        if (typeof body.detail === 'string') detail = body.detail;
+      } catch {
+        detail = '';
+      }
     }
-    throw new Error(detail);
+    const knownDetails = new Set([
+      'Policy-blocked transactions cannot execute',
+      'Approval fingerprint does not match transaction',
+      'Persisted proposal failed integrity verification',
+      'Blocked transactions cannot be approved',
+      'Transaction has already been executed',
+      'Transaction is not awaiting approval',
+      'Approval has expired; submit a fresh approval',
+      'Transaction has already been approved',
+      'Human approval is required before execution',
+      'Transaction is not in an executable state',
+      'Idempotency-Key was already used for a different proposal'
+    ]);
+    const error = new Error(knownDetails.has(detail) ? detail : messages[response.status] || `Request failed (HTTP ${response.status})`);
+    error.status = response.status;
+    throw error;
   }
   if (response.status === 204) return null;
-  return response.headers.get('content-type')?.includes('application/json') ? response.json() : response.text();
+  if (response.headers.get('content-type')?.includes('application/json')) {
+    try {
+      return await response.json();
+    } catch {
+      throw new Error('The API returned an invalid response');
+    }
+  }
+  return response.text();
 };
 
 const refreshTransactions = async () => {
+  const refreshId = ++state.refreshId;
   if (!state.tokens.owner) {
     state.transactions = [];
+    state.transactionsLoaded = false;
+    state.transactionError = '';
+    renderAll();
     return;
   }
   try {
-    state.transactions = await api('/transactions?limit=50', { method: 'GET' }, 'owner');
-    renderOverview();
-    renderApprovals();
-    renderActivity();
+    const records = await api('/transactions?limit=50', { method: 'GET' }, 'owner');
+    if (refreshId !== state.refreshId) return;
+    state.transactions = Array.isArray(records) ? records : [];
+    state.transactionsLoaded = true;
+    state.transactionError = '';
+    state.connected = true;
+    setApiState('Owner API connected', 'ready');
+    renderAll();
+    void refreshAuditSummary();
   } catch (error) {
-    console.warn('Failed to load transactions', error);
+    if (sessionVersion !== state.sessionVersion) return;
+    if (refreshId !== state.refreshId) return;
+    state.transactionError = error.message;
+    state.transactionsLoaded = false;
+    state.connected = false;
+    state.transactions = [];
+    const ownerRejected = error.status === 401;
+    setApiState(ownerRejected ? 'Owner auth failed' : 'Workflow API unavailable', 'error');
+    document.getElementById('connection-label').textContent = ownerRejected ? 'Reconnect to local API' : 'API unavailable';
+    document.getElementById('connection-status').textContent = ownerRejected ? 'Owner token rejected' : 'Could not load workflow records';
+    document.querySelector('.connect-box').classList.remove('ready');
+    document.getElementById('settings-status').textContent = 'Disconnected';
+    renderAll();
   }
 };
 
@@ -658,174 +813,416 @@ const renderOverview = () => {
   const approvals = rows.filter((tx) => tx.status === 'awaiting_approval').length;
   const executed = rows.filter((tx) => tx.status === 'executed_simulated').length;
   const blocked = rows.filter((tx) => tx.status === 'blocked' || tx.status === 'expired').length;
-  document.getElementById('metric-total').textContent = total;
-  document.getElementById('metric-approvals').textContent = approvals;
-  document.getElementById('metric-executed').textContent = executed;
-  document.getElementById('metric-blocked').textContent = blocked;
-  document.getElementById('approval-count').textContent = approvals;
+  document.getElementById('metric-total').textContent = state.transactionsLoaded ? total : '—';
+  document.getElementById('metric-approvals').textContent = state.transactionsLoaded ? approvals : '—';
+  document.getElementById('metric-executed').textContent = state.transactionsLoaded ? executed : '—';
+  document.getElementById('metric-blocked').textContent = state.transactionsLoaded ? blocked : '—';
+  document.getElementById('approval-count').textContent = state.transactionsLoaded ? approvals : '·';
 
   const recent = rows.slice(0, 5);
-  const recentRows = recent.length ? recent.map((tx) => `
+  const recentRows = !state.transactionsLoaded
+    ? `<tr><td colspan="5" class="empty">${esc(state.transactionError || 'Connect with an owner token to load persisted workflow records.')}</td></tr>`
+    : recent.length ? recent.map((tx) => `
     <tr>
       <td>
         <div class="tx-main">
-          <span class="coin">${esc((tx.proposal && tx.proposal.token_symbol) || 'US')}</span>
+          <span class="coin">${esc((tx.proposal && tx.proposal.token_symbol) || '—')}</span>
           <div>
-            <strong>${esc(tx.transaction_id ? tx.transaction_id.slice(0, 12) : 'untitled')}</strong>
-            <small>${esc((tx.proposal && tx.proposal.recipient) || 'Unknown')}</small>
+            <strong class="small-mono">${esc(tx.transaction_id || 'Unknown ID')}</strong>
+            <small>${esc(formatMoney(tx.proposal?.amount_base_units, tx.proposal?.token_symbol || 'USDC', tx.proposal?.token_decimals ?? 6))} · ${esc(tx.proposal?.recipient || 'Unknown recipient')}</small>
           </div>
         </div>
       </td>
-      <td><span class="risk-badge ${riskClass(tx.risk_score || 0)}">${esc(scoreLabel(tx.risk_score || 0))}</span></td>
-      <td><span class="status-badge ${kindClass(tx.status || 'ready')}">${esc((tx.status || 'ready').replace(/_/g, ' '))}</span></td>
+      <td><span class="risk-badge ${riskClass(tx.risk_level)}">${esc(tx.risk_level ? tx.risk_level.toUpperCase() : 'Unavailable')} · ${esc(tx.risk_score ?? '—')}/100</span></td>
+      <td><span class="status-badge ${kindClass(tx.status)}">${esc(statusLabel(tx.status))}</span></td>
       <td class="small-mono">${esc(humanTime(tx.created_at))}</td>
       <td><button class="text-button" type="button" data-action="inspect" data-id="${esc(tx.transaction_id || '')}">Inspect</button></td>
     </tr>
-  `).join('') : `<tr><td colspan="5" class="empty">No transactions yet. Connect to your local API to start the workflow.</td></tr>`;
+  `).join('') : `<tr><td colspan="5" class="empty">No persisted workflow records were returned.</td></tr>`;
   document.getElementById('recent-rows').innerHTML = recentRows;
 
   const summary = rows.filter((tx) => tx.status === 'awaiting_approval');
-  const approvalSummary = summary.length ? summary.slice(0, 3).map((tx) => `
+  const approvalSummary = !state.transactionsLoaded
+    ? `<div class="empty-state"><span>◷</span><strong>Owner connection required</strong><div>${esc(state.transactionError || 'Connect to load approvals.')}</div></div>`
+    : summary.length ? summary.slice(0, 3).map((tx) => `
     <div class="list-item">
       <div>
         <strong>${esc((tx.proposal && tx.proposal.recipient) || 'Unknown recipient')}</strong>
-        <small>${esc((tx.proposal && tx.proposal.token_symbol) || 'USDC')} · ${esc((tx.risk_level || 'medium').toUpperCase())}</small>
+        <small>${esc(formatMoney(tx.proposal?.amount_base_units, tx.proposal?.token_symbol || 'USDC', tx.proposal?.token_decimals ?? 6))} · ${esc((tx.risk_level || 'unknown').toUpperCase())}</small>
       </div>
-      <div class="value mono">${esc(String(tx.risk_score || 0))}</div>
+      <button class="text-button" type="button" data-view="approvals">Review →</button>
     </div>
-  `).join('') : '<div class="empty-state"><span>◷</span><strong>Queue is clear</strong><div>No pending approvals.</div></div>';
+  `).join('') : '<div class="empty-state"><span>◷</span><strong>Queue is clear</strong><div>No pending approvals in the loaded records.</div></div>';
   document.getElementById('approval-summary').innerHTML = approvalSummary;
 
-  const marketSnapshot = state.marketWatch.slice(0, 3).map((item) => `
-    <div class="market-item" data-market="${esc(item.assetClass)}:${esc(item.symbol)}">
-      <div>
-        <strong>${esc(item.symbol)}</strong>
-        <small>${esc(item.label)}</small>
-      </div>
-      <div class="delta up">+0.8%</div>
-    </div>
+  renderMarketSnapshot();
+  renderAuditSummary();
+};
+
+const renderMarketSnapshot = () => {
+  const snapshot = [
+    { assetClass: 'crypto', symbol: 'BTC', label: 'Bitcoin' },
+    { assetClass: 'equity', symbol: 'AAPL', label: 'Apple · daily close' }
+  ];
+  document.getElementById('market-snapshot').innerHTML = snapshot.map((item) => {
+    const key = `${item.assetClass}:${item.symbol}`;
+    const quote = state.marketQuotes[key];
+    const price = quote?.data
+      ? `$${Number(quote.data.price).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${quote.data.currency}`
+      : quote?.error ? 'Unavailable' : state.tokens.owner ? 'Loading quote…' : 'Connect for quote';
+    const stale = quote?.data?.is_stale;
+    return `<div class="list-item">
+      <div><strong>${esc(item.symbol)} <span class="muted">· ${esc(item.label)}</span></strong>
+      <small>${esc(quote?.data?.source || (quote?.error ? quote.error : 'Read-only provider quote'))}</small></div>
+      <div class="value mono">${esc(price)}${quote?.data ? `<small class="muted" style="display:block;text-align:right">${stale ? 'Stale' : 'Fresh'}</small>` : ''}</div>
+    </div>`;
+  }).join('');
+};
+
+const renderAuditSummary = () => {
+  const target = document.getElementById('audit-summary');
+  if (!state.transactionsLoaded) {
+    target.innerHTML = '<div class="empty-state"><span>≡</span><strong>Owner connection required</strong><div>Connect to load persisted audit events.</div></div>';
+    return;
+  }
+  if (state.auditLoadFailed) {
+    target.innerHTML = '<div class="inline-error">Audit events are unavailable. Retry by refreshing the workflow data.</div>';
+    return;
+  }
+  if (!state.auditSummary.length) {
+    target.innerHTML = '<div class="empty-state"><span>≡</span><strong>No recent events</strong><div>No audit events were returned for the latest workflows.</div></div>';
+    return;
+  }
+  target.innerHTML = state.auditSummary.slice(0, 4).map((event) => `
+    <button type="button" class="audit-card" data-action="inspect" data-id="${esc(event.transaction_id)}">
+      <div class="approval-head"><div><small>${esc(event.actor_role)} · ${esc(event.event_type)}</small><h3>${esc(event.transaction_id.slice(0, 12))}</h3></div>
+      <span class="smallcaps muted">${esc(humanTime(event.created_at))}</span></div>
+      <div class="smallcaps muted">${esc(event.from_status || '—')} → ${esc(event.to_status || '—')}</div>
+    </button>
   `).join('');
-  document.getElementById('market-snapshot').innerHTML = marketSnapshot;
+};
+
+const refreshAuditSummary = async () => {
+  const sessionVersion = state.sessionVersion;
+  const requestId = ++state.auditSummaryRequestId;
+  const transactions = state.transactions.slice(0, 4);
+  if (!transactions.length) {
+    state.auditSummary = [];
+    state.auditLoadFailed = false;
+    renderAuditSummary();
+    return;
+  }
+  const results = await Promise.allSettled(transactions.map((tx) =>
+    api(`/transactions/${encodeURIComponent(tx.transaction_id)}/audit`, { method: 'GET' }, 'owner')
+  ));
+  if (sessionVersion !== state.sessionVersion || requestId !== state.auditSummaryRequestId) return;
+  state.auditSummary = results.flatMap((result) => result.status === 'fulfilled' && Array.isArray(result.value)
+    ? result.value
+    : []);
+  state.auditSummary.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  state.auditLoadFailed = results.some((result) => result.status === 'rejected');
+  renderAuditSummary();
+};
+
+const refreshMarketSnapshot = async () => {
+  if (!state.tokens.owner) return;
+  const sessionVersion = state.sessionVersion;
+  const snapshotId = ++state.marketSnapshotId;
+  const watch = [
+    { assetClass: 'crypto', symbol: 'BTC' },
+    { assetClass: 'equity', symbol: 'AAPL' }
+  ];
+  watch.forEach(({ assetClass, symbol }) => {
+    state.marketQuotes[`${assetClass}:${symbol}`] = { loading: true };
+  });
+  renderMarketSnapshot();
+  await Promise.all(watch.map(async ({ assetClass, symbol }) => {
+    const key = `${assetClass}:${symbol}`;
+    try {
+      const data = await api(`/market-data/${assetClass}/${symbol}`, { method: 'GET' }, 'owner');
+      if (sessionVersion !== state.sessionVersion || snapshotId !== state.marketSnapshotId) return;
+      state.marketQuotes[key] = { data };
+    } catch (error) {
+      if (sessionVersion !== state.sessionVersion || snapshotId !== state.marketSnapshotId) return;
+      state.marketQuotes[key] = { error: error.message };
+    }
+  }));
+  if (sessionVersion !== state.sessionVersion || snapshotId !== state.marketSnapshotId) return;
+  renderMarketSnapshot();
 };
 
 const renderApprovals = () => {
-  const approvals = (state.transactions || []).filter((tx) => tx.status === 'awaiting_approval');
-  const list = approvals.length ? approvals.map((tx) => `
+  const approvals = state.transactions.filter((tx) =>
+    tx.status === 'awaiting_approval' && tx.policy_decision !== 'block'
+  );
+  const list = !state.transactionsLoaded
+    ? `<div class="empty-state"><span>◷</span><strong>Owner connection required</strong><div>${esc(state.transactionError || 'Connect with an owner token to load the persisted approval queue.')}</div></div>`
+    : approvals.length ? approvals.map((tx) => `
     <article class="approval-card">
       <div class="approval-head">
         <div>
-          <small>PROPOSAL ${esc(String(tx.transaction_id || '').slice(0, 10))}</small>
-          <h3>Review transfer request</h3>
+          <small>PROPOSAL ${esc(String(tx.transaction_id || 'Unknown ID'))}</small>
+          <h3>${esc(statusLabel(tx.status))}</h3>
         </div>
-        <span class="risk-badge ${riskClass(tx.risk_score || 0)}">${esc(scoreLabel(tx.risk_score || 0))}</span>
+        <span class="risk-badge ${riskClass(tx.risk_level)}">${esc(tx.risk_level ? tx.risk_level.toUpperCase() : 'Unavailable')} · ${esc(tx.risk_score ?? '—')}/100</span>
       </div>
       <div class="metrics-row">
         <div>
           <div class="smallcaps muted">Recipient</div>
-          <strong>${esc((tx.proposal && tx.proposal.recipient) || 'Unknown')}</strong>
+          <strong class="small-mono">${esc(tx.proposal?.recipient || 'Unknown')}</strong>
         </div>
         <div>
           <div class="smallcaps muted">Amount</div>
-          <div class="value mono">${esc(formatMoney(tx.proposal ? tx.proposal.amount_base_units : 0, (tx.proposal && tx.proposal.token_symbol) || 'USDC'))}</div>
+          <div class="value mono">${esc(formatMoney(tx.proposal?.amount_base_units, tx.proposal?.token_symbol || 'USDC', tx.proposal?.token_decimals ?? 6))}</div>
         </div>
       </div>
       <ul class="reason-list">
-        ${(tx.policy_reasons || []).concat(tx.risk_reasons || []).slice(0, 4).map((reason) => `<li>${esc(reason)}</li>`).join('') || '<li>Owner approval is required by the current policy.</li>'}
+        <li>Policy: ${esc(tx.policy_decision || 'unknown')}</li>
+        ${(tx.policy_reasons || []).concat(tx.risk_reasons || []).slice(0, 4).map((reason) => `<li>${esc(reason)}</li>`).join('') || '<li>Owner approval is required by the backend workflow.</li>'}
       </ul>
       <div class="approval-actions">
-        <span class="fingerprint">${esc((tx.fingerprint || '').slice(0, 12))}</span>
+        <span class="fingerprint">Fingerprint · ${esc(tx.fingerprint || 'Unavailable')}</span>
         <div>
           <button class="btn secondary" type="button" data-action="inspect" data-id="${esc(tx.transaction_id || '')}">Inspect</button>
-          <button class="btn primary" type="button" data-action="approve" data-id="${esc(tx.transaction_id || '')}" data-fingerprint="${esc(tx.fingerprint || '')}">Approve</button>
+          <button class="btn primary" type="button" data-action="approve" data-id="${esc(tx.transaction_id || '')}" data-fingerprint="${esc(tx.fingerprint || '')}" ${state.busyActions.has(tx.transaction_id) ? 'disabled' : ''}>${state.busyActions.has(tx.transaction_id) ? 'Approving…' : 'Approve'}</button>
         </div>
       </div>
     </article>
-  `).join('') : '<div class="empty-state"><span>◷</span><strong>Approval queue is clear</strong><div>No transactions are awaiting approval.</div></div>';
+  `).join('') : '<div class="empty-state"><span>◷</span><strong>Approval queue is clear</strong><div>No transactions are awaiting approval in the latest records.</div></div>';
   document.getElementById('approval-list').innerHTML = list;
 };
 
 const renderActivity = () => {
-  const rows = state.transactions || [];
-  const body = rows.length ? rows.map((tx) => `
+  const needle = document.getElementById('activity-search').value.trim().toLowerCase();
+  const rows = state.transactions.filter((tx) => [
+    tx.transaction_id, tx.status, tx.policy_decision, tx.proposal?.token_symbol,
+    tx.proposal?.recipient, tx.risk_level
+  ].some((value) => String(value || '').toLowerCase().includes(needle)));
+  const body = !state.transactionsLoaded
+    ? `<tr><td colspan="7" class="empty">${esc(state.transactionError || 'Connect with an owner token to load workflow history.')}</td></tr>`
+    : rows.length ? rows.map((tx) => {
+      const canExecute = ['ready', 'approved'].includes(tx.status);
+      const action = `<div style="display:flex;align-items:center;gap:7px">
+        <button class="btn secondary" type="button" data-action="inspect" data-id="${esc(tx.transaction_id)}">Inspect</button>
+        ${canExecute
+          ? `<button class="btn primary" type="button" data-action="execute" data-id="${esc(tx.transaction_id)}" ${state.busyActions.has(tx.transaction_id) ? 'disabled' : ''}>${state.busyActions.has(tx.transaction_id) ? 'Working…' : 'Simulate'}</button>`
+          : tx.status === 'awaiting_approval' ? '<span class="muted">Approval required</span>'
+            : tx.status === 'blocked' ? '<span class="muted">Blocked by policy</span>'
+              : tx.status === 'executed_simulated' ? '<span class="muted">Simulation complete</span>'
+                : '<span class="muted">—</span>'}
+      </div>`;
+      return `
     <tr data-id="${esc(tx.transaction_id || '')}">
-      <td class="small-mono">${esc((tx.transaction_id || '').slice(0, 10))}</td>
-      <td>${esc((tx.proposal && tx.proposal.token_symbol) || 'USDC')}</td>
-      <td>${esc((tx.proposal && tx.proposal.recipient) || '—')}</td>
-      <td><span class="status-badge ${kindClass(tx.status || 'ready')}">${esc((tx.status || 'ready').replace(/_/g, ' '))}</span></td>
-      <td><span class="risk-badge ${riskClass(tx.risk_score || 0)}">${esc(String(tx.risk_score || 0))}</span></td>
+      <td class="small-mono">${esc(tx.transaction_id || 'Unknown ID')}</td>
+      <td>${esc(formatMoney(tx.proposal?.amount_base_units, tx.proposal?.token_symbol || 'USDC', tx.proposal?.token_decimals ?? 6))}</td>
+      <td class="small-mono">${esc(tx.proposal?.recipient || '—')}</td>
+      <td><span class="status-badge ${kindClass(tx.status)}">${esc(statusLabel(tx.status))}</span></td>
+      <td><span class="risk-badge ${riskClass(tx.risk_level)}">${esc(tx.risk_score ?? '—')}/100 · ${esc(tx.risk_level || 'Unavailable')}</span></td>
       <td class="small-mono">${esc(humanTime(tx.updated_at || tx.created_at))}</td>
+      <td>${action}</td>
     </tr>
-  `).join('') : '<tr><td colspan="6" class="empty">No workflow records available.</td></tr>';
+  `;
+    }).join('') : `<tr><td colspan="7" class="empty">${needle ? 'No matching records in the loaded set.' : 'No workflow records were returned.'}</td></tr>`;
   document.getElementById('activity-rows').innerHTML = body;
 };
 
-const renderMarketList = async () => {
-  const list = state.marketWatch.map((item) => `
+const renderAll = () => {
+  renderOverview();
+  renderApprovals();
+  renderActivity();
+};
+
+const renderMarketButtons = () => {
+  const needle = document.getElementById('market-search').value.trim().toLowerCase();
+  const items = state.marketWatch.filter((item) =>
+    `${item.symbol} ${item.label} ${item.assetClass}`.toLowerCase().includes(needle)
+  );
+  const list = items.map((item) => `
     <button class="market-item ${state.marketSelected.symbol === item.symbol && state.marketSelected.assetClass === item.assetClass ? 'active' : ''}" type="button" data-market-select="${esc(item.assetClass)}:${esc(item.symbol)}">
       <div>
         <strong>${esc(item.symbol)}</strong>
         <small>${esc(item.label)}</small>
       </div>
-      <div class="delta up">LIVE</div>
+      <div class="delta">${esc(item.assetClass === 'equity' ? 'DAILY CLOSE' : 'QUOTE')}</div>
     </button>
   `).join('');
-  document.getElementById('market-list').innerHTML = list;
-  try {
-    await loadMarketQuote(state.marketSelected.assetClass, state.marketSelected.symbol);
-  } catch (error) {
-    document.getElementById('market-price').textContent = '—';
-    document.getElementById('market-stale').className = 'tag bad';
-    document.getElementById('market-stale').textContent = 'ERROR';
+  document.getElementById('market-list').innerHTML = list || '<div class="empty-state">No supported watchlist symbol matches.</div>';
+};
+
+const renderMarketList = async () => {
+  renderMarketButtons();
+  if (!state.tokens.owner) {
+    showMarketUnavailable('Connect with an owner token to request quotes.');
+    return;
   }
+  await loadMarketQuote(state.marketSelected.assetClass, state.marketSelected.symbol);
 };
 
 const loadMarketQuote = async (assetClass, symbol) => {
-  const quote = await api(`/market-data/${assetClass}/${symbol}`, { method: 'GET' }, 'owner');
-  state.marketQuote = quote;
+  const key = `${assetClass}:${symbol}`;
+  const requestId = ++state.marketRequestId;
+  const sessionVersion = state.sessionVersion;
+  state.marketSelected = { assetClass, symbol };
+  const quote = state.marketQuotes[key];
+  if (quote?.data) showMarketQuote(quote.data);
+  else showMarketLoading(assetClass, symbol);
+  try {
+    const data = await api(`/market-data/${assetClass}/${symbol}`, { method: 'GET' }, 'owner');
+    if (sessionVersion !== state.sessionVersion) return;
+    state.marketQuotes[key] = { data };
+    renderMarketSnapshot();
+    if (requestId === state.marketRequestId) showMarketQuote(data);
+  } catch (error) {
+    if (sessionVersion !== state.sessionVersion) return;
+    state.marketQuotes[key] = { data: quote?.data, error: error.message };
+    renderMarketSnapshot();
+    if (requestId === state.marketRequestId) {
+      if (quote?.data) showMarketQuote(quote.data, `Refresh failed: ${error.message}`);
+      else showMarketUnavailable(error.message, assetClass, symbol);
+    }
+  }
+};
+
+const showMarketLoading = (assetClass, symbol) => {
+  document.getElementById('market-header').textContent = symbol;
+  document.getElementById('market-source').textContent = 'Loading quote…';
+  document.getElementById('market-price').textContent = '—';
+  document.getElementById('market-stale').className = 'tag';
+  document.getElementById('market-stale').textContent = 'LOADING';
+  document.getElementById('market-asset').textContent = assetClass === 'crypto' ? 'Crypto' : 'Equity';
+  document.getElementById('market-currency').textContent = '—';
+  document.getElementById('market-time').textContent = '—';
+  document.getElementById('market-freshness').textContent = 'Loading';
+  document.getElementById('market-kind').textContent = 'Quote is informational and not an executable price.';
+  showMarketFeedback('', '');
+};
+
+const showMarketQuote = (quote, warning = '') => {
   document.getElementById('market-header').textContent = quote.symbol;
   document.getElementById('market-source').textContent = quote.source;
-  document.getElementById('market-price').textContent = `$${Number(quote.price).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-  document.getElementById('market-asset').textContent = quote.asset_class === 'crypto' ? 'Crypto' : 'Equity';
+  document.getElementById('market-price').textContent = `${Number(quote.price).toLocaleString(undefined, { style: 'currency', currency: quote.currency, maximumFractionDigits: 6 })}`;
+  document.getElementById('market-asset').textContent = quote.asset_class === 'crypto' ? 'Crypto' : 'US equity';
   document.getElementById('market-currency').textContent = quote.currency;
   document.getElementById('market-time').textContent = humanTime(quote.as_of);
   document.getElementById('market-freshness').textContent = quote.is_stale ? 'Stale' : 'Fresh';
+  document.getElementById('market-kind').textContent = quote.asset_class === 'equity'
+    ? 'Daily closing data; not an intraday or executable price.'
+    : 'Provider quote; informational and not an executable price.';
   const staleTag = document.getElementById('market-stale');
-  staleTag.textContent = quote.is_stale ? 'STALE' : 'LIVE';
+  staleTag.textContent = quote.is_stale ? 'STALE' : 'FRESH';
   staleTag.className = `tag ${quote.is_stale ? 'bad' : 'good'}`;
+  showMarketFeedback(warning, warning ? 'error' : '');
+};
+
+const showMarketUnavailable = (message, assetClass = state.marketSelected.assetClass, symbol = state.marketSelected.symbol) => {
+  document.getElementById('market-header').textContent = symbol;
+  document.getElementById('market-source').textContent = 'Quote unavailable';
+  document.getElementById('market-price').textContent = '—';
+  document.getElementById('market-stale').className = 'tag bad';
+  document.getElementById('market-stale').textContent = 'UNAVAILABLE';
+  document.getElementById('market-asset').textContent = assetClass === 'crypto' ? 'Crypto' : 'Equity';
+  document.getElementById('market-currency').textContent = '—';
+  document.getElementById('market-time').textContent = '—';
+  document.getElementById('market-freshness').textContent = 'Unavailable';
+  document.getElementById('market-kind').textContent = 'Quotes are informational only. No provider data is available.';
+  showMarketFeedback(message, 'error');
+};
+
+const showMarketFeedback = (message, kind) => {
+  const feedback = document.getElementById('market-feedback');
+  feedback.textContent = message;
+  feedback.className = `feedback${message ? ` visible ${kind}` : ''}`;
 };
 
 const openConnectionModal = () => {
   const modal = document.getElementById('connection-modal');
+  state.connectionOpener = document.activeElement;
+  document.getElementById('connection-feedback').textContent = '';
+  document.getElementById('connection-feedback').className = 'feedback';
   modal.classList.add('open');
   modal.setAttribute('aria-hidden', 'false');
+  document.getElementById('agent-token').focus();
 };
 
 const closeConnectionModal = () => {
   const modal = document.getElementById('connection-modal');
   modal.classList.remove('open');
   modal.setAttribute('aria-hidden', 'true');
+  if (state.connectionOpener instanceof HTMLElement) state.connectionOpener.focus();
 };
 
 const handleConnect = async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
   const formData = new FormData(form);
-  state.tokens.agent = (formData.get('agentToken') || '').toString().trim();
-  state.tokens.owner = (formData.get('ownerToken') || '').toString().trim();
-  state.connected = Boolean(state.tokens.agent && state.tokens.owner);
-  document.getElementById('connection-label').textContent = state.connected ? 'Connected' : 'Connect to local API';
-  document.getElementById('connection-status').textContent = state.connected ? 'Session active in memory' : 'No active session';
-  document.querySelector('.connect-box').classList.toggle('ready', state.connected);
-  document.getElementById('settings-status').textContent = state.connected ? 'Connected' : 'Disconnected';
-  closeConnectionModal();
-  if (state.connected) {
-    await refreshTransactions();
-    await loadMarketQuote(state.marketSelected.assetClass, state.marketSelected.symbol);
-    await checkApiHealth();
+  const agent = (formData.get('agentToken') || '').toString().trim();
+  const owner = (formData.get('ownerToken') || '').toString().trim();
+  const feedback = document.getElementById('connection-feedback');
+  if (!agent || !owner) {
+    feedback.textContent = 'Enter both the agent and owner development tokens.';
+    feedback.className = 'feedback visible error';
+    return;
+  }
+  if (agent === owner) {
+    feedback.textContent = 'Use the distinct agent and owner tokens configured for the API.';
+    feedback.className = 'feedback visible error';
+    return;
+  }
+  const submit = form.querySelector('[type="submit"]');
+  submit.disabled = true;
+  submit.textContent = 'Connecting…';
+  state.sessionVersion += 1;
+  const sessionVersion = state.sessionVersion;
+  state.refreshId += 1;
+  state.tokens.agent = agent;
+  state.tokens.owner = owner;
+  form.reset();
+  try {
+    const health = await api('/health', { method: 'GET' }, 'public');
+    if (sessionVersion !== state.sessionVersion) return;
+    if (health?.status !== 'ok') throw new Error('The local API health check did not succeed.');
+    const transactions = await api('/transactions?limit=50', { method: 'GET' }, 'owner');
+    if (sessionVersion !== state.sessionVersion) return;
+    state.transactions = Array.isArray(transactions) ? transactions : [];
+    state.transactionsLoaded = true;
+    state.transactionError = '';
+    state.connected = true;
+    document.getElementById('connection-label').textContent = 'Owner API connected';
+    document.getElementById('connection-status').textContent = 'Agent token stored in memory';
+    document.querySelector('.connect-box').classList.add('ready');
+    document.getElementById('settings-status').textContent = 'Owner verified · agent token stored';
+    document.getElementById('settings-health').textContent = 'API responding · simulation-only mode';
+    setApiState('Owner API connected', 'ready');
+    renderAll();
+    void refreshAuditSummary();
+    void refreshMarketSnapshot();
+    closeConnectionModal();
+    notify('Owner token verified. Agent token will be checked when a proposal is submitted.', 'success');
+  } catch (error) {
+    state.tokens.agent = '';
+    state.tokens.owner = '';
+    state.connected = false;
+    state.transactions = [];
+    state.transactionsLoaded = false;
+    document.getElementById('settings-status').textContent = 'Disconnected';
+    document.getElementById('settings-health').textContent = 'Connection failed.';
+    setApiState('Connection failed', 'error');
+    renderAll();
+    feedback.textContent = error.message;
+    feedback.className = 'feedback visible error';
+  } finally {
+    submit.disabled = false;
+    submit.textContent = 'Connect';
   }
 };
 
 const resetSession = () => {
+  state.sessionVersion += 1;
+  state.refreshId += 1;
+  state.marketRequestId += 1;
+  state.marketSnapshotId += 1;
+  state.auditRequestId += 1;
+  state.auditSummaryRequestId += 1;
   state.tokens.agent = '';
   state.tokens.owner = '';
   state.connected = false;
@@ -836,6 +1233,16 @@ const resetSession = () => {
   document.getElementById('settings-status').textContent = 'Disconnected';
   document.getElementById('settings-health').textContent = 'Not checked.';
   state.transactions = [];
+  state.transactionsLoaded = false;
+  state.transactionError = '';
+  state.auditSummary = [];
+  state.auditLoadFailed = false;
+  state.marketQuotes = {};
+  state.audit = [];
+  state.auditSelectedId = '';
+  state.busyActions.clear();
+  setApiState('Owner auth required');
+  showMarketUnavailable('Connect with an owner token to request quotes.');
   renderOverview();
   renderApprovals();
   renderActivity();
@@ -843,84 +1250,205 @@ const resetSession = () => {
 
 const checkApiHealth = async () => {
   try {
-    const outcome = await api('/health', { method: 'GET' }, 'owner');
-    document.getElementById('settings-health').textContent = outcome && outcome.status ? `${outcome.status} · ${outcome.mode}` : 'API responding';
-  } catch (error) {
+    const outcome = await api('/health', { method: 'GET' }, 'public');
+    const healthy = outcome?.status === 'ok';
+    document.getElementById('settings-health').textContent = healthy
+      ? 'API responding · simulation-only mode'
+      : 'API returned an unexpected health response.';
+    if (!state.connected) setApiState(healthy ? 'API reachable · owner auth required' : 'API health unavailable', healthy ? '' : 'error');
+  } catch {
     document.getElementById('settings-health').textContent = 'Health check unavailable';
+    if (!state.connected) setApiState('API unavailable', 'error');
   }
 };
 
 const handleProposalSubmit = async (event) => {
   event.preventDefault();
-  const form = new FormData(event.currentTarget);
+  const formElement = event.currentTarget;
+  if (!state.tokens.agent) {
+    notify('Connect with an agent token before submitting a proposal.', 'error');
+    openConnectionModal();
+    return;
+  }
+  if (!formElement.reportValidity()) return;
+  const form = new FormData(formElement);
+  const amountText = String(form.get('amount') || '').trim();
+  if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(amountText)) {
+    notify('Enter an amount with no more than six decimal places.', 'error');
+    return;
+  }
+  const [whole, fraction = ''] = amountText.split('.');
+  const amountBaseUnits = Number(whole) * 1_000_000 + Number(fraction.padEnd(6, '0'));
+  if (!Number.isSafeInteger(amountBaseUnits) || amountBaseUnits <= 0 || amountBaseUnits > 50_000_000) {
+    notify('Amount must be greater than zero and no more than 50 USDC.', 'error');
+    return;
+  }
   const payload = {
     agent_id: form.get('agent_id') || 'devops-01',
     chain_id: Number(form.get('chain_id')) || 84532,
     token_symbol: (form.get('token_symbol') || 'USDC').toString().trim(),
     token_address: (form.get('token_address') || '0x036cbd53842c5426634e7929541ec2318f3dcf7e').toString().trim(),
     recipient: (form.get('recipient') || '0x2222222222222222222222222222222222222222').toString().trim(),
-    amount_base_units: Number(form.get('amount_base_units') || 0),
+    amount_base_units: amountBaseUnits,
     token_decimals: 6
   };
+  const attempt = JSON.stringify(payload);
+  if (state.proposalAttempt?.payload !== attempt) {
+    state.proposalAttempt = {
+      payload: attempt,
+      key: `ui-${window.crypto?.randomUUID ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`}`
+    };
+  }
+  const sessionVersion = state.sessionVersion;
+  const submit = formElement.querySelector('[type="submit"]');
+  submit.disabled = true;
+  submit.textContent = 'Submitting…';
   try {
     const created = await api('/transactions/propose', {
       method: 'POST',
       body: JSON.stringify(payload),
-      headers: { 'Idempotency-Key': `ui-${Date.now()}` }
+      headers: { 'Idempotency-Key': state.proposalAttempt.key }
     }, 'agent');
-    state.transactions.unshift(created);
-    renderOverview();
-    renderApprovals();
-    renderActivity();
-    setView('overview');
-    event.currentTarget.reset();
+    if (sessionVersion !== state.sessionVersion) return;
+    upsertTransaction(created);
+    state.transactionsLoaded = true;
+    renderAll();
+    const result = document.getElementById('proposal-result');
+    const reasons = (created.policy_reasons || []).concat(created.risk_reasons || []);
+    result.hidden = false;
+    result.innerHTML = `<h3>Proposal recorded · ${esc(statusLabel(created.status))}</h3>
+      <p>Workflow ID · <span class="small-mono">${esc(created.transaction_id)}</span></p>
+      <p>Policy · ${esc(created.policy_decision)} · Risk · ${esc(created.risk_score)}/100 (${esc(created.risk_level)})</p>
+      ${reasons.length ? `<ul class="reason-list">${reasons.map((reason) => `<li>${esc(reason)}</li>`).join('')}</ul>` : '<p>No additional policy or risk reasons were returned.</p>'}`;
+    void refreshAuditSummary();
+    notify(`Proposal recorded by the backend: ${statusLabel(created.status)}.`, 'success');
+    if (created.status === 'awaiting_approval') setView('approvals');
   } catch (error) {
-    alert(error.message || 'Proposal submission failed');
+    if (sessionVersion !== state.sessionVersion) return;
+    const result = document.getElementById('proposal-result');
+    result.hidden = false;
+    result.innerHTML = `<h3>Proposal was not confirmed</h3><p>${esc(error.message)}</p>`;
+    notify(`Proposal was not confirmed: ${error.message}`, 'error');
+    if (error.status === 401) {
+      state.tokens.agent = '';
+      document.getElementById('connection-status').textContent = 'Agent token rejected';
+      document.getElementById('settings-status').textContent = 'Owner verified · agent token rejected';
+    }
+  } finally {
+    submit.disabled = false;
+    submit.textContent = 'Create proposal';
   }
 };
 
+const upsertTransaction = (transaction) => {
+  state.transactions = [
+    transaction,
+    ...state.transactions.filter((tx) => tx.transaction_id !== transaction.transaction_id)
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 50);
+};
+
 const handleApprove = async (transactionId, fingerprint) => {
+  if (!state.tokens.owner || !/^[0-9a-f]{64}$/.test(fingerprint || '') || state.busyActions.has(transactionId)) return;
+  state.busyActions.add(transactionId);
+  const sessionVersion = state.sessionVersion;
+  renderApprovals();
   try {
     const result = await api(`/transactions/${transactionId}/approve`, {
       method: 'POST',
       body: JSON.stringify({ transaction_fingerprint: fingerprint, confirmation: 'APPROVE' })
     }, 'owner');
-    state.transactions = state.transactions.map((tx) => tx.transaction_id === transactionId ? result : tx);
-    renderOverview();
-    renderApprovals();
-    renderActivity();
+    if (sessionVersion !== state.sessionVersion) return;
+    upsertTransaction(result);
+    renderAll();
+    void refreshAuditSummary();
+    notify(`Backend confirmed approval. Current status: ${statusLabel(result.status)}.`, 'success');
   } catch (error) {
-    alert(error.message || 'Approval failed');
+    if (sessionVersion !== state.sessionVersion) return;
+    notify(`Approval was not confirmed: ${error.message}`, 'error');
+    await refreshTransactions();
+  } finally {
+    state.busyActions.delete(transactionId);
+    if (sessionVersion === state.sessionVersion) {
+      renderApprovals();
+      renderActivity();
+    }
+  }
+};
+
+const handleSimulate = async (transactionId) => {
+  if (!state.tokens.owner || state.busyActions.has(transactionId)) return;
+  if (!window.confirm('Request a simulation only? No transaction will be signed or broadcast.')) return;
+  state.busyActions.add(transactionId);
+  const sessionVersion = state.sessionVersion;
+  renderActivity();
+  try {
+    const result = await api(`/transactions/${encodeURIComponent(transactionId)}/execute`, {
+      method: 'POST'
+    }, 'owner');
+    if (sessionVersion !== state.sessionVersion) return;
+    upsertTransaction(result);
+    renderAll();
+    if (result.status === 'executed_simulated') {
+      const reference = result.execution_reference
+        ? ` Simulation reference: ${result.execution_reference}.`
+        : '';
+      notify(`Backend confirmed simulated execution. No on-chain transaction occurred.${reference}`, 'success');
+    } else {
+      notify(`Backend returned workflow status: ${statusLabel(result.status)}.`, 'error');
+    }
+    void refreshAuditSummary();
+  } catch (error) {
+    if (sessionVersion !== state.sessionVersion) return;
+    notify(`Simulation request was not confirmed: ${error.message}`, 'error');
+    await refreshTransactions();
+  } finally {
+    state.busyActions.delete(transactionId);
+    if (sessionVersion === state.sessionVersion) renderActivity();
   }
 };
 
 const inspectTransaction = async (transactionId) => {
   const tx = (state.transactions || []).find((item) => item.transaction_id === transactionId);
   if (!tx) return;
-  try {
-    const audit = await api(`/transactions/${transactionId}/audit`, { method: 'GET' }, 'owner');
-    state.audit = audit || [];
-    const detail = audit.length ? audit.map((event) => `
-      <div class="audit-card">
-        <div class="approval-head">
-          <div>
-            <small>${esc(event.actor_role || 'actor')}</small>
-            <h3>${esc(event.event_type || 'event')}</h3>
-          </div>
-          <span class="status-badge ${kindClass(event.new_status || 'ready')}">${esc((event.new_status || 'ready').replace(/_/g, ' '))}</span>
-        </div>
-        <div class="reason-list">
-          <li>${esc(event.event_details || 'No detail')}</li>
-        </div>
-        <div class="smallcaps muted">${esc(humanTime(event.created_at || event.timestamp))}</div>
-      </div>
-    `).join('') : '<div class="empty-state"><span>≡</span><strong>No audit events</strong><div>This transaction has no persisted audit trail.</div></div>';
-    document.getElementById('audit-detail').innerHTML = detail;
-  } catch (error) {
-    document.getElementById('audit-detail').innerHTML = `<div class="empty-state"><span>!</span><strong>Audit unavailable</strong><div>${esc(error.message)}</div></div>`;
-  }
+  const sessionVersion = state.sessionVersion;
+  const requestId = ++state.auditRequestId;
+  state.auditSelectedId = transactionId;
   setView('activity');
-  document.getElementById('activity-rows').querySelectorAll('tr').forEach((row) => row.style.background = row.dataset.id === transactionId ? '#1c2c3b' : '');
+  const detailTarget = document.getElementById('audit-detail');
+  detailTarget.innerHTML = '<div class="loading">Loading persisted audit events…</div>';
+  try {
+    const audit = await api(`/transactions/${encodeURIComponent(transactionId)}/audit`, { method: 'GET' }, 'owner');
+    if (sessionVersion !== state.sessionVersion || requestId !== state.auditRequestId) return;
+    state.audit = Array.isArray(audit) ? audit : [];
+    renderAuditDetail();
+  } catch (error) {
+    if (sessionVersion !== state.sessionVersion || requestId !== state.auditRequestId) return;
+    detailTarget.innerHTML = `<div class="empty-state"><span>!</span><strong>Audit unavailable</strong><div>${esc(error.message)}</div></div>`;
+  }
+};
+
+const renderAuditDetail = () => {
+  const target = document.getElementById('audit-detail');
+  if (!state.audit.length) {
+    const message = state.auditSelectedId
+      ? `No persisted audit events were returned for ${esc(state.auditSelectedId)}.`
+      : 'Select a workflow record to inspect its audit events.';
+    target.innerHTML = `<div class="empty-state"><span>≡</span><strong>No event selected</strong><div>${message}</div></div>`;
+    return;
+  }
+  target.innerHTML = state.audit.map((event) => {
+    const details = JSON.stringify(event.details || {}, null, 2);
+    return `<article class="audit-card">
+      <div class="approval-head"><div><small>EVENT ${esc(event.event_id)} · ${esc(event.actor_role || 'unknown actor')}</small><h3>${esc(event.event_type || 'Unknown event')}</h3></div>
+        <span class="smallcaps muted">${esc(humanTime(event.created_at))}</span></div>
+      <div class="event-meta">
+        <div><strong>Workflow</strong><span class="small-mono">${esc(event.transaction_id || state.auditSelectedId)}</span></div>
+        <div><strong>Transition</strong>${esc(event.from_status || '—')} → ${esc(event.to_status || '—')}</div>
+      </div>
+      ${event.fingerprint ? `<div class="fingerprint">Fingerprint · ${esc(event.fingerprint)}</div>` : ''}
+      <pre class="event-details">${esc(details)}</pre>
+    </article>`;
+  }).join('');
 };
 
 document.querySelectorAll('[data-view]').forEach((button) => {
@@ -938,8 +1466,17 @@ document.querySelectorAll('[data-target]').forEach((button) => {
 });
 
 document.getElementById('refresh').addEventListener('click', async () => {
-  await refreshTransactions();
-  if (state.connected) await checkApiHealth();
+  const button = document.getElementById('refresh');
+  button.disabled = true;
+  try {
+    await Promise.all([checkApiHealth(), refreshTransactions()]);
+    if (state.tokens.owner) {
+      await refreshMarketSnapshot();
+      if (state.view === 'markets') await loadMarketQuote(state.marketSelected.assetClass, state.marketSelected.symbol);
+    }
+  } finally {
+    button.disabled = false;
+  }
 });
 
 document.getElementById('avatar').addEventListener('click', openConnectionModal);
@@ -955,38 +1492,45 @@ document.querySelectorAll('[data-close]').forEach((button) => button.addEventLis
 document.getElementById('connection-modal').addEventListener('click', (event) => {
   if (event.target.id === 'connection-modal') closeConnectionModal();
 });
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeConnectionModal();
+});
 
 document.getElementById('connection-form').addEventListener('submit', handleConnect);
 document.getElementById('proposal-form').addEventListener('submit', handleProposalSubmit);
+document.getElementById('activity-search').addEventListener('input', renderActivity);
+document.getElementById('market-search').addEventListener('input', renderMarketButtons);
+document.getElementById('retry-market').addEventListener('click', () =>
+  loadMarketQuote(state.marketSelected.assetClass, state.marketSelected.symbol)
+);
 
 document.addEventListener('click', async (event) => {
-  const element = event.target.closest('[data-action]');
+  const target = event.target instanceof Element ? event.target : null;
+  const element = target?.closest('[data-action]');
   if (!element) return;
   const action = element.dataset.action;
   const transactionId = element.dataset.id;
   const fingerprint = element.dataset.fingerprint;
   if (action === 'approve') await handleApprove(transactionId, fingerprint);
   if (action === 'inspect') await inspectTransaction(transactionId);
+  if (action === 'execute') await handleSimulate(transactionId);
 });
 
 document.addEventListener('click', async (event) => {
-  const element = event.target.closest('[data-market-select]');
+  const target = event.target instanceof Element ? event.target : null;
+  const element = target?.closest('[data-market-select]');
   if (!element) return;
   const [assetClass, symbol] = (element.dataset.marketSelect || 'crypto:BTC').split(':');
   state.marketSelected = { assetClass, symbol };
   await renderMarketList();
 });
 
-document.getElementById('activity-rows').addEventListener('click', (event) => {
-  const row = event.target.closest('tr[data-id]');
-  if (!row) return;
-  inspectTransaction(row.dataset.id);
-});
-
-renderOverview();
+setView('overview');
 renderApprovals();
 renderActivity();
-renderMarketList();
+renderAuditSummary();
+renderAuditDetail();
+showMarketUnavailable('Connect with an owner token to request quotes.');
 checkApiHealth();
 </script>
 </body>
