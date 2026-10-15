@@ -398,7 +398,8 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #160 | Align release gate with market-data integration | Merged |
 | #161 | Test malformed market-data provider responses and upstream failures | Merged |
 | #162 | Add reproducible final-candidate verification steps | Merged |
-| #163 | Reject redirects from market-data providers | Merged |\n| #164 | Refresh tracker for final release stage | Merged |
+| #163 | Reject redirects from market-data providers | Merged |
+| #164 | Refresh tracker for final release stage | Merged |
 
 ## 6. Current architecture and useful code locations
 
