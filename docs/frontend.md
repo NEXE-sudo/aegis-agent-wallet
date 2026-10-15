@@ -34,11 +34,11 @@ The proposal form is intentionally bounded to the current demo policy: chain ID 
 There is no separate frontend build or package command. From the repository root, run:
 
 ~~~bash
-python -m pytest -q tests/test_frontend.py
+python -m pytest -q
 ruff check .
 ~~~
 
-The frontend tests check that the served page includes the required views and supported API operations and does not persist credentials or imply fabricated market movement. They do not replace interactive browser testing.
+The frontend tests check the served page structure, supported API operations, credential-handling indicators, and simulation-only wording. When Node.js is available, focused regression tests also execute selected async frontend functions against mocked API and DOM dependencies to exercise stale connections, disconnects, and failure handling. These tests are not a full browser or end-to-end security assessment.
 
 ## Safety and limitations
 

@@ -118,7 +118,7 @@ tbody td{font-size:10px;color:#dce9f8}
 .tx-main strong,.tx-main small{display:block}
 .tx-main strong{font-size:10px;font-weight:700;color:#edf4fb}
 .tx-main small{font-size:9px;color:#8191a8;margin-top:3px}
-.small-mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:.02em}
+.small-mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:.02em;overflow-wrap:anywhere;word-break:break-word}
 .status-badge,.risk-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 7px;border-radius:6px;border:1px solid transparent;font-size:8px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
 .status-badge:before,.risk-badge:before{content:"";display:block;width:5px;height:5px;border-radius:50%;background:currentColor}
 .status-ready{background:rgba(158,231,178,.08);border-color:rgba(158,231,178,.2);color:var(--green)}
@@ -131,7 +131,8 @@ tbody td{font-size:10px;color:#dce9f8}
 .risk-medium{background:rgba(244,198,106,.08);border-color:rgba(244,198,106,.18);color:var(--amber)}
 .risk-high{background:rgba(255,143,143,.08);border-color:rgba(255,143,143,.18);color:var(--red)}
 .risk-unknown{background:#202a36;border-color:#394657;color:var(--muted)}
-.metrics-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.metrics-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.metrics-row>div{min-width:0}
 .value{font-size:18px;font-weight:700;letter-spacing:-.5px}
 .value.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
 .list{padding:0 0 8px}
@@ -175,7 +176,7 @@ button.audit-card{text-align:left;width:100%;color:inherit}
 .reason-list li{padding-left:10px;position:relative}
 .reason-list li:before{content:"•";position:absolute;left:0;color:var(--accent)}
 .approval-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-.fingerprint{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;color:#97a9bf}
+.fingerprint{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;color:#97a9bf;overflow-wrap:anywhere;word-break:break-word}
 .empty-state{padding:24px 18px;border:1px dashed #30445d;border-radius:12px;background:rgba(17,27,39,.7);color:#9baac0;text-align:center}
 .empty-state strong{display:block;font-size:18px;letter-spacing:-.4px;margin:8px 0 4px;color:var(--text)}
 .empty-state span{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:12px;background:#182734;border:1px solid #31445d;font-size:20px}
@@ -591,6 +592,9 @@ const state = {
   connected: false,
   sessionVersion: 0,
   refreshId: 0,
+  healthRequestId: 0,
+  connectionRequestId: 0,
+  proposalRequestId: 0,
   transactionsLoaded: false,
   transactionError: '',
   auditLoadFailed: false,
@@ -601,6 +605,7 @@ const state = {
   marketQuotes: {},
   marketRequestId: 0,
   marketSnapshotId: 0,
+  marketQuoteRequestIds: new Map(),
   busyActions: new Set(),
   auditRequestId: 0,
   auditSummaryRequestId: 0,
@@ -617,6 +622,17 @@ const state = {
   marketSelected: { assetClass: 'crypto', symbol: 'BTC' },
   audit: [],
   proposalAttempt: null
+};
+
+const invalidatePendingRequests = () => {
+  state.refreshId += 1;
+  state.healthRequestId += 1;
+  state.marketRequestId += 1;
+  state.marketSnapshotId += 1;
+  state.marketQuoteRequestIds.clear();
+  state.auditRequestId += 1;
+  state.auditSummaryRequestId += 1;
+  state.proposalRequestId += 1;
 };
 
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -772,6 +788,7 @@ const api = async (path, options = {}, role = 'owner') => {
 };
 
 const refreshTransactions = async () => {
+  const sessionVersion = state.sessionVersion;
   const refreshId = ++state.refreshId;
   if (!state.tokens.owner) {
     state.transactions = [];
@@ -782,7 +799,7 @@ const refreshTransactions = async () => {
   }
   try {
     const records = await api('/transactions?limit=50', { method: 'GET' }, 'owner');
-    if (refreshId !== state.refreshId) return;
+    if (sessionVersion !== state.sessionVersion || refreshId !== state.refreshId) return;
     state.transactions = Array.isArray(records) ? records : [];
     state.transactionsLoaded = true;
     state.transactionError = '';
@@ -791,8 +808,7 @@ const refreshTransactions = async () => {
     renderAll();
     void refreshAuditSummary();
   } catch (error) {
-    if (sessionVersion !== state.sessionVersion) return;
-    if (refreshId !== state.refreshId) return;
+    if (sessionVersion !== state.sessionVersion || refreshId !== state.refreshId) return;
     state.transactionError = error.message;
     state.transactionsLoaded = false;
     state.connected = false;
@@ -928,23 +944,39 @@ const refreshMarketSnapshot = async () => {
   if (!state.tokens.owner) return;
   const sessionVersion = state.sessionVersion;
   const snapshotId = ++state.marketSnapshotId;
+  const foregroundRequestId = state.marketRequestId;
   const watch = [
     { assetClass: 'crypto', symbol: 'BTC' },
     { assetClass: 'equity', symbol: 'AAPL' }
   ];
+  const requestIds = new Map();
   watch.forEach(({ assetClass, symbol }) => {
-    state.marketQuotes[`${assetClass}:${symbol}`] = { loading: true };
+    const key = `${assetClass}:${symbol}`;
+    const requestId = (state.marketQuoteRequestIds.get(key) || 0) + 1;
+    state.marketQuoteRequestIds.set(key, requestId);
+    requestIds.set(key, requestId);
+    state.marketQuotes[key] = { loading: true };
   });
   renderMarketSnapshot();
   await Promise.all(watch.map(async ({ assetClass, symbol }) => {
     const key = `${assetClass}:${symbol}`;
     try {
       const data = await api(`/market-data/${assetClass}/${symbol}`, { method: 'GET' }, 'owner');
-      if (sessionVersion !== state.sessionVersion || snapshotId !== state.marketSnapshotId) return;
+      if (sessionVersion !== state.sessionVersion || snapshotId !== state.marketSnapshotId
+        || requestIds.get(key) !== state.marketQuoteRequestIds.get(key)) return;
       state.marketQuotes[key] = { data };
+      if (foregroundRequestId === state.marketRequestId
+        && state.marketSelected.assetClass === assetClass && state.marketSelected.symbol === symbol) {
+        showMarketQuote(data);
+      }
     } catch (error) {
-      if (sessionVersion !== state.sessionVersion || snapshotId !== state.marketSnapshotId) return;
+      if (sessionVersion !== state.sessionVersion || snapshotId !== state.marketSnapshotId
+        || requestIds.get(key) !== state.marketQuoteRequestIds.get(key)) return;
       state.marketQuotes[key] = { error: error.message };
+      if (foregroundRequestId === state.marketRequestId
+        && state.marketSelected.assetClass === assetClass && state.marketSelected.symbol === symbol) {
+        showMarketUnavailable(error.message, assetClass, symbol);
+      }
     }
   }));
   if (sessionVersion !== state.sessionVersion || snapshotId !== state.marketSnapshotId) return;
@@ -1059,21 +1091,27 @@ const renderMarketList = async () => {
 };
 
 const loadMarketQuote = async (assetClass, symbol) => {
+  if (!state.tokens.owner) {
+    showMarketUnavailable('Connect with an owner token to request quotes.', assetClass, symbol);
+    return;
+  }
   const key = `${assetClass}:${symbol}`;
   const requestId = ++state.marketRequestId;
   const sessionVersion = state.sessionVersion;
+  const quoteRequestId = (state.marketQuoteRequestIds.get(key) || 0) + 1;
+  state.marketQuoteRequestIds.set(key, quoteRequestId);
   state.marketSelected = { assetClass, symbol };
   const quote = state.marketQuotes[key];
   if (quote?.data) showMarketQuote(quote.data);
   else showMarketLoading(assetClass, symbol);
   try {
     const data = await api(`/market-data/${assetClass}/${symbol}`, { method: 'GET' }, 'owner');
-    if (sessionVersion !== state.sessionVersion) return;
+    if (sessionVersion !== state.sessionVersion || quoteRequestId !== state.marketQuoteRequestIds.get(key)) return;
     state.marketQuotes[key] = { data };
     renderMarketSnapshot();
     if (requestId === state.marketRequestId) showMarketQuote(data);
   } catch (error) {
-    if (sessionVersion !== state.sessionVersion) return;
+    if (sessionVersion !== state.sessionVersion || quoteRequestId !== state.marketQuoteRequestIds.get(key)) return;
     state.marketQuotes[key] = { data: quote?.data, error: error.message };
     renderMarketSnapshot();
     if (requestId === state.marketRequestId) {
@@ -1169,20 +1207,30 @@ const handleConnect = async (event) => {
     return;
   }
   const submit = form.querySelector('[type="submit"]');
+  const connectionRequestId = ++state.connectionRequestId;
   submit.disabled = true;
   submit.textContent = 'Connecting…';
   state.sessionVersion += 1;
   const sessionVersion = state.sessionVersion;
-  state.refreshId += 1;
+  invalidatePendingRequests();
+  state.tokens.agent = '';
+  state.tokens.owner = '';
+  state.connected = false;
+  clearSessionData();
   state.tokens.agent = agent;
   state.tokens.owner = owner;
+  document.querySelector('.connect-box').classList.remove('ready');
+  document.getElementById('connection-label').textContent = 'Connecting to local API';
+  document.getElementById('connection-status').textContent = 'Verifying owner token…';
+  document.getElementById('settings-status').textContent = 'Connecting';
+  setApiState('Connecting to local API');
   form.reset();
   try {
     const health = await api('/health', { method: 'GET' }, 'public');
-    if (sessionVersion !== state.sessionVersion) return;
+    if (sessionVersion !== state.sessionVersion || connectionRequestId !== state.connectionRequestId) return;
     if (health?.status !== 'ok') throw new Error('The local API health check did not succeed.');
     const transactions = await api('/transactions?limit=50', { method: 'GET' }, 'owner');
-    if (sessionVersion !== state.sessionVersion) return;
+    if (sessionVersion !== state.sessionVersion || connectionRequestId !== state.connectionRequestId) return;
     state.transactions = Array.isArray(transactions) ? transactions : [];
     state.transactionsLoaded = true;
     state.transactionError = '';
@@ -1199,11 +1247,15 @@ const handleConnect = async (event) => {
     closeConnectionModal();
     notify('Owner token verified. Agent token will be checked when a proposal is submitted.', 'success');
   } catch (error) {
+    if (sessionVersion !== state.sessionVersion || connectionRequestId !== state.connectionRequestId) return;
+    state.sessionVersion += 1;
+    invalidatePendingRequests();
     state.tokens.agent = '';
     state.tokens.owner = '';
     state.connected = false;
-    state.transactions = [];
-    state.transactionsLoaded = false;
+    clearSessionData();
+    document.getElementById('connection-label').textContent = 'Connect to local API';
+    document.getElementById('connection-status').textContent = 'No active session';
     document.getElementById('settings-status').textContent = 'Disconnected';
     document.getElementById('settings-health').textContent = 'Connection failed.';
     setApiState('Connection failed', 'error');
@@ -1211,27 +1263,14 @@ const handleConnect = async (event) => {
     feedback.textContent = error.message;
     feedback.className = 'feedback visible error';
   } finally {
-    submit.disabled = false;
-    submit.textContent = 'Connect';
+    if (connectionRequestId === state.connectionRequestId) {
+      submit.disabled = false;
+      submit.textContent = 'Connect';
+    }
   }
 };
 
-const resetSession = () => {
-  state.sessionVersion += 1;
-  state.refreshId += 1;
-  state.marketRequestId += 1;
-  state.marketSnapshotId += 1;
-  state.auditRequestId += 1;
-  state.auditSummaryRequestId += 1;
-  state.tokens.agent = '';
-  state.tokens.owner = '';
-  state.connected = false;
-  document.getElementById('connection-form').reset();
-  document.getElementById('connection-label').textContent = 'Connect to local API';
-  document.getElementById('connection-status').textContent = 'No active session';
-  document.querySelector('.connect-box').classList.remove('ready');
-  document.getElementById('settings-status').textContent = 'Disconnected';
-  document.getElementById('settings-health').textContent = 'Not checked.';
+const clearSessionData = () => {
   state.transactions = [];
   state.transactionsLoaded = false;
   state.transactionError = '';
@@ -1241,22 +1280,52 @@ const resetSession = () => {
   state.audit = [];
   state.auditSelectedId = '';
   state.busyActions.clear();
-  setApiState('Owner auth required');
+  state.proposalAttempt = null;
+  const proposalSubmit = document.querySelector('#proposal-form [type="submit"]');
+  proposalSubmit.disabled = false;
+  proposalSubmit.textContent = 'Create proposal';
+  const proposalResult = document.getElementById('proposal-result');
+  proposalResult.hidden = true;
+  proposalResult.textContent = '';
   showMarketUnavailable('Connect with an owner token to request quotes.');
-  renderOverview();
-  renderApprovals();
-  renderActivity();
+  renderAll();
+  renderAuditSummary();
+  renderAuditDetail();
+};
+
+const resetSession = () => {
+  state.sessionVersion += 1;
+  state.connectionRequestId += 1;
+  invalidatePendingRequests();
+  state.tokens.agent = '';
+  state.tokens.owner = '';
+  state.connected = false;
+  document.getElementById('connection-form').reset();
+  document.getElementById('connection-label').textContent = 'Connect to local API';
+  document.getElementById('connection-status').textContent = 'No active session';
+  document.querySelector('.connect-box').classList.remove('ready');
+  document.getElementById('settings-status').textContent = 'Disconnected';
+  document.getElementById('settings-health').textContent = 'Not checked.';
+  const connectSubmit = document.querySelector('#connection-form [type="submit"]');
+  connectSubmit.disabled = false;
+  connectSubmit.textContent = 'Connect';
+  setApiState('Owner auth required');
+  clearSessionData();
 };
 
 const checkApiHealth = async () => {
+  const sessionVersion = state.sessionVersion;
+  const requestId = ++state.healthRequestId;
   try {
     const outcome = await api('/health', { method: 'GET' }, 'public');
+    if (sessionVersion !== state.sessionVersion || requestId !== state.healthRequestId) return;
     const healthy = outcome?.status === 'ok';
     document.getElementById('settings-health').textContent = healthy
       ? 'API responding · simulation-only mode'
       : 'API returned an unexpected health response.';
     if (!state.connected) setApiState(healthy ? 'API reachable · owner auth required' : 'API health unavailable', healthy ? '' : 'error');
   } catch {
+    if (sessionVersion !== state.sessionVersion || requestId !== state.healthRequestId) return;
     document.getElementById('settings-health').textContent = 'Health check unavailable';
     if (!state.connected) setApiState('API unavailable', 'error');
   }
@@ -1300,6 +1369,8 @@ const handleProposalSubmit = async (event) => {
     };
   }
   const sessionVersion = state.sessionVersion;
+  const requestId = ++state.proposalRequestId;
+  const proposalAttempt = state.proposalAttempt;
   const submit = formElement.querySelector('[type="submit"]');
   submit.disabled = true;
   submit.textContent = 'Submitting…';
@@ -1307,9 +1378,9 @@ const handleProposalSubmit = async (event) => {
     const created = await api('/transactions/propose', {
       method: 'POST',
       body: JSON.stringify(payload),
-      headers: { 'Idempotency-Key': state.proposalAttempt.key }
+      headers: { 'Idempotency-Key': proposalAttempt.key }
     }, 'agent');
-    if (sessionVersion !== state.sessionVersion) return;
+    if (sessionVersion !== state.sessionVersion || requestId !== state.proposalRequestId) return;
     upsertTransaction(created);
     state.transactionsLoaded = true;
     renderAll();
@@ -1324,7 +1395,7 @@ const handleProposalSubmit = async (event) => {
     notify(`Proposal recorded by the backend: ${statusLabel(created.status)}.`, 'success');
     if (created.status === 'awaiting_approval') setView('approvals');
   } catch (error) {
-    if (sessionVersion !== state.sessionVersion) return;
+    if (sessionVersion !== state.sessionVersion || requestId !== state.proposalRequestId) return;
     const result = document.getElementById('proposal-result');
     result.hidden = false;
     result.innerHTML = `<h3>Proposal was not confirmed</h3><p>${esc(error.message)}</p>`;
@@ -1335,8 +1406,10 @@ const handleProposalSubmit = async (event) => {
       document.getElementById('settings-status').textContent = 'Owner verified · agent token rejected';
     }
   } finally {
-    submit.disabled = false;
-    submit.textContent = 'Create proposal';
+    if (sessionVersion === state.sessionVersion && requestId === state.proposalRequestId) {
+      submit.disabled = false;
+      submit.textContent = 'Create proposal';
+    }
   }
 };
 
@@ -1353,7 +1426,7 @@ const handleApprove = async (transactionId, fingerprint) => {
   const sessionVersion = state.sessionVersion;
   renderApprovals();
   try {
-    const result = await api(`/transactions/${transactionId}/approve`, {
+    const result = await api(`/transactions/${encodeURIComponent(transactionId)}/approve`, {
       method: 'POST',
       body: JSON.stringify({ transaction_fingerprint: fingerprint, confirmation: 'APPROVE' })
     }, 'owner');
@@ -1367,8 +1440,8 @@ const handleApprove = async (transactionId, fingerprint) => {
     notify(`Approval was not confirmed: ${error.message}`, 'error');
     await refreshTransactions();
   } finally {
-    state.busyActions.delete(transactionId);
     if (sessionVersion === state.sessionVersion) {
+      state.busyActions.delete(transactionId);
       renderApprovals();
       renderActivity();
     }
@@ -1402,8 +1475,10 @@ const handleSimulate = async (transactionId) => {
     notify(`Simulation request was not confirmed: ${error.message}`, 'error');
     await refreshTransactions();
   } finally {
-    state.busyActions.delete(transactionId);
-    if (sessionVersion === state.sessionVersion) renderActivity();
+    if (sessionVersion === state.sessionVersion) {
+      state.busyActions.delete(transactionId);
+      renderActivity();
+    }
   }
 };
 
@@ -1493,7 +1568,29 @@ document.getElementById('connection-modal').addEventListener('click', (event) =>
   if (event.target.id === 'connection-modal') closeConnectionModal();
 });
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') closeConnectionModal();
+  const modal = document.getElementById('connection-modal');
+  if (!modal.classList.contains('open')) return;
+  if (event.key === 'Escape') {
+    closeConnectionModal();
+    return;
+  }
+  if (event.key !== 'Tab') return;
+  const focusable = Array.from(modal.querySelectorAll(
+    'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )).filter((element) => element.getClientRects().length);
+  if (!focusable.length) {
+    event.preventDefault();
+    return;
+  }
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) {
+    event.preventDefault();
+    first.focus();
+  }
 });
 
 document.getElementById('connection-form').addEventListener('submit', handleConnect);
