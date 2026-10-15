@@ -161,7 +161,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title="Aegis Agent Wallet API",
     description="Policy, risk, and approval workflow simulation with optional read-only Base Sepolia inspection. No signing or transaction submission occurs.",
-    version="1.10.1",
+    version="1.10.2",
     lifespan=lifespan,
 )
 

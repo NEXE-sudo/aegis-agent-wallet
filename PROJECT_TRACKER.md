@@ -4,7 +4,7 @@
 >
 > **Last updated:** 2026-10-15  
 > **Repository:** [NEXE-sudo/aegis-agent-wallet](https://github.com/NEXE-sudo/aegis-agent-wallet)  
-> **Current package/API version:** 1.10.1  
+> **Current package/API version:** 1.10.2  
 > **Current phase:** Milestone 7 — Documentation and Release
 > **Current status:** Milestones 1–6 complete; Milestone 7 in progress; Milestone 8 is optional and out of current scope.
 
@@ -208,7 +208,7 @@ Goal: package the prototype as a clear, reproducible portfolio/demo project.
 - [x] Re-run the fresh-checkout release gate after merging frontend browser regression coverage (2026-10-15) at `ab1384011afc7ea3b1507d9c9547fb21d1ad9019` (PR #170): `uv sync --locked --extra dev`, Chromium installation, `uv run --locked python -m pytest -q` (**395 passed**, one existing Starlette/httpx deprecation warning), `pip-audit --skip-editable` (**No known vulnerabilities found**; editable project distribution skipped), and `uv run --locked ruff check .` all passed. This is evidence for that exact commit; repeat the full gate on the final post-documentation release commit before tagging.
 - [x] Run Gitleaks against Git history and resolve the public demo contract false positive (PR #155; owner reported Gitleaks passed on the post-merge `main` checkout on 2026-10-12; release checklist records the precise scope and limitation).
 - [x] Review the read-only market-data addition for scope and documentation (PR #159: owner-authenticated endpoint, fixed HTTPS providers, bounded timeouts, validated quote data, stale flags, sanitized upstream errors, and no wiring into transaction or policy decisions; equity data is documented as daily-close information). PR #161 adds malformed-response and upstream-failure regression tests; PR #163 explicitly disables redirects for both fixed-host provider clients.
-- [ ] Publish corrective patch release `v1.10.1` only after the exact final candidate passes the fresh-checkout release gate. The pre-existing `v1.10.0` tag is intentionally left untouched; it resolves to `4c9c9431dca31d15137501cb99b026fcac829236`, while the previously verified candidate `154185cc0378448fa0fa4543762d85ead02bdff7` is nine commits ahead and contains the frontend and market-data integration. Version/package metadata is being advanced to `1.10.1`; rerun the full release gate on the post-merge commit before creating `v1.10.1`.
+- [ ] Publish corrective patch release `v1.10.2` only after the exact final candidate passes the fresh-checkout release gate. The published `v1.10.0` tag remains at `4c9c9431dca31d15137501cb99b026fcac829236`; the already-published `v1.10.1` tag remains untouched at `4b2649ef03619f6b8a512891cb73b9069b65fcd9`. Fresh-checkout verification passed on `54b06ed9475720330d9abe652c7c86419e005f93` (395 tests, dependency audit clean, Ruff clean), but the package version must be advanced to `1.10.2` and the complete gate repeated on the resulting final commit before publishing a new release.
 
 **Exit criteria:** a reviewer can understand the architecture, run the demo, inspect tests, and distinguish implemented guarantees from limitations.
 
