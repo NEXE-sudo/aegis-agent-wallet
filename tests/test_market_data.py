@@ -231,3 +231,26 @@ def test_market_data_providers_sanitize_upstream_http_failures(provider_factory)
 
     with pytest.raises(MarketDataError, match="provider request failed"):
         provider.get_quote(asset_class, symbol)
+
+
+@pytest.mark.parametrize("provider_factory", [CoinGeckoProvider, StooqProvider])
+def test_market_data_providers_do_not_follow_redirects(provider_factory):
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        return httpx.Response(
+            302,
+            headers={"Location": "https://redirect-target.invalid/collect"},
+        )
+
+    provider = provider_factory(_transport(handler))
+    asset_class, symbol = (
+        ("crypto", "BTC") if provider_factory is CoinGeckoProvider else ("equity", "AAPL")
+    )
+
+    with pytest.raises(MarketDataError, match="provider request failed"):
+        provider.get_quote(asset_class, symbol)
+
+    assert len(requests) == 1
+    assert requests[0].url.host in {"api.coingecko.com", "stooq.com"}

@@ -105,7 +105,11 @@ class CoinGeckoProvider:
         if coin_id is None:
             raise UnsupportedMarketSymbol("Supported crypto symbols: BTC, ETH, SOL")
         try:
-            with httpx.Client(timeout=_REQUEST_TIMEOUT_SECONDS, transport=self._transport) as client:
+            with httpx.Client(
+                timeout=_REQUEST_TIMEOUT_SECONDS,
+                transport=self._transport,
+                follow_redirects=False,
+            ) as client:
                 response = client.get(
                     "https://api.coingecko.com/api/v3/simple/price",
                     params={
@@ -144,7 +148,11 @@ class StooqProvider:
         normalized = _normalize_symbol(symbol)
         provider_symbol = normalized.replace(".", "-").lower() + ".us"
         try:
-            with httpx.Client(timeout=_REQUEST_TIMEOUT_SECONDS, transport=self._transport) as client:
+            with httpx.Client(
+                timeout=_REQUEST_TIMEOUT_SECONDS,
+                transport=self._transport,
+                follow_redirects=False,
+            ) as client:
                 response = client.get(
                     "https://stooq.com/q/l/",
                     params={"s": provider_symbol, "f": "sd2t2ohlcv", "h": "", "e": "csv"},
