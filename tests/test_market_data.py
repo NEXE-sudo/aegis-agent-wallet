@@ -157,7 +157,6 @@ def test_market_data_endpoint_sanitizes_provider_errors(monkeypatch):
     assert response.json() == {"detail": "Market-data provider unavailable"}
 
 
-
 @pytest.mark.parametrize(
     "price",
     [0, -1, float("inf"), float("nan"), True, "not-a-price", None],
