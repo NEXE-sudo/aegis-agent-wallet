@@ -32,9 +32,9 @@ For requests, send `Authorization: Bearer <AEGIS_AGENT_TOKEN>` to `POST /transac
 
 ## Local frontend control centre
 
-Start the API with the commands above, then open [http://127.0.0.1:8000/](http://127.0.0.1:8000/). The dependency-free frontend shares the API origin and supports proposal creation, policy/risk review, owner approvals, simulated execution, and audit inspection. Connect with distinct local agent and owner tokens. The browser keeps them in memory only; reload to clear them. See [the frontend guide](docs/frontend.md) for scope and safety notes.
+Start the API with the commands above, then open [http://127.0.0.1:8000/](http://127.0.0.1:8000/). The dependency-free frontend shares the API origin and includes an overview, read-only crypto/equity market quotes, proposal submission, owner approvals, simulated execution, workflow search, audit inspection, and local connection settings. Connect with distinct local agent and owner tokens. The browser keeps them in memory only; disconnect or reload to clear them. Market prices are informational (equity quotes are daily closes), and simulated execution is not an on-chain transaction. See [the frontend guide](docs/frontend.md) for functionality, validation, and safety limitations.
 
-This UI reflects the current USDC-on-Base-Sepolia demo workflow and does not display live market quotes. A separate owner-authenticated, read-only market-data API supports a limited set of crypto and US equity quotes; see [the market-data guide](docs/market-data.md). No broker/exchange order routing or real transaction execution is provided.
+The UI reflects the current USDC-on-Base-Sepolia demo workflow. Owner-authenticated market quotes are provided by the separate read-only market-data API; see [the market-data guide](docs/market-data.md) for supported symbols and provider freshness. No broker/exchange order routing or real transaction execution is provided.
 
 ## Base Sepolia integration (v0.7.0)
 

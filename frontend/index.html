@@ -1,102 +1,1634 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#0b1018"><meta name="description" content="Aegis — controlled authority for AI-agent financial actions.">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1018">
+<meta name="description" content="Aegis — controlled authority for AI-agent financial actions.">
 <title>Aegis · Agent control centre</title>
 <style>
-:root{color-scheme:dark;--bg:#0b1018;--side:#0e141e;--panel:#111a26;--border:#263242;--muted:#8391a4;--text:#e9eff6;--accent:#b7f36b;--amber:#f4c66a;--red:#ff8989;--green:#9ee7b2;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5}button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:3px}button:disabled{opacity:.5;cursor:not-allowed}.shell{min-height:100vh}.sidebar{position:fixed;inset:0 auto 0 0;width:236px;background:var(--side);border-right:1px solid #202b39;display:flex;flex-direction:column;padding:25px 14px 17px;z-index:5}.brand{display:flex;align-items:center;gap:11px;padding:0 10px 38px;font-size:23px;letter-spacing:-1px;font-weight:750}.brand b{color:var(--accent)}.brand small{display:block;font-size:8px;letter-spacing:2px;color:#8491a1;margin-top:5px}.mark{display:flex;align-items:center;gap:3px;transform:skew(-12deg)}.mark i{width:6px;border-radius:4px;background:var(--accent);height:17px}.mark i:nth-child(2){height:28px}.mark i:nth-child(3){height:21px;opacity:.7}.section-label,.kicker,.eyebrow{font-size:9px;letter-spacing:1.6px;font-weight:750;color:#8292a5}.section-label{padding:0 12px 12px}.nav{display:grid;gap:5px}.nav button{display:flex;align-items:center;gap:12px;width:100%;padding:11px 12px;border:1px solid transparent;border-radius:9px;background:transparent;color:#98a6b8;text-align:left;font-size:12px}.nav button:hover{background:#17212e;color:white}.nav button.active{background:#1c2935;border-color:#2b3c4c;color:#f1f6fb}.nav-icon{width:18px;text-align:center;font-size:17px}.nav button.active .nav-icon{color:var(--accent)}.count{margin-left:auto;padding:2px 7px;border-radius:5px;background:#293544;font-size:10px}.side-bottom{margin-top:auto}.guard-card{padding:14px 12px;margin:0 4px 18px;border:1px solid #293745;border-radius:12px;background:linear-gradient(145deg,#17242b,#111923)}.guard-card strong{font-size:11px}.guard-card p{font-size:10px;line-height:1.6;color:#9caabb;margin:9px 0 0}.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 9px #b7f36b33}.connect{display:flex;align-items:center;gap:10px;width:100%;padding:12px 10px;border:1px solid #293543;border-radius:9px;background:#131d29;color:var(--text);text-align:left}.connect span:nth-child(2){flex:1;min-width:0}.connect strong,.connect small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.connect strong{font-size:10px}.connect small{font-size:9px;color:var(--muted);margin-top:3px}.connect .dot{background:var(--amber)}.connect.ready .dot{background:var(--accent)}.side-foot{padding:20px 7px 0;font-size:8px;letter-spacing:1px;color:#6f7d8f;font-weight:700}.side-foot span{float:right;letter-spacing:0;font-weight:500}.main{margin-left:236px;padding:0 30px 20px;max-width:1800px}.topbar{height:72px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #202b39;margin-bottom:30px}.crumb{display:flex;gap:10px;align-items:center;color:#7f8da0;font-size:11px}.crumb strong{color:#dbe4ee;font-weight:600}.top-right{display:flex;align-items:center;gap:12px}.mode{display:flex;align-items:center;gap:7px;padding:6px 9px;border:1px solid #3b4c35;border-radius:6px;background:#19241a;color:#c4e9a0;font-size:8px;letter-spacing:1px;font-weight:750}.icon-button,.avatar{width:32px;height:32px;border-radius:8px;border:1px solid #2b3847;background:#131d29;color:#b6c3d1;font-size:17px}.avatar{border-radius:50%;color:var(--accent);font-size:12px;font-weight:750}.view{display:none;animation:fade .18s ease}.view.active{display:block}@keyframes fade{from{opacity:.5;transform:translateY(3px)}to{opacity:1;transform:none}}.heading{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:23px}.eyebrow{display:flex;align-items:center;gap:8px;color:#98a8ba}.eyebrow:before{content:"";width:16px;height:1px;background:var(--accent)}h1{font-size:29px;letter-spacing:-1.1px;line-height:1.15;font-weight:600;margin:11px 0 7px}h2{font-size:15px;font-weight:650;letter-spacing:-.2px;margin:4px 0 5px}h3{font-size:13px;margin:9px 0 4px}.subtitle{margin:0;color:#8998aa;font-size:12px}.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font-size:11px;font-weight:700;white-space:nowrap}.primary{background:var(--accent);color:#17220f;border:1px solid var(--accent)}.primary:hover{background:#c8ff83}.secondary{background:#17212d;color:#d5dfeb;border:1px solid #334254}.secondary:hover{background:#202d3c}.notice{display:flex;align-items:center;gap:13px;padding:15px 17px;border:1px solid #33452b;border-radius:11px;background:linear-gradient(100deg,#1a281b,#141f22 70%,#121b25);margin-bottom:20px}.notice-icon{display:flex;align-items:center;justify-content:center;width:34px;height:34px;flex:0 0 34px;border-radius:9px;background:#283a22;color:var(--accent);font-size:20px}.notice>div{flex:1}.notice strong{font-size:11px;color:#dff6ca}.notice p{font-size:10px;color:#9aa9a7;margin:3px 0 0}.notice-tag{font-size:8px;letter-spacing:1px;font-weight:750;color:#a4d67a;padding:5px 7px;border:1px solid #3b5232;border-radius:5px}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:20px}.metric,.panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;min-width:0}.metric{padding:16px 17px 13px}.metric-top{display:flex;align-items:center;justify-content:space-between;color:#a7b4c3;font-size:10px}.metric-icon{width:29px;height:29px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:17px;background:#1c2c42;color:#84b8ff}.metric:nth-child(2) .metric-icon{background:#342d1e;color:var(--amber)}.metric:nth-child(3) .metric-icon{background:#1d3329;color:var(--green)}.metric:nth-child(4) .metric-icon{background:#382529;color:var(--red)}.metric-value{font-size:28px;font-weight:620;letter-spacing:-1px;margin:9px 0 7px;font-variant-numeric:tabular-nums}.metric-foot{color:#7f8d9e;font-size:9px}.grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(290px,.9fr);gap:16px;align-items:start}.rail{display:grid;gap:15px}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:19px 19px 15px}.panel-head p{font-size:10px;color:#7f8ea0;margin:0}.kicker{font-size:8px;letter-spacing:1.6px}.text-button{border:0;background:transparent;color:var(--accent);font-size:10px;font-weight:700;padding:5px 0}.text-button span{font-size:14px;margin-left:4px}.table-wrap{width:100%;overflow-x:auto}table{width:100%;border-collapse:collapse;text-align:left;white-space:nowrap}thead{background:#131e2b}th{font-size:8px;letter-spacing:1px;color:#758599;font-weight:750;padding:11px 12px}th:first-child,td:first-child{padding-left:18px}td{border-top:1px solid #202b39;padding:13px 12px;color:#cbd5e0;font-size:10px}tbody tr:hover{background:#15202c}.tx-main{display:flex;align-items:center;gap:9px}.coin{width:29px;height:29px;display:flex;align-items:center;justify-content:center;border:1px solid #354454;border-radius:9px;background:#1b2938;color:#b8c8d9;font-size:12px}.tx-main strong,.tx-main small{display:block}.tx-main strong{font-size:10px;font-weight:650;color:#e0e7ef}.tx-main small{font-size:9px;color:#78889a;margin-top:3px}.risk-score{font-size:11px;font-weight:750}.low{color:var(--green)}.medium{color:var(--amber)}.high{color:var(--red)}.risk-caption{font-size:8px;color:#7e8c9e;margin-top:2px}.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 7px;border-radius:5px;font-size:8px;font-weight:750}.badge:before{content:"";width:4px;height:4px;border-radius:50%;background:currentColor}.status-ready{background:#1d2d3e;color:#9bc7ff}.status-awaiting_approval{background:#352e1f;color:#f2ce7d}.status-approved{background:#263326;color:#c1e89a}.status-executed_simulated{background:#1d332b;color:#9ee7b2}.status-blocked{background:#38252a;color:#ff9d9d}.decision-allow{background:#1d332b;color:#9ee7b2}.decision-require_approval{background:#352e1f;color:#f2ce7d}.decision-block{background:#38252a;color:#ff9d9d}.row-action{border:1px solid #354456;background:#182432;color:#c7d3df;border-radius:6px;padding:5px 8px;font-size:9px}.row-action:hover{border-color:#62768a}.empty{text-align:center!important;padding:38px 15px!important;color:#7e8da0!important;white-space:normal}.empty strong,.empty span{display:block}.empty strong{font-size:11px;color:#c3cfdd;margin:8px 0 3px}.empty span{font-size:10px}.empty-symbol{display:inline-flex!important;align-items:center;justify-content:center;width:33px;height:33px;border:1px solid #334353;border-radius:10px;color:var(--accent);font-size:20px}.panel-foot{display:flex;align-items:center;justify-content:space-between;padding:11px 18px;border-top:1px solid #202b39;color:#778699;font-size:9px}.panel-head.compact{padding:17px 17px 13px}.live{display:flex;align-items:center;gap:5px;font-size:8px;color:#9dd9a9;letter-spacing:1px}.agent{display:flex;align-items:center;gap:10px;padding:12px 17px 15px;border-bottom:1px solid #202b39}.emblem{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:11px;background:#273922;border:1px solid #3e5931;color:var(--accent);font-size:19px;font-weight:700}.agent>div:nth-child(2){flex:1}.agent strong,.agent span{display:block}.agent strong{font-size:11px}.agent span{font-size:9px;color:#8493a5;margin-top:3px}.chip{font-size:7px!important;color:#c2ed9d!important;background:#263821;border:1px solid #405a33;padding:4px 6px;border-radius:4px;letter-spacing:.7px}.authority-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 17px;border-bottom:1px solid #202b39;color:#8796a8;font-size:9px}.authority-row strong{font-size:9px;color:#d1dbe5;font-weight:600;text-align:right}.green{color:var(--green)!important}.profile-note{padding:10px 17px 13px;color:#6e7d90;font-size:8px}.principle{display:flex;gap:11px;padding:13px 16px;border-top:1px solid #202b39}.principle .num{font-size:9px;color:#8191a3;font-weight:750}.principle>div{flex:1}.principle strong{font-size:10px}.principle p{font-size:9px;color:#8291a3;margin:3px 0 0}.principle .check{color:var(--accent)}.footer{display:flex;justify-content:space-between;gap:10px;margin-top:30px;padding-top:15px;border-top:1px solid #202b39;color:#6e7c8e;font-size:8px;letter-spacing:1px;font-weight:700}.filters{display:flex;gap:8px;align-items:center}.search{width:230px;max-width:100%;border:1px solid #334152;border-radius:7px;background:#0f1721;color:var(--text);padding:9px 11px;font-size:10px}.search::placeholder{color:#68798d}.intro{display:flex;align-items:center;gap:13px;padding:17px 19px;border:1px solid #4a3e29;border-radius:11px;background:#241f18;margin-bottom:17px}.intro-icon{width:35px;height:35px;display:flex;align-items:center;justify-content:center;background:#3c3020;color:var(--amber);border-radius:9px;font-size:20px}.intro strong{font-size:11px;color:#f2d8a0}.intro p{font-size:10px;color:#a99b82;margin:3px 0 0}.approval-list{display:grid;gap:12px}.approval-card{padding:18px 19px;background:var(--panel);border:1px solid var(--border);border-radius:12px}.approval-top{display:flex;justify-content:space-between;gap:15px}.approval-top h3{margin:0}.recipient{color:#8d9caf;font-size:10px;margin-top:5px;word-break:break-all}.amount{font-size:21px;letter-spacing:-.6px;font-weight:650;text-align:right}.amount small{display:block;font-size:9px;color:#8190a2;letter-spacing:0;font-weight:500}.reasons{display:grid;gap:6px;margin:15px 0;padding:13px;border-radius:8px;background:#0d141e;border:1px solid #263242}.reasons strong{font-size:9px}.reasons span{font-size:9px;color:#9baabc}.approval-actions{display:flex;align-items:center;justify-content:space-between;gap:10px}.approval-actions small{font-size:9px;color:#77879a}.approval-actions>div{display:flex;gap:8px}.empty-state{text-align:center;padding:42px 20px}.empty-state p{color:#8493a5;font-size:11px;margin:4px 0}.audit-content{padding:0 20px 22px}.audit-event{display:grid;grid-template-columns:135px minmax(0,1fr);gap:16px;padding:16px 0;border-top:1px solid #24303e}.audit-time{font-size:9px;color:#7f8ea0}.audit-name{font-size:11px;font-weight:700}.audit-meta{font-size:9px;color:#8796a8;margin-top:4px}.audit-details{margin-top:9px;padding:9px 11px;border:1px solid #293746;background:#0d141d;border-radius:7px;color:#91a1b4;font-size:9px;white-space:pre-wrap;overflow-wrap:anywhere}.modal-bg{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:18px;background:#05080dc9;backdrop-filter:blur(6px)}.modal-bg.open{display:flex}.modal{position:relative;width:min(100%,480px);max-height:calc(100vh - 36px);overflow-y:auto;padding:28px;border:1px solid #344354;border-radius:16px;background:#111a26;box-shadow:0 30px 100px #0008;animation:fade .18s ease}.close{position:absolute;top:15px;right:15px;width:28px;height:28px;border:1px solid #344152;border-radius:7px;background:#17222f;color:#a9b7c6;font-size:18px}.modal h2{font-size:22px;letter-spacing:-.7px;margin:12px 0 8px}.description{color:#8e9daf;font-size:11px;line-height:1.7;margin:0 0 21px}.modal label{display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:700;color:#cdd8e4;margin:14px 0 7px}.modal label span{font-size:8px;color:#7f90a3;letter-spacing:.5px}.modal input{width:100%;padding:11px 12px;background:#0c131d;border:1px solid #344354;border-radius:8px;color:#e7eef6;font-size:11px}.modal input:disabled{color:#8291a3;background:#141d28}.form-note{display:flex;gap:8px;margin-top:14px;padding:11px;border:1px solid #2d3b49;background:#141e2a;border-radius:8px;color:#8d9db0;font-size:9px;line-height:1.6}.form-note b{color:var(--accent)}.modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:21px}.error{color:var(--red);font-size:10px;margin:10px 0 0}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}.quick{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:6px}.toast-region{position:fixed;z-index:50;right:22px;bottom:22px;display:grid;gap:8px;width:min(360px,calc(100vw - 32px))}.toast{display:flex;gap:10px;padding:13px 15px;border:1px solid #3a4b5a;border-radius:10px;background:#182431;box-shadow:0 10px 40px #0006;font-size:11px;animation:fade .2s ease}.toast:before{content:"✓";display:flex;align-items:center;justify-content:center;flex:0 0 18px;height:18px;border-radius:50%;background:#263c25;color:var(--accent)}.toast.error:before{content:"!";background:#40272a;color:var(--red)}.toast strong,.toast span{display:block}.toast span{color:#9aa9ba;font-size:10px;margin-top:3px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-@media(max-width:1250px){.sidebar{width:218px}.main{margin-left:218px;padding:0 22px 20px}.metrics{gap:9px}.metric{padding:14px}.grid{grid-template-columns:minmax(0,1.4fr) minmax(265px,.9fr)}.notice-tag{display:none}}
-@media(max-width:980px){.sidebar{width:70px;padding:20px 8px 14px}.brand{justify-content:center;padding:0 0 32px}.brand-word,.section-label,.guard-card,.connect span:nth-child(2),.side-foot{display:none}.nav button{justify-content:center;padding:13px 5px;font-size:0}.nav-icon{font-size:18px}.count{position:absolute;margin:0 0 26px 27px;font-size:8px;padding:1px 4px}.connect{justify-content:center;padding:12px 0}.main{margin-left:70px}.grid{grid-template-columns:1fr}.rail{grid-template-columns:1fr 1fr}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:650px){.sidebar{position:fixed;inset:auto 0 0;width:100%;height:62px;display:block;padding:6px 8px;background:#0e141ef5;border:0;border-top:1px solid #293543;backdrop-filter:blur(12px)}.brand,.side-bottom{display:none}.nav{display:flex;justify-content:space-around;gap:3px}.nav button{display:flex;flex:1;flex-direction:column;gap:2px;padding:4px 2px;font-size:8px;border-radius:6px}.nav-icon{font-size:16px;height:18px}.count{margin:0 0 20px 25px}.main{margin:0;padding:0 14px 88px}.topbar{height:58px;margin-bottom:24px}.mode{font-size:7px;padding:5px 6px}.top-right{gap:7px}.icon-button,.avatar{width:29px;height:29px}.heading{align-items:flex-start;flex-direction:column;margin-bottom:19px}.heading>.btn{align-self:stretch}.heading h1{font-size:26px}.subtitle{font-size:11px}.notice{align-items:flex-start;padding:13px;gap:9px}.notice p{font-size:9px}.metrics{gap:8px}.metric{padding:12px}.metric-top{font-size:9px}.metric-icon{width:25px;height:25px}.metric-value{font-size:24px}.metric-foot{font-size:8px}.rail{grid-template-columns:1fr}.panel-head{padding:15px 13px 12px}.panel-head p{font-size:9px}.panel-foot{padding:10px 13px}.panel-foot .text-button{display:none}td{padding:11px 9px}th{padding:10px 9px}th:first-child,td:first-child{padding-left:12px}.footer{flex-direction:column}.filters{width:100%;flex-wrap:wrap}.search{width:100%}.panel-head:not(.compact){align-items:flex-start;flex-direction:column}.audit-event{grid-template-columns:1fr;gap:5px}.modal{padding:23px 19px}.modal h2{font-size:20px}.two-col{grid-template-columns:1fr}.approval-card{padding:15px}.approval-top{flex-direction:column}.amount{text-align:left}.approval-actions{align-items:flex-start;flex-direction:column}.approval-actions>div{width:100%}.approval-actions .btn{flex:1}.quick{flex-direction:column;align-items:flex-start}.crumb{font-size:10px}}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+:root{
+  color-scheme:dark;
+  --bg:#0b1018;
+  --bg-soft:#0f1723;
+  --side:#0d141d;
+  --panel:#111b27;
+  --panel-strong:#111f2e;
+  --panel-alt:#172435;
+  --border:#263244;
+  --muted:#8191a7;
+  --text:#edf4fb;
+  --text-soft:#b8c3cf;
+  --accent:#b7f36b;
+  --accent-strong:#d0ff8a;
+  --green:#9ee7b2;
+  --amber:#f4c66a;
+  --red:#ff8f8f;
+  --blue:#82c3ff;
+  --shadow:0 22px 48px rgba(5,9,14,.42);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5}
+a{color:inherit;text-decoration:none}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:3px}button:disabled{opacity:.55;cursor:not-allowed}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+.app-shell{display:flex;min-height:100vh;min-width:320px}
+.sidebar{position:sticky;top:0;display:flex;flex-direction:column;width:230px;min-width:230px;height:100vh;overflow-y:auto;background:rgba(14,20,29,.96);border-right:1px solid var(--border);padding:22px 14px 16px;backdrop-filter:blur(8px)}
+.brand{display:flex;align-items:center;gap:12px;padding:6px 10px 30px}
+.brand-mark{display:flex;align-items:flex-end;gap:3px;transform:skew(-12deg)}
+.brand-mark i{display:block;width:7px;border-radius:4px;background:var(--accent);height:16px;box-shadow:0 0 12px rgba(183,243,107,.25)}
+.brand-mark i:nth-child(2){height:28px}
+.brand-mark i:nth-child(3){height:20px;opacity:.7}
+.brand-text{display:flex;flex-direction:column}
+.brand-text strong{font-size:24px;letter-spacing:-1px;font-weight:800}
+.brand-text small{font-size:8px;letter-spacing:2.2px;color:var(--muted);font-weight:700}
+.nav{display:grid;gap:6px;padding-right:2px}
+.nav button{display:flex;align-items:center;gap:12px;width:100%;padding:12px 12px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--text-soft);text-align:left;font-size:12px;font-weight:600;transition:all .16s ease}
+.nav button:hover{background:#172334;color:var(--text)}
+.nav button.active{background:#1d2a39;border-color:#2d3d4f;color:var(--text)}
+.nav-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;color:var(--muted);font-size:16px}
+.nav button.active .nav-icon{color:var(--accent)}
+.nav .count{margin-left:auto;padding:2px 7px;border-radius:999px;background:#263442;color:#d6e1ef;font-size:9px;font-weight:700;min-width:18px;text-align:center}
+.side-section{margin-top:auto}
+.guard-card{padding:15px 12px;border:1px solid #2d3d4d;border-radius:12px;background:linear-gradient(135deg,#142229,#111a26);box-shadow:inset 0 1px 0 rgba(255,255,255,.02)}
+.guard-card strong{display:flex;align-items:center;gap:8px;font-size:10px;letter-spacing:1.1px;color:#dfe9f4}
+.guard-card p{margin:10px 0 0;color:#9aa9b8;font-size:10px;line-height:1.6}
+.connect-box{margin-top:14px;display:flex;align-items:center;gap:10px;width:100%;padding:11px 10px;border-radius:10px;border:1px solid #2d3949;background:#141d2a;color:var(--text);text-align:left}
+.connect-box strong{font-size:10px;display:block}
+.connect-box small{display:block;color:var(--muted);font-size:9px;margin-top:2px}
+.connect-box .indicator{width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 10px rgba(244,198,106,.55)}
+.connect-box.ready .indicator{background:var(--accent);box-shadow:0 0 12px rgba(183,243,107,.5)}
+.mode-chip{display:flex;align-items:center;justify-content:space-between;padding:16px 8px 0;color:#7c8aa1;font-size:8px;letter-spacing:1.4px;font-weight:800;line-height:1}
+.mode-chip span{color:#cfe9b8}
+.main{flex:1;padding:0 28px 26px;min-width:0}
+.topbar{position:sticky;top:0;z-index:4;display:flex;align-items:center;justify-content:space-between;height:70px;border-bottom:1px solid var(--border);background:rgba(11,16,24,.94);backdrop-filter:blur(10px)}
+.crumb{display:flex;align-items:center;gap:10px;color:#8a9cb0;font-size:11px}
+.crumb strong{color:var(--text);font-weight:700}
+.top-actions{display:flex;align-items:center;gap:12px}
+.mode-pill{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:8px;border:1px solid #374d3d;background:#18271d;color:#d5f0b8;font-size:8px;letter-spacing:1.5px;font-weight:800}
+.mode-pill .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px rgba(183,243,107,.45)}
+.icon-button,.avatar{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid #2c3b4d;border-radius:9px;background:#121d2a;color:#dfeaf8}
+.avatar{border-radius:50%;font-weight:800;color:var(--accent);background:#1a2a1e}
+.view{display:none;padding:20px 0 0}.view.active{display:block}
+.heading{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:22px}
+.eyebrow{display:flex;align-items:center;gap:8px;color:#97a9b8;font-size:9px;letter-spacing:1.8px;font-weight:800}
+.eyebrow:before{content:"";display:block;width:15px;height:1px;background:var(--accent)}
+h1{margin:12px 0 6px;font-size:28px;letter-spacing:-1.2px;line-height:1.15;font-weight:650}
+.subtitle{margin:0;color:var(--muted);font-size:12px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:9px;padding:10px 14px;border:1px solid var(--border);font-weight:700;font-size:11px;transition:all .16s ease}
+.btn.primary{background:var(--accent);color:#17220f;border-color:var(--accent)}
+.btn.primary:hover{background:var(--accent-strong)}
+.btn.secondary{background:#17212d;color:#dfeaf6;border-color:#32425a}
+.btn.secondary:hover{background:#1d2b3b}
+.btn.ghost{background:transparent;color:#dfeaf6;border-color:#2b3c51}
+.notice{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid #304a37;border-radius:12px;background:linear-gradient(90deg,#18261b,#101b24 70%,#101920);margin-bottom:18px}
+.notice-icon{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:#243a26;color:var(--accent);font-size:20px}
+.notice strong{display:block;font-size:11px;color:#dff7c8}
+.notice p{margin:4px 0 0;font-size:10px;color:#a2b0a5}
+.notice-tag{padding:5px 8px;border:1px solid #365132;border-radius:6px;color:#d5f0b8;font-size:8px;letter-spacing:1px;font-weight:800}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:18px}
+.metric{padding:15px 16px 12px;border:1px solid var(--border);border-radius:14px;background:var(--panel);box-shadow:var(--shadow)}
+.metric-top{display:flex;align-items:center;justify-content:space-between;color:#9baec2;font-size:10px}
+.metric-icon{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:10px;font-size:17px}
+.metric:nth-child(1) .metric-icon{background:#1b2d49;color:#8ab9ff}
+.metric:nth-child(2) .metric-icon{background:#352b1c;color:var(--amber)}
+.metric:nth-child(3) .metric-icon{background:#1d3229;color:var(--green)}
+.metric:nth-child(4) .metric-icon{background:#382629;color:var(--red)}
+.metric-value{margin:12px 0 6px;font-size:28px;letter-spacing:-1px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.metric-foot{font-size:9px;color:#7f8da0}
+.grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,.9fr);gap:16px;align-items:start}
+.rail{display:grid;gap:16px}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:18px 18px 14px}
+.panel-head h2{margin:4px 0 4px;font-size:15px;letter-spacing:-.2px}
+.panel-head p{margin:0;color:#7e8ea0;font-size:10px}
+.kicker{font-size:8px;letter-spacing:1.7px;color:#8ea0b6;font-weight:800}
+.text-button{padding:5px 0;border:none;background:transparent;color:var(--accent);font-weight:700;font-size:10px}
+.table-wrap{width:100%;overflow-x:auto}
+table{width:100%;border-collapse:collapse;white-space:nowrap}
+thead{background:#121d2a}
+th,td{padding:12px 14px;border-bottom:1px solid #202d3b;text-align:left}
+th{font-size:8px;letter-spacing:1.4px;color:#7d8ea0;font-weight:800}
+tr:hover td{background:#152230}
+tbody td{font-size:10px;color:#dce9f8}
+.empty{padding:18px 16px;color:#92a2b2;font-size:11px}
+.tx-main{display:flex;align-items:center;gap:10px;min-width:0}
+.coin{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;border:1px solid #364a5d;background:#1a2839;color:#cbe1f8;font-size:12px;font-weight:700}
+.tx-main strong,.tx-main small{display:block}
+.tx-main strong{font-size:10px;font-weight:700;color:#edf4fb}
+.tx-main small{font-size:9px;color:#8191a8;margin-top:3px}
+.small-mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:.02em;overflow-wrap:anywhere;word-break:break-word}
+.status-badge,.risk-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 7px;border-radius:6px;border:1px solid transparent;font-size:8px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.status-badge:before,.risk-badge:before{content:"";display:block;width:5px;height:5px;border-radius:50%;background:currentColor}
+.status-ready{background:rgba(158,231,178,.08);border-color:rgba(158,231,178,.2);color:var(--green)}
+.status-awaiting{background:rgba(244,198,106,.08);border-color:rgba(244,198,106,.2);color:var(--amber)}
+.status-approved{background:rgba(130,195,255,.08);border-color:rgba(130,195,255,.2);color:var(--blue)}
+.status-blocked{background:rgba(255,143,143,.08);border-color:rgba(255,143,143,.18);color:var(--red)}
+.status-executed{background:rgba(183,243,107,.08);border-color:rgba(183,243,107,.2);color:var(--accent)}
+.status-expired{background:rgba(143,161,255,.08);border-color:rgba(143,161,255,.18);color:#9db5ff}
+.risk-low{background:rgba(158,231,178,.08);border-color:rgba(158,231,178,.18);color:var(--green)}
+.risk-medium{background:rgba(244,198,106,.08);border-color:rgba(244,198,106,.18);color:var(--amber)}
+.risk-high{background:rgba(255,143,143,.08);border-color:rgba(255,143,143,.18);color:var(--red)}
+.risk-unknown{background:#202a36;border-color:#394657;color:var(--muted)}
+.metrics-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.metrics-row>div{min-width:0}
+.value{font-size:18px;font-weight:700;letter-spacing:-.5px}
+.value.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
+.list{padding:0 0 8px}
+.list-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 18px;border-top:1px solid var(--border)}
+.list-item:first-child{border-top:none}
+.list-item strong{display:block;font-size:11px}
+.list-item small{display:block;color:var(--muted);font-size:9px}
+.price{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:0 18px 18px}
+.price .amount{font-size:22px;letter-spacing:-.8px;font-weight:700}
+.tag{display:inline-flex;align-items:center;gap:5px;padding:5px 7px;border-radius:999px;background:#162536;border:1px solid #31404f;color:#d9e9fb;font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.tag.good{background:rgba(158,231,178,.08);border-color:rgba(158,231,178,.24);color:var(--green)}
+.tag.bad{background:rgba(255,143,143,.08);border-color:rgba(255,143,143,.2);color:var(--red)}
+.market-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
+.market-list{display:grid;gap:8px;padding:0 18px 18px}
+.market-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 10px;border:1px solid var(--border);border-radius:10px;background:#162434;cursor:pointer;transition:all .12s ease}
+.market-item.active,.market-item:hover{border-color:#3b4d61;background:#1a2b38}
+.market-item strong{display:block;font-size:11px;font-weight:700}
+.market-item small{display:block;color:var(--muted);font-size:9px}
+.market-item .delta{font-size:10px;font-weight:700}
+.market-item .delta.up{color:var(--green)}
+.market-item .delta.down{color:var(--red)}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:0 18px 18px}
+.field{display:grid;gap:6px}
+.field.full{grid-column:1/-1}
+.field label{font-size:9px;color:#8a9bb2;letter-spacing:1.2px;font-weight:800;text-transform:uppercase}
+.field input,.field select,.field textarea{width:100%;padding:10px 11px;border-radius:9px;border:1px solid #2d3d4d;background:#0f1a27;color:var(--text);font-size:12px}
+.field textarea{min-height:88px;resize:vertical}
+.form-actions{display:flex;align-items:center;gap:10px;padding:0 18px 18px;flex-wrap:wrap}
+.meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:18px}
+.meta-card{padding:12px;border:1px solid var(--border);border-radius:10px;background:#162434}
+.meta-card small{display:block;color:#8597ad;font-size:9px;letter-spacing:1.2px;text-transform:uppercase;font-weight:800;margin-bottom:7px}
+.meta-card strong{font-size:18px;letter-spacing:-.5px}
+.approval-list,.activity-list{display:grid;gap:12px;padding:0 18px 18px}
+.approval-card,.audit-card{display:grid;gap:10px;padding:14px;border:1px solid var(--border);border-radius:12px;background:#162434}
+button.audit-card{text-align:left;width:100%;color:inherit}
+.approval-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.approval-head h3{margin:0;font-size:13px}
+.approval-head small{display:block;color:#8a9bb1;font-size:9px;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:4px}
+.approval-body{display:flex;flex-wrap:wrap;gap:10px}
+.reason-list{display:grid;gap:4px;padding:0;margin:0;list-style:none;color:#dfe8f5;font-size:10px}
+.reason-list li{padding-left:10px;position:relative}
+.reason-list li:before{content:"•";position:absolute;left:0;color:var(--accent)}
+.approval-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.fingerprint{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;color:#97a9bf;overflow-wrap:anywhere;word-break:break-word}
+.empty-state{padding:24px 18px;border:1px dashed #30445d;border-radius:12px;background:rgba(17,27,39,.7);color:#9baac0;text-align:center}
+.empty-state strong{display:block;font-size:18px;letter-spacing:-.4px;margin:8px 0 4px;color:var(--text)}
+.empty-state span{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:12px;background:#182734;border:1px solid #31445d;font-size:20px}
+.settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding:0 18px 18px}
+.settings-card{padding:14px;border:1px solid var(--border);border-radius:12px;background:#162434}
+.settings-card h3{margin:0 0 10px;font-size:13px}
+.settings-card p,.settings-card li{margin:0;color:#bac8d4;font-size:11px;line-height:1.7}
+.settings-card ul{padding-left:16px;margin:0}
+.inline-status{display:inline-flex;align-items:center;gap:8px;padding:5px 8px;border-radius:999px;background:#16262b;border:1px solid #2a4654;color:#d9f4d5;font-size:9px;letter-spacing:1px;font-weight:800;text-transform:uppercase}
+.inline-status .dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+#connection-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,10,14,.68);padding:24px;z-index:30}
+#connection-modal.open{display:flex}
+.modal{width:min(460px,100%);padding:20px;border:1px solid #30445d;border-radius:16px;background:linear-gradient(180deg,#132130,#0d1520);box-shadow:var(--shadow)}
+.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px}
+.modal-head h2{margin:4px 0 0;font-size:18px;letter-spacing:-.6px}
+.close{width:32px;height:32px;border-radius:9px;border:1px solid #2e404f;background:#12202d;color:#d9e9fb;font-size:20px}
+.modal-form{display:grid;gap:12px}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:6px}
+.muted{color:var(--muted)}
+.smallcaps{font-size:9px;letter-spacing:1.3px;text-transform:uppercase}
+.api-state{display:inline-flex;align-items:center;gap:7px;color:var(--muted);font-size:9px}
+.api-state .dot{width:6px;height:6px;border-radius:50%;background:var(--amber)}
+.api-state.ready .dot{background:var(--green)}
+.api-state.error .dot{background:var(--red)}
+.feedback{display:none;margin:0 0 16px;padding:11px 13px;border:1px solid #3a4a5d;border-radius:9px;background:#152334;color:#dce8f6;font-size:11px}
+.feedback.visible{display:block}
+.feedback.error{border-color:#653d43;background:#2a1b20;color:#ffd9d9}
+.feedback.success{border-color:#3a5941;background:#18291e;color:#d9f2c5}
+.result-card{padding:16px 18px;border-top:1px solid var(--border)}
+.result-card h3{margin:0 0 8px}
+.result-card p{margin:4px 0;color:#c4d0de;font-size:11px}
+.result-card[hidden]{display:none}
+.market-note{padding:0 18px 16px;color:var(--muted);font-size:10px}
+.field-help{color:var(--muted);font-size:9px}
+.table-search{max-width:260px}
+.table-search input{width:100%;padding:8px 10px;border-radius:8px;border:1px solid #2d3d4d;background:#0f1a27;color:var(--text);font-size:10px}
+.event-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;color:#cbd7e5;font-size:10px}
+.event-meta div{min-width:0}
+.event-meta strong{display:block;color:var(--muted);font-size:8px;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px}
+.event-details{padding:10px;border-radius:8px;background:#0e1925;color:#cbd7e5;white-space:pre-wrap;overflow-wrap:anywhere;font:10px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+.loading{color:var(--muted);font-size:10px;padding:12px 18px}
+.inline-error{color:var(--red);font-size:10px;padding:12px 18px}
+@media (max-width: 1080px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.grid,.market-grid,.settings-grid,.form-grid{grid-template-columns:1fr}.sidebar{width:200px;min-width:200px}.main{padding:0 18px 22px}}@media (max-width:760px){.app-shell{display:block}.sidebar{position:relative;width:100%;min-width:0;height:auto;max-height:none;overflow:visible;border-right:none;border-bottom:1px solid var(--border)}.nav{grid-template-columns:repeat(2,minmax(0,1fr))}.main{padding:0 14px 20px}.topbar{height:auto;min-height:64px;padding:12px 0;flex-wrap:wrap}.heading{flex-direction:column;align-items:flex-start}.metrics{grid-template-columns:1fr}.button-group,.form-actions{flex-wrap:wrap}.}
 </style>
 </head>
 <body>
-<div class="shell">
-<aside class="sidebar">
-  <div class="brand"><span class="mark"><i></i><i></i><i></i></span><span>aegis<b>.</b><small>AGENT WALLET</small></span></div>
-  <div class="section-label">WORKSPACE</div>
-  <nav class="nav" aria-label="Main navigation">
-    <button class="active" data-view="overview"><span class="nav-icon">◫</span>Overview</button>
-    <button data-view="transactions"><span class="nav-icon">⇄</span>Transactions</button>
-    <button data-view="approvals"><span class="nav-icon">◷</span>Approval queue <span class="count" id="approval-count">0</span></button>
-    <button data-view="audit"><span class="nav-icon">≡</span>Audit trail</button>
-  </nav>
-  <div class="side-bottom">
-    <div class="guard-card"><strong><span class="dot"></span> &nbsp;Authority guard</strong><p>AI proposes. Your rules decide. You stay in control.</p></div>
-    <button class="connect" id="open-connection"><span class="dot"></span><span><strong id="connection-label">Connect to local API</strong><small id="connection-subtitle">Credentials stay in memory</small></span><span>↗</span></button>
-    <div class="side-foot">◆ SIMULATION MODE <span>v1.10.0 API</span></div>
-  </div>
-</aside>
-<main class="main">
-  <header class="topbar"><div class="crumb"><span>Workspace</span><span>/</span><strong id="breadcrumb">Overview</strong></div><div class="top-right"><span class="mode"><span class="dot"></span> SIMULATION ONLY</span><button class="icon-button" id="refresh" title="Refresh data" aria-label="Refresh data">↻</button><button class="avatar" id="avatar" title="Connection settings">A</button></div></header>
-  <section class="view active" id="view-overview">
-    <div class="heading"><div><div class="eyebrow">YOUR FINANCIAL CONTROL PLANE</div><h1>Good to see you.</h1><p class="subtitle">A clear view of what your agent can do — and what it can't.</p></div><button class="btn primary" id="new-proposal">＋ New proposal</button></div>
-    <div class="notice"><span class="notice-icon">◇</span><div><strong>Human authority. By design.</strong><p>Every proposal is checked against deterministic policy and explainable risk rules. Approval never overrides a hard block.</p></div><span class="notice-tag">GUARDED EXECUTION</span></div>
-    <div class="metrics">
-      <article class="metric"><div class="metric-top"><span>Tracked proposals</span><span class="metric-icon">⌘</span></div><div class="metric-value" id="metric-total">—</div><div class="metric-foot">Persisted workflow records</div></article>
-      <article class="metric"><div class="metric-top"><span>Awaiting approval</span><span class="metric-icon">◷</span></div><div class="metric-value" id="metric-approvals">—</div><div class="metric-foot">Owner action required</div></article>
-      <article class="metric"><div class="metric-top"><span>Simulated executions</span><span class="metric-icon">↗</span></div><div class="metric-value" id="metric-executed">—</div><div class="metric-foot">No on-chain submission</div></article>
-      <article class="metric"><div class="metric-top"><span>Hard blocked</span><span class="metric-icon">⊘</span></div><div class="metric-value" id="metric-blocked">—</div><div class="metric-foot">Cannot be approved</div></article>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="brand-text"><strong>Aegis</strong><small>AGENT WALLET</small></div>
     </div>
-    <div class="grid">
-      <section class="panel"><div class="panel-head"><div><div class="kicker">WORKFLOW</div><h2>Recent transactions</h2><p>Proposal to policy decision to human authority.</p></div><button class="text-button" data-view="transactions">View all <span>→</span></button></div><div class="table-wrap"><table><thead><tr><th>PROPOSAL</th><th>RISK</th><th>STATUS</th><th>CREATED</th><th></th></tr></thead><tbody id="recent"><tr><td colspan="5" class="empty"><span class="empty-symbol">⌁</span><strong>Connect to your local API</strong><span>Persisted transactions will appear here.</span></td></tr></tbody></table></div><div class="panel-foot"><span id="record-caption">Waiting for API connection</span><button class="text-button" data-view="transactions">Open transaction centre →</button></div></section>
-      <aside class="rail">
-        <section class="panel"><div class="panel-head compact"><div><div class="kicker">AGENT STATUS</div><h2>Authority profile</h2></div><span class="live"><span class="dot"></span> LOCAL</span></div><div class="agent"><div class="emblem">Æ</div><div><strong>devops-01</strong><span>Demo financial agent</span></div><span class="chip">GUARDED</span></div><div class="authority-row"><span>Network scope</span><strong>Base Sepolia · 84532</strong></div><div class="authority-row"><span>Permitted asset</span><strong>＄ USDC · testnet</strong></div><div class="authority-row"><span>Execution mode</span><strong class="green">Simulated</strong></div><div class="authority-row"><span>Approval lifetime</span><strong>300 seconds*</strong></div><div class="profile-note">*Default configuration. Runtime settings may differ.</div></section>
-        <section class="panel"><div class="panel-head compact"><div><div class="kicker">SAFETY MODEL</div><h2>Three layers of control</h2></div><span style="color:var(--accent);font-size:20px">◇</span></div><div class="principle"><span class="num">01</span><div><strong>Deterministic policy</strong><p>Hard limits and allowlists cannot be overruled.</p></div><span class="check">✓</span></div><div class="principle"><span class="num">02</span><div><strong>Explainable risk</strong><p>Scores arrive with reasons, not just a number.</p></div><span class="check">✓</span></div><div class="principle"><span class="num">03</span><div><strong>Human approval</strong><p>Fingerprint-bound and time-limited.</p></div><span class="check">✓</span></div></section>
-      </aside>
+    <nav class="nav" aria-label="Primary navigation">
+      <button class="active" data-view="overview"><span class="nav-icon">◫</span>Overview</button>
+      <button data-view="markets"><span class="nav-icon">⊟</span>Markets</button>
+      <button data-view="proposals"><span class="nav-icon">＋</span>Proposals</button>
+      <button data-view="approvals"><span class="nav-icon">◷</span>Approvals <span class="count" id="approval-count">0</span></button>
+      <button data-view="activity"><span class="nav-icon">≡</span>Activity &amp; Audit</button>
+      <button data-view="settings"><span class="nav-icon">⚙</span>Settings</button>
+    </nav>
+    <div class="side-section">
+      <div class="guard-card">
+        <strong><span class="dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent)"></span> AUTHORITY GUARD</strong>
+        <p>AI proposes. Human approves. Risk and policy revalidate before simulated execution.</p>
+      </div>
+      <button type="button" class="connect-box" id="open-connection" aria-label="Connect to local API">
+        <span class="indicator" aria-hidden="true"></span>
+        <span>
+          <strong id="connection-label">Connect to local API</strong>
+          <small id="connection-status">No active session</small>
+        </span>
+      </button>
+      <div class="mode-chip">◆ <span>SIMULATION MODE</span> <span style="margin-left:auto;color:#8f9fb3;letter-spacing:0;text-transform:none;font-weight:700">v1.10.1 API</span></div>
     </div>
-  </section>
-  <section class="view" id="view-transactions"><div class="heading"><div><div class="eyebrow">PERSISTED WORKFLOW</div><h1>Transactions</h1><p class="subtitle">Inspect proposal details, policy decisions, and execution state.</p></div><button class="btn primary" id="new-proposal-2">＋ New proposal</button></div><section class="panel"><div class="panel-head"><div><div class="kicker">ALL RECORDS</div><h2>Transaction ledger</h2><p>Loaded directly from the local workflow database.</p></div><div class="filters"><label class="sr-only" for="filter">Filter transactions</label><input id="filter" class="search" type="search" placeholder="Filter by ID, recipient or status"></div></div><div class="table-wrap"><table><thead><tr><th>TRANSACTION</th><th>AMOUNT</th><th>POLICY</th><th>RISK</th><th>STATUS</th><th>CREATED</th><th></th></tr></thead><tbody id="all-transactions"><tr><td colspan="7" class="empty">Connect to load persisted records.</td></tr></tbody></table></div></section></section>
-  <section class="view" id="view-approvals"><div class="heading"><div><div class="eyebrow">OWNER AUTHORITY</div><h1>Approval queue</h1><p class="subtitle">Review the exact proposal before granting permission to simulate it.</p></div></div><div class="intro"><span class="intro-icon">◷</span><div><strong>Approval is a deliberate action.</strong><p>Check the recipient, amount, policy result and risk reasons. Approval is bound to the proposal fingerprint and expires.</p></div></div><div class="approval-list" id="approval-list"><div class="panel empty-state"><span class="empty-symbol">◷</span><h3>No approval queue loaded</h3><p>Connect to the local API to see proposals awaiting your decision.</p></div></div></section>
-  <section class="view" id="view-audit"><div class="heading"><div><div class="eyebrow">TRACEABILITY</div><h1>Audit trail</h1><p class="subtitle">Read-only event history for a selected transaction.</p></div></div><section class="panel"><div class="panel-head"><div><div class="kicker">EVENT JOURNAL</div><h2 id="audit-heading">Select a transaction</h2><p>Events are returned by the owner-authenticated API.</p></div><div class="filters"><label class="sr-only" for="audit-id">Transaction ID</label><input id="audit-id" class="search" placeholder="Paste transaction ID"><button class="btn secondary" id="load-audit">Load audit</button></div></div><div id="audit-content" class="audit-content"><div class="empty-state"><span class="empty-symbol">≡</span><h3>No transaction selected</h3><p>Open a transaction and choose “View audit”, or paste its ID above.</p></div></div></section></section>
-  <footer class="footer"><span>AEGIS / AI FINANCIAL AUTHORITY</span><span><span class="dot"></span> LOCAL PROTOTYPE · NO REAL FUNDS</span></footer>
-</main>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <div class="crumb"><span>Workspace</span><span>/</span><strong id="breadcrumb">Overview</strong></div>
+      <div class="top-actions">
+        <span class="api-state" id="api-state"><span class="dot"></span><span id="api-state-label">Checking API</span></span>
+        <span class="mode-pill"><span class="dot"></span> SIMULATION ONLY</span>
+        <button class="icon-button" type="button" id="refresh" aria-label="Refresh data">↻</button>
+        <button class="avatar" type="button" id="avatar" aria-label="Connection settings">A</button>
+      </div>
+    </header>
+    <div class="feedback" id="global-feedback" role="status" aria-live="polite"></div>
+
+    <section class="view active" id="view-overview">
+      <div class="heading">
+        <div>
+          <div class="eyebrow">CONTROL CENTRE</div>
+          <h1>Overview</h1>
+          <p class="subtitle">Workflow status, approvals, and read-only market context.</p>
+        </div>
+        <button class="btn primary" type="button" data-target="proposals">＋ New proposal</button>
+      </div>
+      <div class="notice">
+        <div class="notice-icon">◇</div>
+        <div>
+          <strong>Simulation-only workflow</strong>
+          <p>Proposal decisions, approvals, and execution requests are handled by the authenticated backend.</p>
+        </div>
+        <span class="notice-tag">NO BROADCAST</span>
+      </div>
+      <div class="metrics">
+        <article class="metric">
+          <div class="metric-top"><span>Records loaded</span><span class="metric-icon">◫</span></div>
+          <div class="metric-value" id="metric-total">—</div>
+          <div class="metric-foot">Latest records returned by API</div>
+        </article>
+        <article class="metric">
+          <div class="metric-top"><span>Pending approvals</span><span class="metric-icon">◷</span></div>
+          <div class="metric-value" id="metric-approvals">—</div>
+          <div class="metric-foot">Awaiting owner review in loaded set</div>
+        </article>
+        <article class="metric">
+          <div class="metric-top"><span>Simulated</span><span class="metric-icon">✓</span></div>
+          <div class="metric-value" id="metric-executed">—</div>
+          <div class="metric-foot">Simulated in loaded set</div>
+        </article>
+        <article class="metric">
+          <div class="metric-top"><span>Blocked / expired</span><span class="metric-icon">✕</span></div>
+          <div class="metric-value" id="metric-blocked">—</div>
+          <div class="metric-foot">Blocked / expired in loaded set</div>
+        </article>
+      </div>
+      <div class="grid">
+        <div class="rail">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="kicker">WORKFLOW</div>
+                <h2>Recent activity</h2>
+                <p>Proposal to policy decision to approval outcome.</p>
+              </div>
+              <button class="text-button" type="button" data-view="activity">View all →</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>PROPOSAL</th><th>RISK</th><th>STATUS</th><th>CREATED</th><th></th></tr>
+                </thead>
+                <tbody id="recent-rows"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+        <div class="rail">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="kicker">ATTENTION</div>
+                <h2>Pending approvals</h2>
+                <p>Requires explicit owner decision.</p>
+              </div>
+            </div>
+            <div class="list" id="approval-summary"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="kicker">MARKET</div>
+                <h2>Snapshot</h2>
+                <p>Informational quotes, not executable prices.</p>
+              </div>
+              <button class="text-button" type="button" data-view="markets">Open markets →</button>
+            </div>
+            <div class="market-list" id="market-snapshot"></div>
+          </section>
+        </div>
+      </div>
+      <section class="panel" style="margin-top:16px">
+        <div class="panel-head">
+          <div>
+            <div class="kicker">AUDIT</div>
+            <h2>Recent audit activity</h2>
+            <p>Events returned by the owner-authenticated audit API.</p>
+          </div>
+          <button class="text-button" type="button" data-view="activity">Open audit explorer →</button>
+        </div>
+        <div class="approval-list" id="audit-summary"></div>
+      </section>
+    </section>
+
+    <section class="view" id="view-markets">
+      <div class="heading">
+        <div>
+          <div class="eyebrow">MARKETS</div>
+          <h1>Watchlist</h1>
+          <p class="subtitle">Read-only market quotes from the supported providers.</p>
+        </div>
+      </div>
+      <div class="feedback" id="market-feedback" role="status" aria-live="polite"></div>
+      <div class="market-grid">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="kicker">SELECT</div>
+              <h2>Watchlist</h2>
+              <p>Supported symbols from CoinGecko and Stooq.</p>
+            </div>
+          </div>
+          <div class="table-search" style="padding:0 18px 12px"><label class="smallcaps muted" for="market-search">Search watchlist</label><input id="market-search" type="search" placeholder="Filter supported symbols" autocomplete="off"></div>
+          <div class="market-list" id="market-list"></div>
+          <div class="market-note">Crypto: BTC, ETH, SOL. US equities: provider-supported Stooq symbols. Quotes are informational only.</div>
+        </section>
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="kicker">DETAIL</div>
+              <h2 id="market-header">BTC</h2>
+              <p id="market-source">Owner connection required</p>
+            </div>
+            <button class="btn secondary" type="button" id="retry-market">Retry quote</button>
+          </div>
+          <div class="price">
+            <div class="amount" id="market-price">—</div>
+            <span class="tag" id="market-stale">UNAVAILABLE</span>
+          </div>
+          <div class="market-note" id="market-kind">Quote classification unavailable.</div>
+          <div class="meta-grid">
+            <div class="meta-card"><small>Asset class</small><strong id="market-asset">—</strong></div>
+            <div class="meta-card"><small>Currency</small><strong id="market-currency">USD</strong></div>
+            <div class="meta-card"><small>As of</small><strong id="market-time">--</strong></div>
+            <div class="meta-card"><small>Freshness</small><strong id="market-freshness">--</strong></div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="view" id="view-proposals">
+      <div class="heading">
+        <div>
+          <div class="eyebrow">PROPOSALS</div>
+          <h1>New proposal</h1>
+          <p class="subtitle">Submit a validated Base Sepolia USDC request through the workflow API.</p>
+        </div>
+      </div>
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="kicker">FORM</div>
+            <h2>Transaction proposal</h2>
+            <p>Demo defaults are constrained by the configured policy and chain.</p>
+          </div>
+        </div>
+        <form id="proposal-form">
+          <div class="form-grid">
+            <div class="field">
+              <label for="agent-id">Agent ID</label>
+              <input id="agent-id" name="agent_id" value="devops-01" readonly>
+            </div>
+            <div class="field">
+              <label for="chain-id">Chain ID</label>
+              <input id="chain-id" name="chain_id" value="84532" readonly>
+            </div>
+            <div class="field">
+              <label for="token-symbol">Token symbol</label>
+              <input id="token-symbol" name="token_symbol" value="USDC" readonly>
+            </div>
+            <div class="field">
+              <label for="token-address">Token address</label>
+              <input id="token-address" name="token_address" value="0x036cbd53842c5426634e7929541ec2318f3dcf7e" readonly>
+            </div>
+            <div class="field">
+              <label for="recipient">Recipient</label>
+              <input id="recipient" name="recipient" type="text" maxlength="42" pattern="^0x[a-fA-F0-9]{40}$" spellcheck="false" autocomplete="off" value="0x2222222222222222222222222222222222222222" required>
+            </div>
+            <div class="field">
+              <label for="amount">Amount (USDC)</label>
+              <input id="amount" name="amount" type="number" min="0.000001" max="50" step="0.000001" value="2.5" required>
+              <small class="field-help">Maximum 50 USDC; the backend remains authoritative for policy.</small>
+            </div>
+          </div>
+          <div class="result-card" id="proposal-result" hidden aria-live="polite"></div>
+          <div class="form-actions">
+            <button class="btn secondary" type="button" data-target="overview">Back to overview</button>
+            <button class="btn primary" type="submit">Create proposal</button>
+          </div>
+        </form>
+      </section>
+    </section>
+
+    <section class="view" id="view-approvals">
+      <div class="heading">
+        <div>
+          <div class="eyebrow">APPROVALS</div>
+          <h1>Approval queue</h1>
+          <p class="subtitle">Owner-authenticated decisions for pending proposals.</p>
+        </div>
+      </div>
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="kicker">OWNER AUTH REQUIRED</div>
+            <h2>Awaiting sign-off</h2>
+            <p>Only backend-validated approvals can complete the workflow.</p>
+          </div>
+        </div>
+        <div class="approval-list" id="approval-list"></div>
+      </section>
+    </section>
+
+    <section class="view" id="view-activity">
+      <div class="heading">
+        <div>
+          <div class="eyebrow">ACTIVITY</div>
+          <h1>Audit trail</h1>
+          <p class="subtitle">State transitions, policy outcomes, and execution decisions.</p>
+        </div>
+      </div>
+      <div class="grid">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="kicker">LEDGER</div>
+              <h2>Workflow history</h2>
+              <p>Latest persisted workflow records returned by the API.</p>
+            </div>
+          </div>
+          <div class="table-search" style="padding:0 18px 12px"><label class="smallcaps muted" for="activity-search">Filter loaded records</label><input id="activity-search" type="search" placeholder="Search ID, recipient, asset, state" autocomplete="off"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>ID</th><th>ASSET / AMOUNT</th><th>RECIPIENT</th><th>STATUS</th><th>RISK</th><th>UPDATED</th><th>ACTION</th></tr>
+              </thead>
+              <tbody id="activity-rows"></tbody>
+            </table>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="kicker">DETAIL</div>
+              <h2>Audit event</h2>
+              <p>Selected workflow event details.</p>
+            </div>
+          </div>
+          <div class="approval-list" id="audit-detail"></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="view" id="view-settings">
+      <div class="heading">
+        <div>
+          <div class="eyebrow">SETTINGS</div>
+          <h1>Local auth</h1>
+          <p class="subtitle">Separate development bearer tokens are kept in memory only.</p>
+        </div>
+      </div>
+      <div class="settings-grid">
+        <section class="settings-card">
+          <h3>Connection state</h3>
+          <div class="inline-status"><span class="dot"></span> <span id="settings-status">Disconnected</span></div>
+          <p style="margin-top:12px">The frontend keeps the agent and owner bearer tokens in JavaScript memory while the page is open. Reload clears them automatically.</p>
+        </section>
+        <section class="settings-card">
+          <h3>Developer model</h3>
+          <ul>
+            <li>Agent credentials authorize proposal creation.</li>
+            <li>Owner credentials authorize approvals, execution, and audit retrieval.</li>
+            <li>Tokens are never persisted to localStorage or sessionStorage.</li>
+          </ul>
+        </section>
+        <section class="settings-card">
+          <h3>API health</h3>
+          <p id="settings-health">Not checked.</p>
+        </section>
+        <section class="settings-card">
+          <h3>Session controls</h3>
+          <div class="form-actions" style="padding:0;">
+            <button class="btn secondary" type="button" id="reset-session">Disconnect</button>
+            <button class="btn primary" type="button" id="reconnect">Connect</button>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
 </div>
-<div class="modal-bg" id="connection-modal" aria-hidden="true"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="connection-title"><button class="close" data-close aria-label="Close">×</button><div class="eyebrow">LOCAL CONNECTION</div><h2 id="connection-title">Connect your workspace</h2><p class="description">Connect to the FastAPI instance serving this page. Credentials stay in this browser tab's memory and are cleared when you reload.</p><form id="connection-form"><label for="agent-token">Agent bearer token <span>PROPOSE</span></label><input id="agent-token" type="password" autocomplete="off" required placeholder="AEGIS_AGENT_TOKEN"><label for="owner-token">Owner bearer token <span>APPROVE · EXECUTE · AUDIT</span></label><input id="owner-token" type="password" autocomplete="off" required placeholder="AEGIS_APPROVAL_TOKEN"><div class="form-note"><b>◇</b> Use distinct local development tokens configured for the API. Never paste production credentials here.</div><p class="error" id="connection-error" role="alert"></p><div class="modal-actions"><button type="button" class="btn secondary" data-close>Cancel</button><button type="submit" class="btn primary" id="connect-submit">Connect securely →</button></div></form></section></div>
-<div class="modal-bg" id="proposal-modal" aria-hidden="true"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="proposal-title"><button class="close" data-close aria-label="Close">×</button><div class="eyebrow">AGENT REQUEST</div><h2 id="proposal-title">Create a transaction proposal</h2><p class="description">This submits a proposal to the existing demo policy engine. It does not send a blockchain transaction.</p><form id="proposal-form"><label for="recipient">Recipient address</label><input id="recipient" required maxlength="42" spellcheck="false" value="0x2222222222222222222222222222222222222222"><div class="quick"><button type="button" class="text-button" data-recipient="0x2222222222222222222222222222222222222222">Allowed demo recipient</button><button type="button" class="text-button" data-recipient="0x4444444444444444444444444444444444444444">Unknown recipient (approval)</button></div><div class="two-col"><div><label for="amount">Amount (USDC)</label><input id="amount" type="number" min="0.000001" max="50" step="0.000001" value="1" required></div><div><label for="network">Network</label><input id="network" value="Base Sepolia · 84532" disabled></div></div><div class="form-note"><b>ⓘ</b> Demo policy only: Base Sepolia USDC, six decimals, capped at 50 USDC per proposal.</div><p class="error" id="proposal-error" role="alert"></p><div class="modal-actions"><button type="button" class="btn secondary" data-close>Cancel</button><button type="submit" class="btn primary" id="proposal-submit">Evaluate proposal →</button></div></form></section></div>
-<div class="toast-region" id="toasts" aria-live="polite" aria-atomic="true"></div>
+
+<div class="modal-bg" id="connection-modal" aria-hidden="true">
+  <section class="modal" role="dialog" aria-modal="true" aria-labelledby="connection-title">
+    <div class="modal-head">
+      <div>
+        <div class="eyebrow">LOCAL API</div>
+        <h2 id="connection-title">Connect to Aegis</h2>
+      </div>
+      <button class="close" type="button" data-close aria-label="Close">×</button>
+    </div>
+    <form id="connection-form" class="modal-form">
+      <div class="feedback" id="connection-feedback" role="status" aria-live="polite"></div>
+      <div class="field">
+        <label for="agent-token">Agent bearer token</label>
+        <input id="agent-token" type="password" name="agentToken" placeholder="Paste the local agent token" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="owner-token">Owner bearer token</label>
+        <input id="owner-token" type="password" name="ownerToken" placeholder="Paste the local owner token" autocomplete="off">
+      </div>
+      <div class="muted smallcaps">Authentication remains in browser memory only. Reload to clear.</div>
+      <div class="modal-actions">
+        <button type="button" class="btn ghost" data-close>Cancel</button>
+        <button type="submit" class="btn primary">Connect</button>
+      </div>
+    </form>
+  </section>
+</div>
+
 <script>
-(function(){
-"use strict";
-var state={agentToken:"",ownerToken:"",connected:false,transactions:[]};
-var $=function(s,r){return(r||document).querySelector(s);};
-var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));};
-var statusLabels={ready:"Ready",awaiting_approval:"Awaiting approval",approved:"Approved",blocked:"Hard blocked",executed_simulated:"Simulated"};
-var decisionLabels={allow:"Allowed",require_approval:"Approval required",block:"Blocked"};
-function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
-function shortId(v){return String(v||"").slice(0,8);}
-function shortAddress(v){v=String(v||"");return v.length>17?v.slice(0,8)+"…"+v.slice(-6):v||"—";}
-function money(t){var p=t.proposal||{},d=Number.isInteger(p.token_decimals)?p.token_decimals:6;return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:2,maximumFractionDigits:Math.min(6,d)}).format(Number(p.amount_base_units||0)/Math.pow(10,d));}
-function date(v){if(!v)return"—";var d=new Date(v);return isNaN(d.getTime())?"—":d.toLocaleString([],{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});}
-function riskClass(v){return["low","medium","high"].indexOf(v)>=0?v:"medium";}
-function toast(title,detail,isError){var n=document.createElement("div");n.className="toast"+(isError?" error":"");n.innerHTML="<div><strong>"+esc(title)+"</strong><span>"+esc(detail||"")+"</span></div>";$("#toasts").appendChild(n);window.setTimeout(function(){n.remove();},5000);}
-async function api(path,opts){opts=Object.assign({method:"GET",headers:{}},opts||{});if(opts.token){opts.headers.Authorization="Bearer "+opts.token;delete opts.token;}if(opts.body&&typeof opts.body!=="string"){opts.headers["Content-Type"]="application/json";opts.body=JSON.stringify(opts.body);}var response;try{response=await fetch(path,opts);}catch(_){throw new Error("Cannot reach local API. Check that FastAPI is running at this page's origin.");}var raw=await response.text(),data={};try{data=raw?JSON.parse(raw):{};}catch(_){}if(!response.ok)throw new Error(typeof data.detail==="string"?data.detail:"Request failed with HTTP "+response.status);return data;}
-function openModal(id){var m=$("#"+id);m.classList.add("open");m.setAttribute("aria-hidden","false");var input=$("input",m);if(input)setTimeout(function(){input.focus();},50);}
-function closeModal(m){if(!m)return;m.classList.remove("open");m.setAttribute("aria-hidden","true");}
-function showView(view){if(["overview","transactions","approvals","audit"].indexOf(view)<0)view="overview";$$(".view").forEach(function(n){n.classList.toggle("active",n.id==="view-"+view);});$$(".nav button").forEach(function(n){n.classList.toggle("active",n.dataset.view===view);});$("#breadcrumb").textContent={overview:"Overview",transactions:"Transactions",approvals:"Approval queue",audit:"Audit trail"}[view];if(view==="transactions")renderTransactions();if(view==="approvals")renderApprovals();}
-function badge(status){return'<span class="badge status-'+esc(status)+'">'+esc(statusLabels[status]||status||"Unknown")+"</span>";}
-function decision(v){return'<span class="badge decision-'+esc(v)+'">'+esc(decisionLabels[v]||v||"Unknown")+"</span>";}
-function row(t,full){var p=t.proposal||{},r=Number(t.risk_score||0),risk='<span class="risk-score '+riskClass(t.risk_level)+'">'+r+'<span style="font-size:8px;color:#758599"> /100</span></span><div class="risk-caption">'+esc(t.risk_level||"unknown")+"</div>",detail='<div class="tx-main"><span class="coin">＄</span><span><strong>'+esc(shortId(t.transaction_id))+' <span style="color:#8291a3;font-weight:500">· USDC</span></strong><small>'+esc(shortAddress(p.recipient))+"</small></span></div>",amt='<strong>'+esc(money(t))+'</strong><div class="risk-caption">'+esc(p.token_symbol||"USDC")+' · '+esc(p.chain_id||"—")+"</div>",action='<button class="row-action" data-action="inspect" data-id="'+esc(t.transaction_id)+'">Inspect ↗</button>';return full?"<tr><td>"+detail+"</td><td>"+amt+"</td><td>"+decision(t.policy_decision)+"</td><td>"+risk+"</td><td>"+badge(t.status)+"</td><td>"+esc(date(t.created_at))+"</td><td>"+action+"</td></tr>":"<tr><td>"+detail+"</td><td>"+risk+"</td><td>"+badge(t.status)+"</td><td>"+esc(date(t.created_at))+"</td><td>"+action+"</td></tr>";}
-function emptyRow(cols,title,desc){return'<tr><td colspan="'+cols+'" class="empty"><span class="empty-symbol">⌁</span><strong>'+esc(title)+'</strong><span>'+esc(desc)+"</span></td></tr>";}
-function renderOverview(){var a=state.transactions,count=function(s){return a.filter(function(t){return t.status===s;}).length;};$("#metric-total").textContent=a.length;$("#metric-approvals").textContent=count("awaiting_approval");$("#metric-executed").textContent=count("executed_simulated");$("#metric-blocked").textContent=count("blocked");$("#approval-count").textContent=count("awaiting_approval");$("#recent").innerHTML=a.slice(0,5).map(function(t){return row(t,false);}).join("")||(state.connected?emptyRow(5,"No transactions yet","Create a proposal to start the workflow."):emptyRow(5,"Connect to your local API","Persisted transactions will appear here."));$("#record-caption").textContent=state.connected?a.length+" persisted record"+(a.length===1?"":"s"):"Waiting for API connection";}
-function renderTransactions(){var q=($("#filter").value||"").trim().toLowerCase(),a=state.transactions.filter(function(t){var p=t.proposal||{};return[t.transaction_id,t.status,t.policy_decision,p.recipient,p.token_symbol].some(function(v){return String(v||"").toLowerCase().indexOf(q)>=0;});});$("#all-transactions").innerHTML=a.map(function(t){return row(t,true);}).join("")||(q?emptyRow(7,"No matching transactions","Try another ID, recipient or status."):emptyRow(7,"No persisted transactions","Create a proposal to see it in the ledger."));}
-function renderApprovals(){var a=state.transactions.filter(function(t){return t.status==="awaiting_approval";});$("#approval-list").innerHTML=a.map(function(t){var p=t.proposal||{},reasons=(t.policy_reasons||[]).concat(t.risk_reasons||[]);return'<article class="approval-card"><div class="approval-top"><div><div class="kicker">PROPOSAL '+esc(shortId(t.transaction_id))+'</div><h3>Review transfer request</h3><div class="recipient">'+esc(p.recipient||"Unknown recipient")+'</div></div><div class="amount">'+esc(money(t))+'<small>'+esc(p.token_symbol||"USDC")+' · Base Sepolia</small></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:13px">'+decision(t.policy_decision)+' <span class="risk-score '+riskClass(t.risk_level)+'">'+esc(t.risk_score)+'/100 risk</span></div><div class="reasons"><strong>Why approval is required</strong>'+(reasons.length?reasons.map(function(x){return"<span>• "+esc(x)+"</span>";}).join(""):"<span>Owner approval is required by the current policy.</span>")+'</div><div class="approval-actions"><small>Fingerprint · '+esc(String(t.fingerprint||"").slice(0,12))+'…</small><div><button class="btn secondary" data-action="inspect" data-id="'+esc(t.transaction_id)+'">Inspect</button><button class="btn primary" data-action="approve" data-id="'+esc(t.transaction_id)+'">Approve proposal →</button></div></div></article>';}).join("")||'<div class="panel empty-state"><span class="empty-symbol">◷</span><h3>'+(state.connected?"Approval queue is clear":"Connect to review approvals")+'</h3><p>'+(state.connected?"No persisted transactions are waiting for owner approval.":"Connect to the local API to load pending proposals.")+"</p></div>";}
-function renderAll(){renderOverview();renderTransactions();renderApprovals();}
-async function refresh(){if(!state.connected){renderAll();return;}try{state.transactions=await api("/transactions?limit=100",{token:state.ownerToken});state.transactions.sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at);});renderAll();}catch(e){toast("Could not refresh records",e.message,true);if(/401|AEGIS_APPROVAL_TOKEN|not configured/i.test(e.message)){state.connected=false;setConnected(false);openModal("connection-modal");}}}
-function setConnected(v){state.connected=v;$("#connection-label").textContent=v?"Local API connected":"Connect to local API";$("#connection-subtitle").textContent=v?"Owner + agent credentials in memory":"Credentials stay in memory";$(".connect").classList.toggle("ready",v);}
-async function connect(e){e.preventDefault();$("#connection-error").textContent="";$("#connect-submit").disabled=true;var a=$("#agent-token").value.trim(),o=$("#owner-token").value.trim();try{await api("/health");var records=await api("/transactions?limit=100",{token:o});state.agentToken=a;state.ownerToken=o;state.transactions=records.sort(function(x,y){return new Date(y.created_at)-new Date(x.created_at);});setConnected(true);closeModal($("#connection-modal"));$("#agent-token").value="";$("#owner-token").value="";renderAll();toast("Workspace connected",records.length+" persisted transaction record(s) loaded.");}catch(err){$("#connection-error").textContent=err.message;}finally{$("#connect-submit").disabled=false;}}
-function newProposal(){if(!state.connected){openModal("connection-modal");toast("Connect first","Use the local agent and owner bearer tokens to continue.",true);return;}$("#proposal-error").textContent="";openModal("proposal-modal");}
-function key(){return window.crypto&&window.crypto.randomUUID?window.crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2,14);}
-async function submitProposal(e){e.preventDefault();if(!state.connected)return openModal("connection-modal");var amount=Number($("#amount").value);if(!Number.isFinite(amount)||amount<=0||amount>50){$("#proposal-error").textContent="Enter an amount greater than 0 and no more than 50 USDC.";return;}var payload={agent_id:"devops-01",chain_id:84532,token_symbol:"USDC",token_address:"0x036cbd53842c5426634e7929541ec2318f3dcf7e",recipient:$("#recipient").value.trim(),amount_base_units:Math.round(amount*1000000),token_decimals:6};$("#proposal-submit").disabled=true;$("#proposal-error").textContent="";try{var t=await api("/transactions/propose",{method:"POST",token:state.agentToken,headers:{"Idempotency-Key":"ui-"+key()},body:payload});state.transactions=[t].concat(state.transactions.filter(function(x){return x.transaction_id!==t.transaction_id;})).sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at);});closeModal($("#proposal-modal"));renderAll();toast("Proposal evaluated",(statusLabels[t.status]||t.status)+" · risk "+t.risk_score+"/100.");showView(t.status==="awaiting_approval"?"approvals":"transactions");}catch(err){$("#proposal-error").textContent=err.message;}finally{$("#proposal-submit").disabled=false;}}
-async function action(kind,id){var t=state.transactions.find(function(x){return x.transaction_id===id;});if(!t)return toast("Transaction not found","Refresh records and try again.",true);if(kind==="inspect"){$("#audit-id").value=id;showView("audit");await loadAudit(id);return;}if(!state.connected)return openModal("connection-modal");var question=kind==="approve"?"Approve proposal "+shortId(id)+" for "+money(t)+" to "+shortAddress(t.proposal&&t.proposal.recipient)+"? This grants time-limited permission for simulated execution only.":"Revalidate policy/risk and simulate execution for proposal "+shortId(id)+"? No transaction will be signed or submitted.";if(!window.confirm(question))return;try{var updated=kind==="approve"?await api("/transactions/"+encodeURIComponent(id)+"/approve",{method:"POST",token:state.ownerToken,body:{transaction_fingerprint:t.fingerprint,confirmation:"APPROVE"}}):await api("/transactions/"+encodeURIComponent(id)+"/execute",{method:"POST",token:state.ownerToken});state.transactions=[updated].concat(state.transactions.filter(function(x){return x.transaction_id!==id;})).sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at);});renderAll();toast(kind==="approve"?"Approval recorded":"Simulation complete","Current state: "+(statusLabels[updated.status]||updated.status)+".");}catch(err){toast(kind==="approve"?"Approval not completed":"Simulation not completed",err.message,true);await refresh();}}
-async function loadAudit(id){id=id||$("#audit-id").value.trim();if(!id){toast("Transaction ID required","Select a transaction or paste its ID.",true);return;}if(!state.connected){openModal("connection-modal");return;}$("#audit-id").value=id;$("#audit-heading").textContent="Transaction "+shortId(id);$("#audit-content").innerHTML='<div class="empty-state"><span class="empty-symbol">↻</span><p>Loading audit events…</p></div>';try{var events=await api("/transactions/"+encodeURIComponent(id)+"/audit",{token:state.ownerToken});$("#audit-content").innerHTML=events.map(function(ev){var detail=ev.details&&typeof ev.details==="object"?JSON.stringify(ev.details,null,2):String(ev.details||"");return'<article class="audit-event"><div class="audit-time">'+esc(date(ev.timestamp))+'</div><div><div class="audit-name">'+esc(ev.event_type||ev.event||"Workflow event")+'</div><div class="audit-meta">Actor: '+esc(ev.actor_role||"unknown")+' · '+esc(ev.from_status||"new")+' → '+esc(ev.to_status||"—")+'</div><div class="audit-details">'+esc(detail)+"</div></div></article>";}).join("")||'<div class="empty-state"><h3>No audit events returned</h3></div>';}catch(err){$("#audit-content").innerHTML='<div class="empty-state"><h3>Audit could not be loaded</h3><p>'+esc(err.message)+"</p></div>";}}
-document.addEventListener("click",function(e){var v=e.target.closest("[data-view]");if(v){showView(v.dataset.view);return;}var a=e.target.closest("[data-action]");if(a){action(a.dataset.action,a.dataset.id);return;}var r=e.target.closest("[data-recipient]");if(r){$("#recipient").value=r.dataset.recipient;return;}var c=e.target.closest("[data-close]");if(c){closeModal(c.closest(".modal-bg"));return;}if(e.target.classList.contains("modal-bg"))closeModal(e.target);});
-$("#connection-form").addEventListener("submit",connect);$("#proposal-form").addEventListener("submit",submitProposal);$("#new-proposal").addEventListener("click",newProposal);$("#new-proposal-2").addEventListener("click",newProposal);$("#open-connection").addEventListener("click",function(){openModal("connection-modal");});$("#avatar").addEventListener("click",function(){openModal("connection-modal");});$("#refresh").addEventListener("click",refresh);$("#filter").addEventListener("input",renderTransactions);$("#load-audit").addEventListener("click",function(){loadAudit();});$("#audit-id").addEventListener("keydown",function(e){if(e.key==="Enter")loadAudit();});document.addEventListener("keydown",function(e){if(e.key==="Escape")$$(".modal-bg.open").forEach(closeModal);});
-api("/health").then(function(h){if(h.status==="ok")toast("API available","FastAPI reports "+(h.mode||"local mode")+".");}).catch(function(){toast("API not detected","Start FastAPI locally, then connect your workspace.",true);});renderAll();
-})();
+const state = {
+  view: 'overview',
+  connected: false,
+  sessionVersion: 0,
+  refreshId: 0,
+  healthRequestId: 0,
+  connectionRequestId: 0,
+  proposalRequestId: 0,
+  transactionsLoaded: false,
+  transactionError: '',
+  auditLoadFailed: false,
+  tokens: {agent: '', owner: ''},
+  transactions: [],
+  auditSummary: [],
+  auditSelectedId: '',
+  marketQuotes: {},
+  marketRequestId: 0,
+  marketSnapshotId: 0,
+  marketQuoteRequestIds: new Map(),
+  busyActions: new Set(),
+  auditRequestId: 0,
+  auditSummaryRequestId: 0,
+  feedbackTimer: null,
+  connectionOpener: null,
+  marketWatch: [
+    { assetClass: 'crypto', symbol: 'BTC', label: 'Bitcoin', provider: 'CoinGecko' },
+    { assetClass: 'crypto', symbol: 'ETH', label: 'Ethereum', provider: 'CoinGecko' },
+    { assetClass: 'crypto', symbol: 'SOL', label: 'Solana', provider: 'CoinGecko' },
+    { assetClass: 'equity', symbol: 'AAPL', label: 'Apple', provider: 'Stooq' },
+    { assetClass: 'equity', symbol: 'MSFT', label: 'Microsoft', provider: 'Stooq' },
+    { assetClass: 'equity', symbol: 'NVDA', label: 'NVIDIA', provider: 'Stooq' }
+  ],
+  marketSelected: { assetClass: 'crypto', symbol: 'BTC' },
+  audit: [],
+  proposalAttempt: null
+};
+
+const invalidatePendingRequests = () => {
+  state.refreshId += 1;
+  state.healthRequestId += 1;
+  state.marketRequestId += 1;
+  state.marketSnapshotId += 1;
+  state.marketQuoteRequestIds.clear();
+  state.auditRequestId += 1;
+  state.auditSummaryRequestId += 1;
+  state.proposalRequestId += 1;
+};
+
+const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+const notify = (message, kind = '') => {
+  const feedback = document.getElementById('global-feedback');
+  if (state.feedbackTimer) window.clearTimeout(state.feedbackTimer);
+  feedback.textContent = message;
+  feedback.className = `feedback visible${kind ? ` ${kind}` : ''}`;
+  if (kind !== 'error') {
+    state.feedbackTimer = window.setTimeout(() => feedback.classList.remove('visible'), 6000);
+  }
+};
+
+const setApiState = (label, kind = '') => {
+  const status = document.getElementById('api-state');
+  status.className = `api-state${kind ? ` ${kind}` : ''}`;
+  document.getElementById('api-state-label').textContent = label;
+};
+
+const statusLabel = (status) => ({
+  ready: 'Ready to simulate',
+  awaiting_approval: 'Approval required',
+  approved: 'Approved · ready to simulate',
+  blocked: 'Blocked by policy',
+  expired: 'Expired',
+  executed_simulated: 'Simulated'
+}[status] || 'Unknown state');
+
+const kindClass = (status) => {
+  const map = {
+    ready: 'status-ready',
+    awaiting_approval: 'status-awaiting',
+    approved: 'status-approved',
+    blocked: 'status-blocked',
+    executed_simulated: 'status-executed',
+    expired: 'status-expired'
+  };
+  return map[status] || 'status-expired';
+};
+
+const riskClass = (risk) => {
+  if (risk === 'high') return 'risk-high';
+  if (risk === 'medium') return 'risk-medium';
+  if (risk === 'low') return 'risk-low';
+  return 'risk-unknown';
+};
+
+const humanTime = (value) => {
+  if (!value) return '—';
+  try {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+  } catch {
+    return value;
+  }
+};
+
+const formatMoney = (units, symbol = 'USDC', decimals = 6) => {
+  if (typeof units === 'number' && !Number.isSafeInteger(units)) return `Precision unavailable · ${symbol}`;
+  const raw = String(units ?? '');
+  if (!/^\d+$/.test(raw) || !Number.isInteger(decimals) || decimals < 0 || decimals > 36) return `— ${symbol}`;
+  const amount = BigInt(raw);
+  const scale = 10n ** BigInt(decimals);
+  const whole = amount / scale;
+  const fraction = (amount % scale).toString().padStart(decimals, '0').replace(/0+$/, '');
+  const formattedWhole = whole.toLocaleString();
+  return `${formattedWhole}${fraction ? `.${fraction}` : ''} ${symbol}`;
+};
+
+const setView = (view) => {
+  state.view = view;
+  document.querySelectorAll('.view').forEach((el) => el.classList.toggle('active', el.id === `view-${view}`));
+  document.querySelectorAll('[data-view]').forEach((button) => {
+    const active = button.dataset.view === view;
+    button.classList.toggle('active', active);
+    if (button.matches('nav [data-view]')) {
+      if (active) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+    }
+  });
+  document.getElementById('breadcrumb').textContent = {
+    overview: 'Overview',
+    markets: 'Markets',
+    proposals: 'Proposals',
+    approvals: 'Approvals',
+    activity: 'Activity & Audit',
+    settings: 'Settings'
+  }[view] || 'Overview';
+  if (view === 'overview') renderOverview();
+  if (view === 'approvals') renderApprovals();
+  if (view === 'activity') renderActivity();
+  if (view === 'markets') renderMarketList();
+};
+
+const api = async (path, options = {}, role = 'owner') => {
+  const headers = new Headers(options.headers || {});
+  const token = role === 'public' ? '' : role === 'agent' ? state.tokens.agent : state.tokens.owner;
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  let response;
+  try {
+    response = await fetch(path, { ...options, headers });
+  } catch {
+    throw new Error('Cannot reach the local API');
+  }
+  if (!response.ok) {
+    const messages = {
+      401: 'Authentication failed. Check the token for this operation.',
+      403: 'The backend denied this operation.',
+      404: 'The requested workflow or resource was not found.',
+      409: 'The workflow changed or this action is no longer permitted.',
+      422: 'The request was rejected. Check the supported symbol and required field values.',
+      502: 'The market-data provider is unavailable.',
+      503: 'The API or workflow database is unavailable.'
+    };
+    let detail = '';
+    if (response.status === 403 || response.status === 409) {
+      try {
+        const body = await response.json();
+        if (typeof body.detail === 'string') detail = body.detail;
+      } catch {
+        detail = '';
+      }
+    }
+    const knownDetails = new Set([
+      'Policy-blocked transactions cannot execute',
+      'Approval fingerprint does not match transaction',
+      'Persisted proposal failed integrity verification',
+      'Blocked transactions cannot be approved',
+      'Transaction has already been executed',
+      'Transaction is not awaiting approval',
+      'Approval has expired; submit a fresh approval',
+      'Transaction has already been approved',
+      'Human approval is required before execution',
+      'Transaction is not in an executable state',
+      'Idempotency-Key was already used for a different proposal'
+    ]);
+    const error = new Error(knownDetails.has(detail) ? detail : messages[response.status] || `Request failed (HTTP ${response.status})`);
+    error.status = response.status;
+    throw error;
+  }
+  if (response.status === 204) return null;
+  if (response.headers.get('content-type')?.includes('application/json')) {
+    try {
+      return await response.json();
+    } catch {
+      throw new Error('The API returned an invalid response');
+    }
+  }
+  return response.text();
+};
+
+const refreshTransactions = async () => {
+  const sessionVersion = state.sessionVersion;
+  const refreshId = ++state.refreshId;
+  if (!state.tokens.owner) {
+    state.transactions = [];
+    state.transactionsLoaded = false;
+    state.transactionError = '';
+    renderAll();
+    return;
+  }
+  try {
+    const records = await api('/transactions?limit=50', { method: 'GET' }, 'owner');
+    if (sessionVersion !== state.sessionVersion || refreshId !== state.refreshId) return;
+    state.transactions = Array.isArray(records) ? records : [];
+    state.transactionsLoaded = true;
+    state.transactionError = '';
+    state.connected = true;
+    setApiState('Owner API connected', 'ready');
+    renderAll();
+    void refreshAuditSummary();
+  } catch (error) {
+    if (sessionVersion !== state.sessionVersion || refreshId !== state.refreshId) return;
+    state.transactionError = error.message;
+    state.transactionsLoaded = false;
+    state.connected = false;
+    state.transactions = [];
+    const ownerRejected = error.status === 401;
+    setApiState(ownerRejected ? 'Owner auth failed' : 'Workflow API unavailable', 'error');
+    document.getElementById('connection-label').textContent = ownerRejected ? 'Reconnect to local API' : 'API unavailable';
+    document.getElementById('connection-status').textContent = ownerRejected ? 'Owner token rejected' : 'Could not load workflow records';
+    document.querySelector('.connect-box').classList.remove('ready');
+    document.getElementById('settings-status').textContent = 'Disconnected';
+    renderAll();
+  }
+};
+
+const renderOverview = () => {
+  const rows = state.transactions || [];
+  const total = rows.length;
+  const approvals = rows.filter((tx) => tx.status === 'awaiting_approval').length;
+  const executed = rows.filter((tx) => tx.status === 'executed_simulated').length;
+  const blocked = rows.filter((tx) => tx.status === 'blocked' || tx.status === 'expired').length;
+  document.getElementById('metric-total').textContent = state.transactionsLoaded ? total : '—';
+  document.getElementById('metric-approvals').textContent = state.transactionsLoaded ? approvals : '—';
+  document.getElementById('metric-executed').textContent = state.transactionsLoaded ? executed : '—';
+  document.getElementById('metric-blocked').textContent = state.transactionsLoaded ? blocked : '—';
+  document.getElementById('approval-count').textContent = state.transactionsLoaded ? approvals : '·';
+
+  const recent = rows.slice(0, 5);
+  const recentRows = !state.transactionsLoaded
+    ? `<tr><td colspan="5" class="empty">${esc(state.transactionError || 'Connect with an owner token to load persisted workflow records.')}</td></tr>`
+    : recent.length ? recent.map((tx) => `
+    <tr>
+      <td>
+        <div class="tx-main">
+          <span class="coin">${esc((tx.proposal && tx.proposal.token_symbol) || '—')}</span>
+          <div>
+            <strong class="small-mono">${esc(tx.transaction_id || 'Unknown ID')}</strong>
+            <small>${esc(formatMoney(tx.proposal?.amount_base_units, tx.proposal?.token_symbol || 'USDC', tx.proposal?.token_decimals ?? 6))} · ${esc(tx.proposal?.recipient || 'Unknown recipient')}</small>
+          </div>
+        </div>
+      </td>
+      <td><span class="risk-badge ${riskClass(tx.risk_level)}">${esc(tx.risk_level ? tx.risk_level.toUpperCase() : 'Unavailable')} · ${esc(tx.risk_score ?? '—')}/100</span></td>
+      <td><span class="status-badge ${kindClass(tx.status)}">${esc(statusLabel(tx.status))}</span></td>
+      <td class="small-mono">${esc(humanTime(tx.created_at))}</td>
+      <td><button class="text-button" type="button" data-action="inspect" data-id="${esc(tx.transaction_id || '')}">Inspect</button></td>
+    </tr>
+  `).join('') : `<tr><td colspan="5" class="empty">No persisted workflow records were returned.</td></tr>`;
+  document.getElementById('recent-rows').innerHTML = recentRows;
+
+  const summary = rows.filter((tx) => tx.status === 'awaiting_approval');
+  const approvalSummary = !state.transactionsLoaded
+    ? `<div class="empty-state"><span>◷</span><strong>Owner connection required</strong><div>${esc(state.transactionError || 'Connect to load approvals.')}</div></div>`
+    : summary.length ? summary.slice(0, 3).map((tx) => `
+    <div class="list-item">
+      <div>
+        <strong>${esc((tx.proposal && tx.proposal.recipient) || 'Unknown recipient')}</strong>
+        <small>${esc(formatMoney(tx.proposal?.amount_base_units, tx.proposal?.token_symbol || 'USDC', tx.proposal?.token_decimals ?? 6))} · ${esc((tx.risk_level || 'unknown').toUpperCase())}</small>
+      </div>
+      <button class="text-button" type="button" data-view="approvals">Review →</button>
+    </div>
+  `).join('') : '<div class="empty-state"><span>◷</span><strong>Queue is clear</strong><div>No pending approvals in the loaded records.</div></div>';
+  document.getElementById('approval-summary').innerHTML = approvalSummary;
+
+  renderMarketSnapshot();
+  renderAuditSummary();
+};
+
+const renderMarketSnapshot = () => {
+  const snapshot = [
+    { assetClass: 'crypto', symbol: 'BTC', label: 'Bitcoin' },
+    { assetClass: 'equity', symbol: 'AAPL', label: 'Apple · daily close' }
+  ];
+  document.getElementById('market-snapshot').innerHTML = snapshot.map((item) => {
+    const key = `${item.assetClass}:${item.symbol}`;
+    const quote = state.marketQuotes[key];
+    const price = quote?.data
+      ? `$${Number(quote.data.price).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${quote.data.currency}`
+      : quote?.error ? 'Unavailable' : state.tokens.owner ? 'Loading quote…' : 'Connect for quote';
+    const stale = quote?.data?.is_stale;
+    return `<div class="list-item">
+      <div><strong>${esc(item.symbol)} <span class="muted">· ${esc(item.label)}</span></strong>
+      <small>${esc(quote?.data?.source || (quote?.error ? quote.error : 'Read-only provider quote'))}</small></div>
+      <div class="value mono">${esc(price)}${quote?.data ? `<small class="muted" style="display:block;text-align:right">${stale ? 'Stale' : 'Fresh'}</small>` : ''}</div>
+    </div>`;
+  }).join('');
+};
+
+const renderAuditSummary = () => {
+  const target = document.getElementById('audit-summary');
+  if (!state.transactionsLoaded) {
+    target.innerHTML = '<div class="empty-state"><span>≡</span><strong>Owner connection required</strong><div>Connect to load persisted audit events.</div></div>';
+    return;
+  }
+  if (state.auditLoadFailed) {
+    target.innerHTML = '<div class="inline-error">Audit events are unavailable. Retry by refreshing the workflow data.</div>';
+    return;
+  }
+  if (!state.auditSummary.length) {
+    target.innerHTML = '<div class="empty-state"><span>≡</span><strong>No recent events</strong><div>No audit events were returned for the latest workflows.</div></div>';
+    return;
+  }
+  target.innerHTML = state.auditSummary.slice(0, 4).map((event) => `
+    <button type="button" class="audit-card" data-action="inspect" data-id="${esc(event.transaction_id)}">
+      <div class="approval-head"><div><small>${esc(event.actor_role)} · ${esc(event.event_type)}</small><h3>${esc(event.transaction_id.slice(0, 12))}</h3></div>
+      <span class="smallcaps muted">${esc(humanTime(event.created_at))}</span></div>
+      <div class="smallcaps muted">${esc(event.from_status || '—')} → ${esc(event.to_status || '—')}</div>
+    </button>
+  `).join('');
+};
+
+const refreshAuditSummary = async () => {
+  const sessionVersion = state.sessionVersion;
+  const requestId = ++state.auditSummaryRequestId;
+  const transactions = state.transactions.slice(0, 4);
+  if (!transactions.length) {
+    state.auditSummary = [];
+    state.auditLoadFailed = false;
+    renderAuditSummary();
+    return;
+  }
+  const results = await Promise.allSettled(transactions.map((tx) =>
+    api(`/transactions/${encodeURIComponent(tx.transaction_id)}/audit`, { method: 'GET' }, 'owner')
+  ));
+  if (sessionVersion !== state.sessionVersion || requestId !== state.auditSummaryRequestId) return;
+  state.auditSummary = results.flatMap((result) => result.status === 'fulfilled' && Array.isArray(result.value)
+    ? result.value
+    : []);
+  state.auditSummary.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  state.auditLoadFailed = results.some((result) => result.status === 'rejected');
+  renderAuditSummary();
+};
+
+const refreshMarketSnapshot = async () => {
+  if (!state.tokens.owner) return;
+  const sessionVersion = state.sessionVersion;
+  const snapshotId = ++state.marketSnapshotId;
+  const foregroundRequestId = state.marketRequestId;
+  const watch = [
+    { assetClass: 'crypto', symbol: 'BTC' },
+    { assetClass: 'equity', symbol: 'AAPL' }
+  ];
+  const requestIds = new Map();
+  watch.forEach(({ assetClass, symbol }) => {
+    const key = `${assetClass}:${symbol}`;
+    const requestId = (state.marketQuoteRequestIds.get(key) || 0) + 1;
+    state.marketQuoteRequestIds.set(key, requestId);
+    requestIds.set(key, requestId);
+    state.marketQuotes[key] = { loading: true };
+  });
+  renderMarketSnapshot();
+  await Promise.all(watch.map(async ({ assetClass, symbol }) => {
+    const key = `${assetClass}:${symbol}`;
+    try {
+      const data = await api(`/market-data/${assetClass}/${symbol}`, { method: 'GET' }, 'owner');
+      if (sessionVersion !== state.sessionVersion || snapshotId !== state.marketSnapshotId
+        || requestIds.get(key) !== state.marketQuoteRequestIds.get(key)) return;
+      state.marketQuotes[key] = { data };
+      if (foregroundRequestId === state.marketRequestId
+        && state.marketSelected.assetClass === assetClass && state.marketSelected.symbol === symbol) {
+        showMarketQuote(data);
+      }
+    } catch (error) {
+      if (sessionVersion !== state.sessionVersion || snapshotId !== state.marketSnapshotId
+        || requestIds.get(key) !== state.marketQuoteRequestIds.get(key)) return;
+      state.marketQuotes[key] = { error: error.message };
+      if (foregroundRequestId === state.marketRequestId
+        && state.marketSelected.assetClass === assetClass && state.marketSelected.symbol === symbol) {
+        showMarketUnavailable(error.message, assetClass, symbol);
+      }
+    }
+  }));
+  if (sessionVersion !== state.sessionVersion || snapshotId !== state.marketSnapshotId) return;
+  renderMarketSnapshot();
+};
+
+const renderApprovals = () => {
+  const approvals = state.transactions.filter((tx) =>
+    tx.status === 'awaiting_approval' && tx.policy_decision !== 'block'
+  );
+  const list = !state.transactionsLoaded
+    ? `<div class="empty-state"><span>◷</span><strong>Owner connection required</strong><div>${esc(state.transactionError || 'Connect with an owner token to load the persisted approval queue.')}</div></div>`
+    : approvals.length ? approvals.map((tx) => `
+    <article class="approval-card">
+      <div class="approval-head">
+        <div>
+          <small>PROPOSAL ${esc(String(tx.transaction_id || 'Unknown ID'))}</small>
+          <h3>${esc(statusLabel(tx.status))}</h3>
+        </div>
+        <span class="risk-badge ${riskClass(tx.risk_level)}">${esc(tx.risk_level ? tx.risk_level.toUpperCase() : 'Unavailable')} · ${esc(tx.risk_score ?? '—')}/100</span>
+      </div>
+      <div class="metrics-row">
+        <div>
+          <div class="smallcaps muted">Recipient</div>
+          <strong class="small-mono">${esc(tx.proposal?.recipient || 'Unknown')}</strong>
+        </div>
+        <div>
+          <div class="smallcaps muted">Amount</div>
+          <div class="value mono">${esc(formatMoney(tx.proposal?.amount_base_units, tx.proposal?.token_symbol || 'USDC', tx.proposal?.token_decimals ?? 6))}</div>
+        </div>
+      </div>
+      <ul class="reason-list">
+        <li>Policy: ${esc(tx.policy_decision || 'unknown')}</li>
+        ${(tx.policy_reasons || []).concat(tx.risk_reasons || []).slice(0, 4).map((reason) => `<li>${esc(reason)}</li>`).join('') || '<li>Owner approval is required by the backend workflow.</li>'}
+      </ul>
+      <div class="approval-actions">
+        <span class="fingerprint">Fingerprint · ${esc(tx.fingerprint || 'Unavailable')}</span>
+        <div>
+          <button class="btn secondary" type="button" data-action="inspect" data-id="${esc(tx.transaction_id || '')}">Inspect</button>
+          <button class="btn primary" type="button" data-action="approve" data-id="${esc(tx.transaction_id || '')}" data-fingerprint="${esc(tx.fingerprint || '')}" ${state.busyActions.has(tx.transaction_id) ? 'disabled' : ''}>${state.busyActions.has(tx.transaction_id) ? 'Approving…' : 'Approve'}</button>
+        </div>
+      </div>
+    </article>
+  `).join('') : '<div class="empty-state"><span>◷</span><strong>Approval queue is clear</strong><div>No transactions are awaiting approval in the latest records.</div></div>';
+  document.getElementById('approval-list').innerHTML = list;
+};
+
+const renderActivity = () => {
+  const needle = document.getElementById('activity-search').value.trim().toLowerCase();
+  const rows = state.transactions.filter((tx) => [
+    tx.transaction_id, tx.status, tx.policy_decision, tx.proposal?.token_symbol,
+    tx.proposal?.recipient, tx.risk_level
+  ].some((value) => String(value || '').toLowerCase().includes(needle)));
+  const body = !state.transactionsLoaded
+    ? `<tr><td colspan="7" class="empty">${esc(state.transactionError || 'Connect with an owner token to load workflow history.')}</td></tr>`
+    : rows.length ? rows.map((tx) => {
+      const canExecute = ['ready', 'approved'].includes(tx.status);
+      const action = `<div style="display:flex;align-items:center;gap:7px">
+        <button class="btn secondary" type="button" data-action="inspect" data-id="${esc(tx.transaction_id)}">Inspect</button>
+        ${canExecute
+          ? `<button class="btn primary" type="button" data-action="execute" data-id="${esc(tx.transaction_id)}" ${state.busyActions.has(tx.transaction_id) ? 'disabled' : ''}>${state.busyActions.has(tx.transaction_id) ? 'Working…' : 'Simulate'}</button>`
+          : tx.status === 'awaiting_approval' ? '<span class="muted">Approval required</span>'
+            : tx.status === 'blocked' ? '<span class="muted">Blocked by policy</span>'
+              : tx.status === 'executed_simulated' ? '<span class="muted">Simulation complete</span>'
+                : '<span class="muted">—</span>'}
+      </div>`;
+      return `
+    <tr data-id="${esc(tx.transaction_id || '')}">
+      <td class="small-mono">${esc(tx.transaction_id || 'Unknown ID')}</td>
+      <td>${esc(formatMoney(tx.proposal?.amount_base_units, tx.proposal?.token_symbol || 'USDC', tx.proposal?.token_decimals ?? 6))}</td>
+      <td class="small-mono">${esc(tx.proposal?.recipient || '—')}</td>
+      <td><span class="status-badge ${kindClass(tx.status)}">${esc(statusLabel(tx.status))}</span></td>
+      <td><span class="risk-badge ${riskClass(tx.risk_level)}">${esc(tx.risk_score ?? '—')}/100 · ${esc(tx.risk_level || 'Unavailable')}</span></td>
+      <td class="small-mono">${esc(humanTime(tx.updated_at || tx.created_at))}</td>
+      <td>${action}</td>
+    </tr>
+  `;
+    }).join('') : `<tr><td colspan="7" class="empty">${needle ? 'No matching records in the loaded set.' : 'No workflow records were returned.'}</td></tr>`;
+  document.getElementById('activity-rows').innerHTML = body;
+};
+
+const renderAll = () => {
+  renderOverview();
+  renderApprovals();
+  renderActivity();
+};
+
+const renderMarketButtons = () => {
+  const needle = document.getElementById('market-search').value.trim().toLowerCase();
+  const items = state.marketWatch.filter((item) =>
+    `${item.symbol} ${item.label} ${item.assetClass}`.toLowerCase().includes(needle)
+  );
+  const list = items.map((item) => `
+    <button class="market-item ${state.marketSelected.symbol === item.symbol && state.marketSelected.assetClass === item.assetClass ? 'active' : ''}" type="button" data-market-select="${esc(item.assetClass)}:${esc(item.symbol)}">
+      <div>
+        <strong>${esc(item.symbol)}</strong>
+        <small>${esc(item.label)}</small>
+      </div>
+      <div class="delta">${esc(item.assetClass === 'equity' ? 'DAILY CLOSE' : 'QUOTE')}</div>
+    </button>
+  `).join('');
+  document.getElementById('market-list').innerHTML = list || '<div class="empty-state">No supported watchlist symbol matches.</div>';
+};
+
+const renderMarketList = async () => {
+  renderMarketButtons();
+  if (!state.tokens.owner) {
+    showMarketUnavailable('Connect with an owner token to request quotes.');
+    return;
+  }
+  await loadMarketQuote(state.marketSelected.assetClass, state.marketSelected.symbol);
+};
+
+const loadMarketQuote = async (assetClass, symbol) => {
+  if (!state.tokens.owner) {
+    showMarketUnavailable('Connect with an owner token to request quotes.', assetClass, symbol);
+    return;
+  }
+  const key = `${assetClass}:${symbol}`;
+  const requestId = ++state.marketRequestId;
+  const sessionVersion = state.sessionVersion;
+  const quoteRequestId = (state.marketQuoteRequestIds.get(key) || 0) + 1;
+  state.marketQuoteRequestIds.set(key, quoteRequestId);
+  state.marketSelected = { assetClass, symbol };
+  const quote = state.marketQuotes[key];
+  if (quote?.data) showMarketQuote(quote.data);
+  else showMarketLoading(assetClass, symbol);
+  try {
+    const data = await api(`/market-data/${assetClass}/${symbol}`, { method: 'GET' }, 'owner');
+    if (sessionVersion !== state.sessionVersion || quoteRequestId !== state.marketQuoteRequestIds.get(key)) return;
+    state.marketQuotes[key] = { data };
+    renderMarketSnapshot();
+    if (requestId === state.marketRequestId) showMarketQuote(data);
+  } catch (error) {
+    if (sessionVersion !== state.sessionVersion || quoteRequestId !== state.marketQuoteRequestIds.get(key)) return;
+    state.marketQuotes[key] = { data: quote?.data, error: error.message };
+    renderMarketSnapshot();
+    if (requestId === state.marketRequestId) {
+      if (quote?.data) showMarketQuote(quote.data, `Refresh failed: ${error.message}`);
+      else showMarketUnavailable(error.message, assetClass, symbol);
+    }
+  }
+};
+
+const showMarketLoading = (assetClass, symbol) => {
+  document.getElementById('market-header').textContent = symbol;
+  document.getElementById('market-source').textContent = 'Loading quote…';
+  document.getElementById('market-price').textContent = '—';
+  document.getElementById('market-stale').className = 'tag';
+  document.getElementById('market-stale').textContent = 'LOADING';
+  document.getElementById('market-asset').textContent = assetClass === 'crypto' ? 'Crypto' : 'Equity';
+  document.getElementById('market-currency').textContent = '—';
+  document.getElementById('market-time').textContent = '—';
+  document.getElementById('market-freshness').textContent = 'Loading';
+  document.getElementById('market-kind').textContent = 'Quote is informational and not an executable price.';
+  showMarketFeedback('', '');
+};
+
+const showMarketQuote = (quote, warning = '') => {
+  document.getElementById('market-header').textContent = quote.symbol;
+  document.getElementById('market-source').textContent = quote.source;
+  document.getElementById('market-price').textContent = `${Number(quote.price).toLocaleString(undefined, { style: 'currency', currency: quote.currency, maximumFractionDigits: 6 })}`;
+  document.getElementById('market-asset').textContent = quote.asset_class === 'crypto' ? 'Crypto' : 'US equity';
+  document.getElementById('market-currency').textContent = quote.currency;
+  document.getElementById('market-time').textContent = humanTime(quote.as_of);
+  document.getElementById('market-freshness').textContent = quote.is_stale ? 'Stale' : 'Fresh';
+  document.getElementById('market-kind').textContent = quote.asset_class === 'equity'
+    ? 'Daily closing data; not an intraday or executable price.'
+    : 'Provider quote; informational and not an executable price.';
+  const staleTag = document.getElementById('market-stale');
+  staleTag.textContent = quote.is_stale ? 'STALE' : 'FRESH';
+  staleTag.className = `tag ${quote.is_stale ? 'bad' : 'good'}`;
+  showMarketFeedback(warning, warning ? 'error' : '');
+};
+
+const showMarketUnavailable = (message, assetClass = state.marketSelected.assetClass, symbol = state.marketSelected.symbol) => {
+  document.getElementById('market-header').textContent = symbol;
+  document.getElementById('market-source').textContent = 'Quote unavailable';
+  document.getElementById('market-price').textContent = '—';
+  document.getElementById('market-stale').className = 'tag bad';
+  document.getElementById('market-stale').textContent = 'UNAVAILABLE';
+  document.getElementById('market-asset').textContent = assetClass === 'crypto' ? 'Crypto' : 'Equity';
+  document.getElementById('market-currency').textContent = '—';
+  document.getElementById('market-time').textContent = '—';
+  document.getElementById('market-freshness').textContent = 'Unavailable';
+  document.getElementById('market-kind').textContent = 'Quotes are informational only. No provider data is available.';
+  showMarketFeedback(message, 'error');
+};
+
+const showMarketFeedback = (message, kind) => {
+  const feedback = document.getElementById('market-feedback');
+  feedback.textContent = message;
+  feedback.className = `feedback${message ? ` visible ${kind}` : ''}`;
+};
+
+const openConnectionModal = () => {
+  const modal = document.getElementById('connection-modal');
+  state.connectionOpener = document.activeElement;
+  document.getElementById('connection-feedback').textContent = '';
+  document.getElementById('connection-feedback').className = 'feedback';
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+  document.getElementById('agent-token').focus();
+};
+
+const closeConnectionModal = () => {
+  const modal = document.getElementById('connection-modal');
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden', 'true');
+  if (state.connectionOpener instanceof HTMLElement) state.connectionOpener.focus();
+};
+
+const handleConnect = async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const formData = new FormData(form);
+  const agent = (formData.get('agentToken') || '').toString().trim();
+  const owner = (formData.get('ownerToken') || '').toString().trim();
+  const feedback = document.getElementById('connection-feedback');
+  if (!agent || !owner) {
+    feedback.textContent = 'Enter both the agent and owner development tokens.';
+    feedback.className = 'feedback visible error';
+    return;
+  }
+  if (agent === owner) {
+    feedback.textContent = 'Use the distinct agent and owner tokens configured for the API.';
+    feedback.className = 'feedback visible error';
+    return;
+  }
+  const submit = form.querySelector('[type="submit"]');
+  const connectionRequestId = ++state.connectionRequestId;
+  submit.disabled = true;
+  submit.textContent = 'Connecting…';
+  state.sessionVersion += 1;
+  const sessionVersion = state.sessionVersion;
+  invalidatePendingRequests();
+  state.tokens.agent = '';
+  state.tokens.owner = '';
+  state.connected = false;
+  clearSessionData();
+  state.tokens.agent = agent;
+  state.tokens.owner = owner;
+  document.querySelector('.connect-box').classList.remove('ready');
+  document.getElementById('connection-label').textContent = 'Connecting to local API';
+  document.getElementById('connection-status').textContent = 'Verifying owner token…';
+  document.getElementById('settings-status').textContent = 'Connecting';
+  setApiState('Connecting to local API');
+  form.reset();
+  try {
+    const health = await api('/health', { method: 'GET' }, 'public');
+    if (sessionVersion !== state.sessionVersion || connectionRequestId !== state.connectionRequestId) return;
+    if (health?.status !== 'ok') throw new Error('The local API health check did not succeed.');
+    const transactions = await api('/transactions?limit=50', { method: 'GET' }, 'owner');
+    if (sessionVersion !== state.sessionVersion || connectionRequestId !== state.connectionRequestId) return;
+    state.transactions = Array.isArray(transactions) ? transactions : [];
+    state.transactionsLoaded = true;
+    state.transactionError = '';
+    state.connected = true;
+    document.getElementById('connection-label').textContent = 'Owner API connected';
+    document.getElementById('connection-status').textContent = 'Agent token stored in memory';
+    document.querySelector('.connect-box').classList.add('ready');
+    document.getElementById('settings-status').textContent = 'Owner verified · agent token stored';
+    document.getElementById('settings-health').textContent = 'API responding · simulation-only mode';
+    setApiState('Owner API connected', 'ready');
+    renderAll();
+    void refreshAuditSummary();
+    void refreshMarketSnapshot();
+    closeConnectionModal();
+    notify('Owner token verified. Agent token will be checked when a proposal is submitted.', 'success');
+  } catch (error) {
+    if (sessionVersion !== state.sessionVersion || connectionRequestId !== state.connectionRequestId) return;
+    state.sessionVersion += 1;
+    invalidatePendingRequests();
+    state.tokens.agent = '';
+    state.tokens.owner = '';
+    state.connected = false;
+    clearSessionData();
+    document.getElementById('connection-label').textContent = 'Connect to local API';
+    document.getElementById('connection-status').textContent = 'No active session';
+    document.getElementById('settings-status').textContent = 'Disconnected';
+    document.getElementById('settings-health').textContent = 'Connection failed.';
+    setApiState('Connection failed', 'error');
+    renderAll();
+    feedback.textContent = error.message;
+    feedback.className = 'feedback visible error';
+  } finally {
+    if (connectionRequestId === state.connectionRequestId) {
+      submit.disabled = false;
+      submit.textContent = 'Connect';
+    }
+  }
+};
+
+const clearSessionData = () => {
+  state.transactions = [];
+  state.transactionsLoaded = false;
+  state.transactionError = '';
+  state.auditSummary = [];
+  state.auditLoadFailed = false;
+  state.marketQuotes = {};
+  state.audit = [];
+  state.auditSelectedId = '';
+  state.busyActions.clear();
+  state.proposalAttempt = null;
+  const proposalSubmit = document.querySelector('#proposal-form [type="submit"]');
+  proposalSubmit.disabled = false;
+  proposalSubmit.textContent = 'Create proposal';
+  const proposalResult = document.getElementById('proposal-result');
+  proposalResult.hidden = true;
+  proposalResult.textContent = '';
+  showMarketUnavailable('Connect with an owner token to request quotes.');
+  renderAll();
+  renderAuditSummary();
+  renderAuditDetail();
+};
+
+const resetSession = () => {
+  state.sessionVersion += 1;
+  state.connectionRequestId += 1;
+  invalidatePendingRequests();
+  state.tokens.agent = '';
+  state.tokens.owner = '';
+  state.connected = false;
+  document.getElementById('connection-form').reset();
+  document.getElementById('connection-label').textContent = 'Connect to local API';
+  document.getElementById('connection-status').textContent = 'No active session';
+  document.querySelector('.connect-box').classList.remove('ready');
+  document.getElementById('settings-status').textContent = 'Disconnected';
+  document.getElementById('settings-health').textContent = 'Not checked.';
+  const connectSubmit = document.querySelector('#connection-form [type="submit"]');
+  connectSubmit.disabled = false;
+  connectSubmit.textContent = 'Connect';
+  setApiState('Owner auth required');
+  clearSessionData();
+};
+
+const checkApiHealth = async () => {
+  const sessionVersion = state.sessionVersion;
+  const requestId = ++state.healthRequestId;
+  try {
+    const outcome = await api('/health', { method: 'GET' }, 'public');
+    if (sessionVersion !== state.sessionVersion || requestId !== state.healthRequestId) return;
+    const healthy = outcome?.status === 'ok';
+    document.getElementById('settings-health').textContent = healthy
+      ? 'API responding · simulation-only mode'
+      : 'API returned an unexpected health response.';
+    if (!state.connected) setApiState(healthy ? 'API reachable · owner auth required' : 'API health unavailable', healthy ? '' : 'error');
+  } catch {
+    if (sessionVersion !== state.sessionVersion || requestId !== state.healthRequestId) return;
+    document.getElementById('settings-health').textContent = 'Health check unavailable';
+    if (!state.connected) setApiState('API unavailable', 'error');
+  }
+};
+
+const handleProposalSubmit = async (event) => {
+  event.preventDefault();
+  const formElement = event.currentTarget;
+  if (!state.tokens.agent) {
+    notify('Connect with an agent token before submitting a proposal.', 'error');
+    openConnectionModal();
+    return;
+  }
+  if (!formElement.reportValidity()) return;
+  const form = new FormData(formElement);
+  const amountText = String(form.get('amount') || '').trim();
+  if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(amountText)) {
+    notify('Enter an amount with no more than six decimal places.', 'error');
+    return;
+  }
+  const [whole, fraction = ''] = amountText.split('.');
+  const amountBaseUnits = Number(whole) * 1_000_000 + Number(fraction.padEnd(6, '0'));
+  if (!Number.isSafeInteger(amountBaseUnits) || amountBaseUnits <= 0 || amountBaseUnits > 50_000_000) {
+    notify('Amount must be greater than zero and no more than 50 USDC.', 'error');
+    return;
+  }
+  const payload = {
+    agent_id: form.get('agent_id') || 'devops-01',
+    chain_id: Number(form.get('chain_id')) || 84532,
+    token_symbol: (form.get('token_symbol') || 'USDC').toString().trim(),
+    token_address: (form.get('token_address') || '0x036cbd53842c5426634e7929541ec2318f3dcf7e').toString().trim(),
+    recipient: (form.get('recipient') || '0x2222222222222222222222222222222222222222').toString().trim(),
+    amount_base_units: amountBaseUnits,
+    token_decimals: 6
+  };
+  const attempt = JSON.stringify(payload);
+  if (state.proposalAttempt?.payload !== attempt) {
+    state.proposalAttempt = {
+      payload: attempt,
+      key: `ui-${window.crypto?.randomUUID ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`}`
+    };
+  }
+  const sessionVersion = state.sessionVersion;
+  const requestId = ++state.proposalRequestId;
+  const proposalAttempt = state.proposalAttempt;
+  const submit = formElement.querySelector('[type="submit"]');
+  submit.disabled = true;
+  submit.textContent = 'Submitting…';
+  try {
+    const created = await api('/transactions/propose', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      headers: { 'Idempotency-Key': proposalAttempt.key }
+    }, 'agent');
+    if (sessionVersion !== state.sessionVersion || requestId !== state.proposalRequestId) return;
+    upsertTransaction(created);
+    state.transactionsLoaded = true;
+    renderAll();
+    const result = document.getElementById('proposal-result');
+    const reasons = (created.policy_reasons || []).concat(created.risk_reasons || []);
+    result.hidden = false;
+    result.innerHTML = `<h3>Proposal recorded · ${esc(statusLabel(created.status))}</h3>
+      <p>Workflow ID · <span class="small-mono">${esc(created.transaction_id)}</span></p>
+      <p>Policy · ${esc(created.policy_decision)} · Risk · ${esc(created.risk_score)}/100 (${esc(created.risk_level)})</p>
+      ${reasons.length ? `<ul class="reason-list">${reasons.map((reason) => `<li>${esc(reason)}</li>`).join('')}</ul>` : '<p>No additional policy or risk reasons were returned.</p>'}`;
+    void refreshAuditSummary();
+    notify(`Proposal recorded by the backend: ${statusLabel(created.status)}.`, 'success');
+    if (created.status === 'awaiting_approval') setView('approvals');
+  } catch (error) {
+    if (sessionVersion !== state.sessionVersion || requestId !== state.proposalRequestId) return;
+    const result = document.getElementById('proposal-result');
+    result.hidden = false;
+    result.innerHTML = `<h3>Proposal was not confirmed</h3><p>${esc(error.message)}</p>`;
+    notify(`Proposal was not confirmed: ${error.message}`, 'error');
+    if (error.status === 401) {
+      state.tokens.agent = '';
+      document.getElementById('connection-status').textContent = 'Agent token rejected';
+      document.getElementById('settings-status').textContent = 'Owner verified · agent token rejected';
+    }
+  } finally {
+    if (sessionVersion === state.sessionVersion && requestId === state.proposalRequestId) {
+      submit.disabled = false;
+      submit.textContent = 'Create proposal';
+    }
+  }
+};
+
+const upsertTransaction = (transaction) => {
+  state.transactions = [
+    transaction,
+    ...state.transactions.filter((tx) => tx.transaction_id !== transaction.transaction_id)
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 50);
+};
+
+const handleApprove = async (transactionId, fingerprint) => {
+  if (!state.tokens.owner || !/^[0-9a-f]{64}$/.test(fingerprint || '') || state.busyActions.has(transactionId)) return;
+  state.busyActions.add(transactionId);
+  const sessionVersion = state.sessionVersion;
+  renderApprovals();
+  try {
+    const result = await api(`/transactions/${encodeURIComponent(transactionId)}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ transaction_fingerprint: fingerprint, confirmation: 'APPROVE' })
+    }, 'owner');
+    if (sessionVersion !== state.sessionVersion) return;
+    upsertTransaction(result);
+    renderAll();
+    void refreshAuditSummary();
+    notify(`Backend confirmed approval. Current status: ${statusLabel(result.status)}.`, 'success');
+  } catch (error) {
+    if (sessionVersion !== state.sessionVersion) return;
+    notify(`Approval was not confirmed: ${error.message}`, 'error');
+    await refreshTransactions();
+  } finally {
+    if (sessionVersion === state.sessionVersion) {
+      state.busyActions.delete(transactionId);
+      renderApprovals();
+      renderActivity();
+    }
+  }
+};
+
+const handleSimulate = async (transactionId) => {
+  if (!state.tokens.owner || state.busyActions.has(transactionId)) return;
+  if (!window.confirm('Request a simulation only? No transaction will be signed or broadcast.')) return;
+  state.busyActions.add(transactionId);
+  const sessionVersion = state.sessionVersion;
+  renderActivity();
+  try {
+    const result = await api(`/transactions/${encodeURIComponent(transactionId)}/execute`, {
+      method: 'POST'
+    }, 'owner');
+    if (sessionVersion !== state.sessionVersion) return;
+    upsertTransaction(result);
+    renderAll();
+    if (result.status === 'executed_simulated') {
+      const reference = result.execution_reference
+        ? ` Simulation reference: ${result.execution_reference}.`
+        : '';
+      notify(`Backend confirmed simulated execution. No on-chain transaction occurred.${reference}`, 'success');
+    } else {
+      notify(`Backend returned workflow status: ${statusLabel(result.status)}.`, 'error');
+    }
+    void refreshAuditSummary();
+  } catch (error) {
+    if (sessionVersion !== state.sessionVersion) return;
+    notify(`Simulation request was not confirmed: ${error.message}`, 'error');
+    await refreshTransactions();
+  } finally {
+    if (sessionVersion === state.sessionVersion) {
+      state.busyActions.delete(transactionId);
+      renderActivity();
+    }
+  }
+};
+
+const inspectTransaction = async (transactionId) => {
+  const tx = (state.transactions || []).find((item) => item.transaction_id === transactionId);
+  if (!tx) return;
+  const sessionVersion = state.sessionVersion;
+  const requestId = ++state.auditRequestId;
+  state.auditSelectedId = transactionId;
+  setView('activity');
+  const detailTarget = document.getElementById('audit-detail');
+  detailTarget.innerHTML = '<div class="loading">Loading persisted audit events…</div>';
+  try {
+    const audit = await api(`/transactions/${encodeURIComponent(transactionId)}/audit`, { method: 'GET' }, 'owner');
+    if (sessionVersion !== state.sessionVersion || requestId !== state.auditRequestId) return;
+    state.audit = Array.isArray(audit) ? audit : [];
+    renderAuditDetail();
+  } catch (error) {
+    if (sessionVersion !== state.sessionVersion || requestId !== state.auditRequestId) return;
+    detailTarget.innerHTML = `<div class="empty-state"><span>!</span><strong>Audit unavailable</strong><div>${esc(error.message)}</div></div>`;
+  }
+};
+
+const renderAuditDetail = () => {
+  const target = document.getElementById('audit-detail');
+  if (!state.audit.length) {
+    const message = state.auditSelectedId
+      ? `No persisted audit events were returned for ${esc(state.auditSelectedId)}.`
+      : 'Select a workflow record to inspect its audit events.';
+    target.innerHTML = `<div class="empty-state"><span>≡</span><strong>No event selected</strong><div>${message}</div></div>`;
+    return;
+  }
+  target.innerHTML = state.audit.map((event) => {
+    const details = JSON.stringify(event.details || {}, null, 2);
+    return `<article class="audit-card">
+      <div class="approval-head"><div><small>EVENT ${esc(event.event_id)} · ${esc(event.actor_role || 'unknown actor')}</small><h3>${esc(event.event_type || 'Unknown event')}</h3></div>
+        <span class="smallcaps muted">${esc(humanTime(event.created_at))}</span></div>
+      <div class="event-meta">
+        <div><strong>Workflow</strong><span class="small-mono">${esc(event.transaction_id || state.auditSelectedId)}</span></div>
+        <div><strong>Transition</strong>${esc(event.from_status || '—')} → ${esc(event.to_status || '—')}</div>
+      </div>
+      ${event.fingerprint ? `<div class="fingerprint">Fingerprint · ${esc(event.fingerprint)}</div>` : ''}
+      <pre class="event-details">${esc(details)}</pre>
+    </article>`;
+  }).join('');
+};
+
+document.querySelectorAll('[data-view]').forEach((button) => {
+  button.addEventListener('click', () => {
+    const view = button.dataset.view || 'overview';
+    setView(view);
+  });
+});
+
+document.querySelectorAll('[data-target]').forEach((button) => {
+  button.addEventListener('click', () => {
+    const target = button.dataset.target || 'overview';
+    setView(target);
+  });
+});
+
+document.getElementById('refresh').addEventListener('click', async () => {
+  const button = document.getElementById('refresh');
+  button.disabled = true;
+  try {
+    await Promise.all([checkApiHealth(), refreshTransactions()]);
+    if (state.tokens.owner) {
+      await refreshMarketSnapshot();
+      if (state.view === 'markets') await loadMarketQuote(state.marketSelected.assetClass, state.marketSelected.symbol);
+    }
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.getElementById('avatar').addEventListener('click', openConnectionModal);
+
+document.getElementById('open-connection').addEventListener('click', openConnectionModal);
+
+document.getElementById('reconnect').addEventListener('click', openConnectionModal);
+
+document.getElementById('reset-session').addEventListener('click', resetSession);
+
+document.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', closeConnectionModal));
+
+document.getElementById('connection-modal').addEventListener('click', (event) => {
+  if (event.target.id === 'connection-modal') closeConnectionModal();
+});
+document.addEventListener('keydown', (event) => {
+  const modal = document.getElementById('connection-modal');
+  if (!modal.classList.contains('open')) return;
+  if (event.key === 'Escape') {
+    closeConnectionModal();
+    return;
+  }
+  if (event.key !== 'Tab') return;
+  const focusable = Array.from(modal.querySelectorAll(
+    'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )).filter((element) => element.getClientRects().length);
+  if (!focusable.length) {
+    event.preventDefault();
+    return;
+  }
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) {
+    event.preventDefault();
+    first.focus();
+  }
+});
+
+document.getElementById('connection-form').addEventListener('submit', handleConnect);
+document.getElementById('proposal-form').addEventListener('submit', handleProposalSubmit);
+document.getElementById('activity-search').addEventListener('input', renderActivity);
+document.getElementById('market-search').addEventListener('input', renderMarketButtons);
+document.getElementById('retry-market').addEventListener('click', () =>
+  loadMarketQuote(state.marketSelected.assetClass, state.marketSelected.symbol)
+);
+
+document.addEventListener('click', async (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  const element = target?.closest('[data-action]');
+  if (!element) return;
+  const action = element.dataset.action;
+  const transactionId = element.dataset.id;
+  const fingerprint = element.dataset.fingerprint;
+  if (action === 'approve') await handleApprove(transactionId, fingerprint);
+  if (action === 'inspect') await inspectTransaction(transactionId);
+  if (action === 'execute') await handleSimulate(transactionId);
+});
+
+document.addEventListener('click', async (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  const element = target?.closest('[data-market-select]');
+  if (!element) return;
+  const [assetClass, symbol] = (element.dataset.marketSelect || 'crypto:BTC').split(':');
+  state.marketSelected = { assetClass, symbol };
+  await renderMarketList();
+});
+
+setView('overview');
+renderApprovals();
+renderActivity();
+renderAuditSummary();
+renderAuditDetail();
+showMarketUnavailable('Connect with an owner token to request quotes.');
+checkApiHealth();
 </script>
 </body>
 </html>
