@@ -34,11 +34,13 @@ The proposal form is intentionally bounded to the current demo policy: chain ID 
 There is no separate frontend build or package command. From the repository root, run:
 
 ~~~bash
-python -m pytest -q
-ruff check .
+uv sync --locked --extra dev
+uv run --locked playwright install chromium
+uv run --locked python -m pytest -q
+uv run --locked ruff check .
 ~~~
 
-The frontend tests check the served page structure, supported API operations, credential-handling indicators, and simulation-only wording. When Node.js is available, focused regression tests also execute selected async frontend functions against mocked API and DOM dependencies to exercise stale connections, disconnects, and failure handling. These tests are not a full browser or end-to-end security assessment.
+The frontend tests check the served page structure, supported API operations, credential-handling indicators, and simulation-only wording. Focused browser regressions use Playwright with locally mocked API responses to exercise the connection dialog, responsive layout, and escaping of API-provided content. They do not replace a full security assessment.
 
 ## Safety and limitations
 

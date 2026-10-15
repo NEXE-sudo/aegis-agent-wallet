@@ -14,6 +14,7 @@ cd aegis-agent-wallet-release-check
 git checkout --detach <FINAL_RELEASE_COMMIT_SHA>
 
 uv sync --locked --extra dev
+uv run --locked playwright install --with-deps chromium
 uv run --locked python -m pytest -q
 
 # Match the dependency-audit tooling and invocation used by CI.
