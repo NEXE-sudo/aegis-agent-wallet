@@ -4,7 +4,7 @@
 >
 > **Last updated:** 2026-10-15  
 > **Repository:** [NEXE-sudo/aegis-agent-wallet](https://github.com/NEXE-sudo/aegis-agent-wallet)  
-> **Current package/API version:** 1.10.0  
+> **Current package/API version:** 1.10.1  
 > **Current phase:** Milestone 7 — Documentation and Release
 > **Current status:** Milestones 1–6 complete; Milestone 7 in progress; Milestone 8 is optional and out of current scope.
 
@@ -207,7 +207,7 @@ Goal: package the prototype as a clear, reproducible portfolio/demo project.
 - [x] Verify a clean setup from a fresh checkout of the final release candidate. On 2026-10-15, a separate checkout at `59ac35e28237a988dbdde7a9f33a76857f0d2c83` completed `uv sync --locked --extra dev`, the full test suite (383 passed; one Starlette/httpx deprecation warning), `pip-audit --skip-editable` (no known vulnerabilities; the editable project distribution is intentionally skipped), and `uv run --locked ruff check .`. The audit was rerun with `VIRTUAL_ENV` unset and `PIPAPI_PYTHON_LOCATION` explicitly set to the disposable checkout interpreter. GitHub Actions `Python checks` passed for PR #165 head `c520a236deadb3fb49a1b8dfa5f0b750fc5f3702` (run #38742564410). The merge commit is documentation-only; run the full release gate against the exact final tagged commit before tagging.
 - [x] Run Gitleaks against Git history and resolve the public demo contract false positive (PR #155; owner reported Gitleaks passed on the post-merge `main` checkout on 2026-10-12; release checklist records the precise scope and limitation).
 - [x] Review the read-only market-data addition for scope and documentation (PR #159: owner-authenticated endpoint, fixed HTTPS providers, bounded timeouts, validated quote data, stale flags, sanitized upstream errors, and no wiring into transaction or policy decisions; equity data is documented as daily-close information). PR #161 adds malformed-response and upstream-failure regression tests; PR #163 explicitly disables redirects for both fixed-host provider clients.
-- [ ] Tag/version only after the release criteria and checks are satisfied.
+- [ ] Publish corrective patch release `v1.10.1` only after the exact final candidate passes the fresh-checkout release gate. The pre-existing `v1.10.0` tag is intentionally left untouched; it resolves to `4c9c9431dca31d15137501cb99b026fcac829236`, while the previously verified candidate `154185cc0378448fa0fa4543762d85ead02bdff7` is nine commits ahead and contains the frontend and market-data integration. Version/package metadata is being advanced to `1.10.1`; rerun the full release gate on the post-merge commit before creating `v1.10.1`.
 
 **Exit criteria:** a reviewer can understand the architecture, run the demo, inspect tests, and distinguish implemented guarantees from limitations.
 
@@ -218,6 +218,8 @@ Goal: package the prototype as a clear, reproducible portfolio/demo project.
 This would be a separate design/security project, not a simple continuation of the simulation prototype. It may involve secure key custody, transaction signing, nonce management, submission idempotency, receipt reconciliation, RPC trust, chain reorgs, monitoring, incident response, and independent security review. Do not implement real signing or submission unless the project owner explicitly authorizes this new scope after a dedicated design review.
 
 ## 4. Iteration estimate
+
+Release correction note (2026-10-15): the already-published `v1.10.0` tag points to an earlier commit than the candidate verified in the latest fresh checkout. Do not retarget or delete that published tag. A corrective `v1.10.1` patch release is being prepared to version the current implementation and should only be tagged after the merged version bump passes the exact-commit release gate.
 
 As of PR #163, Milestones 1–6 are complete and only the final release gates in Milestone 7 remain. A reasonable estimate is **about 2–4 additional focused PRs** to reach the tagged simulation-only demo/portfolio release, assuming the final clean-checkout and dependency-audit checks pass without finding issues that need fixes. This estimate excludes the verification work itself, which is required but does not necessarily need a PR.
 

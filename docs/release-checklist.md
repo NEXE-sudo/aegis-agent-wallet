@@ -1,5 +1,7 @@
 # Release Checklist and Known Limitations
 
+> **Release correction (2026-10-15):** The existing published `v1.10.0` tag resolves to `4c9c9431dca31d15137501cb99b026fcac829236`, not the newer candidate `154185cc0378448fa0fa4543762d85ead02bdff7` that passed the latest fresh-checkout checks. Leave the published `v1.10.0` tag untouched. The corrective `v1.10.1` release must be based on the merged version bump and verified from a fresh checkout of its exact final commit before tagging.
+
 Aegis Agent Wallet is a local, simulation-only portfolio prototype. This checklist is a release gate for a tagged demo/portfolio version; completing it does not certify production readiness or independently audit security.
 
 ## Repeatable final-candidate verification
