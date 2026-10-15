@@ -36,7 +36,7 @@ jobs:
 
       - name: Install dependency audit tooling
         run: |
-          uv pip install --python .venv/bin/python "setuptools>=83.0.0" pip-audit
+          uv pip install --python .venv/bin/python "setuptools>=83.0.0" "pip-audit==2.10.1"
 
       - name: Audit installed Python dependencies
         run: .venv/bin/python -m pip_audit --skip-editable

@@ -18,14 +18,14 @@ uv run --locked playwright install --with-deps chromium
 uv run --locked python -m pytest -q
 
 # Match the dependency-audit tooling and invocation used by CI.
-uv pip install --python .venv/bin/python "setuptools>=83.0.0" pip-audit
+uv pip install --python .venv/bin/python "setuptools>=83.0.0" "pip-audit==2.10.1"
 .venv/bin/python -m pip_audit --skip-editable
 
 uv run --locked ruff check .
 git rev-parse HEAD
 ```
 
-Record the resolved commit SHA and the actual output/result of each command in the release evidence. If any command fails, stop and resolve it before considering a tag. The dependency-audit tool is installed into the disposable verification environment after the locked project sync, matching CI; it is not added to the application dependency set. Remove the temporary checkout after recording the results.
+Record the resolved commit SHA and the actual output/result of each command in the release evidence. If any command fails, stop and resolve it before considering a tag. The pinned `pip-audit` 2.10.1 tool is installed into the disposable verification environment after the locked project sync, matching CI; it is intentionally not added to the application dependency set. Run both the tool-install command and the module invocation above. Remove the temporary checkout after recording the results.
 
 ## Release gate
 
