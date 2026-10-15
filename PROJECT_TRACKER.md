@@ -204,7 +204,7 @@ Goal: package the prototype as a clear, reproducible portfolio/demo project.
 - [x] Add architecture/workflow diagrams if they improve understanding (`docs/workflow-state-transitions.md` state-transition diagram; PR #150).
 - [x] Document API examples, approval semantics, hard blocks, and simulation-only execution (README workflow endpoint reference, `docs/demo-scenario.md`, `docs/python-client.md`, and `docs/workflow-state-transitions.md`).
 - [x] Record known limitations and a release checklist (`docs/release-checklist.md`; PR adds the release gate and documents prototype limitations).
-- [ ] Verify a clean setup from a fresh checkout of the final release candidate. The earlier fresh clone of `main` at `c6a37a1` completed locked dependency sync, 349 tests, and Ruff before the later frontend and market-data additions; repeat against the final candidate rather than treating that earlier result as final evidence. PR #162 added a repeatable command sequence; the evidence still needs to be generated against the exact final commit.
+- [x] Verify a clean setup from a fresh checkout of the final release candidate. On 2026-10-15, a separate checkout at `59ac35e28237a988dbdde7a9f33a76857f0d2c83` completed `uv sync --locked --extra dev`, the full test suite (383 passed; one Starlette/httpx deprecation warning), `pip-audit --skip-editable` (no known vulnerabilities; the editable project distribution is intentionally skipped), and `uv run --locked ruff check .`. The audit was rerun with `VIRTUAL_ENV` unset and `PIPAPI_PYTHON_LOCATION` explicitly set to the disposable checkout interpreter. CI/release-candidate status still needs review after the final release commit.
 - [x] Run Gitleaks against Git history and resolve the public demo contract false positive (PR #155; owner reported Gitleaks passed on the post-merge `main` checkout on 2026-10-12; release checklist records the precise scope and limitation).
 - [x] Review the read-only market-data addition for scope and documentation (PR #159: owner-authenticated endpoint, fixed HTTPS providers, bounded timeouts, validated quote data, stale flags, sanitized upstream errors, and no wiring into transaction or policy decisions; equity data is documented as daily-close information). PR #161 adds malformed-response and upstream-failure regression tests; PR #163 explicitly disables redirects for both fixed-host provider clients.
 - [ ] Tag/version only after the release criteria and checks are satisfied.
@@ -398,7 +398,7 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #160 | Align release gate with market-data integration | Merged |
 | #161 | Test malformed market-data provider responses and upstream failures | Merged |
 | #162 | Add reproducible final-candidate verification steps | Merged |
-| #163 | Reject redirects from market-data providers | Merged |
+| #163 | Reject redirects from market-data providers | Merged |\n| #164 | Refresh tracker for final release stage | Merged |
 
 ## 6. Current architecture and useful code locations
 
