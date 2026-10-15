@@ -18,7 +18,6 @@ from app.chain.router import router as base_sepolia_router
 from app.market_data import (
     CompositeMarketDataProvider,
     MarketDataError,
-    MarketQuote,
     UnsupportedMarketSymbol,
 )
 from app.policy.engine import evaluate_transaction
