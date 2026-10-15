@@ -35,4 +35,4 @@ The transaction form is intentionally bounded to the current demo policy: chain 
 - The displayed risk score is the backend's explainable heuristic, not a validated fraud model.
 - The approval queue reflects persisted workflow state; it does not imply a real financial balance or brokerage position.
 - Local bearer tokens are exposed to the browser session because the browser sends authenticated API requests. Use only with the local prototype, keep the server bound to 127.0.0.1, and never paste production credentials.
-- Market data, equity brokers, crypto exchange order routing, and paper-trading portfolio accounting are future, separate scope.
+- The separate read-only market-data API is not wired into this UI or the transaction workflow. Equity brokers, crypto exchange order routing, and paper-trading portfolio accounting remain out of scope.
