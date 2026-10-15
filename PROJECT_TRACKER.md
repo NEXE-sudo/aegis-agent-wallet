@@ -2,7 +2,7 @@
 
 > **Purpose:** This is the canonical project status and continuation guide for humans and AI assistants. Read this file before proposing or implementing the next change.
 >
-> **Last updated:** 2026-10-12  
+> **Last updated:** 2026-10-15  
 > **Repository:** [NEXE-sudo/aegis-agent-wallet](https://github.com/NEXE-sudo/aegis-agent-wallet)  
 > **Current package/API version:** 1.10.0  
 > **Current phase:** Milestone 7 — Documentation and Release
@@ -30,7 +30,7 @@ These rules are part of the project, not optional suggestions. Follow them in ev
 2. **Work from current `main`.** Before creating a branch, inspect the current repository state and base the branch on the latest `main`.
 3. **Do not merge on your own test claims.** The human runs local validation and explicitly reports that both `python -m pytest -q` and `ruff check .` passed.
 4. **After the user reports both checks passed:** automatically fetch the PR again; verify it is open, not already merged, and mergeable; squash-merge using the latest PR head SHA as the expected SHA; then fetch the PR again and verify it is closed and merged. Do not ask for a separate merge confirmation.
-5. **After merge:** give the human the commands to sync local `main` and rerun both checks. Wait for confirmation before proceeding to the next implementation PR.
+5. **After merge:** give the human the commands to sync local `main`, rerun both checks, and delete the merged feature branch. Once the human confirms this is complete, immediately select and start the next focused task from this tracker; do not ask whether to continue or what to work on next unless a genuine project-scope decision is required.
 6. **Never claim local tests ran** unless the human actually reports the result or an available execution environment genuinely ran them.
 7. Keep execution simulation-only; fail closed on security-sensitive uncertainty; add regression tests for bug fixes and security controls.
 8. When scope or an implementation detail is uncertain, inspect the code/tests and explain the tradeoff rather than inventing project state.
@@ -204,8 +204,9 @@ Goal: package the prototype as a clear, reproducible portfolio/demo project.
 - [x] Add architecture/workflow diagrams if they improve understanding (`docs/workflow-state-transitions.md` state-transition diagram; PR #150).
 - [x] Document API examples, approval semantics, hard blocks, and simulation-only execution (README workflow endpoint reference, `docs/demo-scenario.md`, `docs/python-client.md`, and `docs/workflow-state-transitions.md`).
 - [x] Record known limitations and a release checklist (`docs/release-checklist.md`; PR adds the release gate and documents prototype limitations).
-- [x] Verify a clean setup from a fresh checkout (fresh clone of `main` at `c6a37a1`; locked dependency sync completed, 349 tests passed, and Ruff passed. The shell had `VIRTUAL_ENV` set to the original checkout, so `uv` warned and correctly ignored that mismatched environment; this warning was recorded rather than treated as a test failure).
+- [ ] Verify a clean setup from a fresh checkout of the final release candidate. The earlier fresh clone of `main` at `c6a37a1` completed locked dependency sync, 349 tests, and Ruff before the later frontend and market-data additions; repeat against the final candidate rather than treating that earlier result as final evidence.
 - [x] Run Gitleaks against Git history and resolve the public demo contract false positive (PR #155; owner reported Gitleaks passed on the post-merge `main` checkout on 2026-10-12; release checklist records the precise scope and limitation).
+- [x] Review the read-only market-data addition for scope and documentation (PR #159: owner-authenticated endpoint, fixed HTTPS providers, bounded timeouts, validated quote data, stale flags, sanitized upstream errors, and no wiring into transaction or policy decisions; equity data is documented as daily-close information).
 - [ ] Tag/version only after the release criteria and checks are satisfied.
 
 **Exit criteria:** a reviewer can understand the architecture, run the demo, inspect tests, and distinguish implemented guarantees from limitations.
@@ -391,6 +392,10 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #153 | Improve demo token setup and record walkthrough verification | Merged |
 | #154 | Record release CI and threat model review | Merged |
 | #155 | Suppress public demo contract false positive and clarify variable name | Merged |
+| #156 | Record Gitleaks history review | Merged |
+| #157 | Refresh final release validation evidence | Merged |
+| #158 | Add local Aegis frontend control centre | Merged |
+| #159 | Add shared read-only market-data providers for crypto and equities | Merged |
 
 ## 6. Current architecture and useful code locations
 
@@ -401,6 +406,7 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 - `app/workflow/controller.py`: workflow orchestration, policy/risk evaluation, approval/execution control.
 - `app/workflow/store.py`: SQLite persistence, locking, spend reservation, idempotency, fingerprints, audit trail, expiry.
 - `app/chain/`: read-only Base Sepolia chain integration.
+- `app/market_data.py` and `docs/market-data.md`: shared read-only crypto/equity quote providers, endpoint behavior, freshness semantics, and limitations.
 - `tests/test_api.py`: API, policy, workflow, and security regression tests.
 - `pyproject.toml`: package version, dependencies, pytest and Ruff configuration.
 - `README.md`: setup, API behavior, configuration, and safety boundaries.
