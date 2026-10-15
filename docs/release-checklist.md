@@ -30,6 +30,7 @@ Record the resolved commit SHA and the actual output/result of each command in t
 ## Release gate
 
 - [x] Start from a fresh checkout of the final intended release commit. Verified in a separate clone at `59ac35e28237a988dbdde7a9f33a76857f0d2c83` on 2026-10-15.
+- [x] Re-run fresh-checkout verification after PR #170 was merged, against exact commit `ab1384011afc7ea3b1507d9c9547fb21d1ad9019` (2026-10-15): `uv sync --locked --extra dev`; `uv run --locked playwright install chromium`; `uv run --locked python -m pytest -q` (**395 passed**, one existing Starlette/httpx deprecation warning); `pip-audit --skip-editable` (**No known vulnerabilities found**, editable project distribution skipped); and `uv run --locked ruff check .` all passed. The printed `git rev-parse HEAD` matched the intended SHA. Repeat the complete release gate on the final post-documentation commit before tagging.
 - [x] Install the locked dependencies with `uv sync --locked --extra dev` from the final release-candidate checkout (passed on `59ac35e28237a988dbdde7a9f33a76857f0d2c83` on 2026-10-15).
 - [x] Run the full test suite from the final release-candidate checkout (`uv run --locked python -m pytest -q`): **383 passed**, with one Starlette/httpx deprecation warning, on `59ac35e28237a988dbdde7a9f33a76857f0d2c83` (2026-10-15).
 - [x] Run Ruff from the final release-candidate checkout (`uv run --locked ruff check .`): passed on `59ac35e28237a988dbdde7a9f33a76857f0d2c83` (2026-10-15).
