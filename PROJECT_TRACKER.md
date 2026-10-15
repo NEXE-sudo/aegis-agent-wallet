@@ -204,9 +204,9 @@ Goal: package the prototype as a clear, reproducible portfolio/demo project.
 - [x] Add architecture/workflow diagrams if they improve understanding (`docs/workflow-state-transitions.md` state-transition diagram; PR #150).
 - [x] Document API examples, approval semantics, hard blocks, and simulation-only execution (README workflow endpoint reference, `docs/demo-scenario.md`, `docs/python-client.md`, and `docs/workflow-state-transitions.md`).
 - [x] Record known limitations and a release checklist (`docs/release-checklist.md`; PR adds the release gate and documents prototype limitations).
-- [ ] Verify a clean setup from a fresh checkout of the final release candidate. The earlier fresh clone of `main` at `c6a37a1` completed locked dependency sync, 349 tests, and Ruff before the later frontend and market-data additions; repeat against the final candidate rather than treating that earlier result as final evidence.
+- [ ] Verify a clean setup from a fresh checkout of the final release candidate. The earlier fresh clone of `main` at `c6a37a1` completed locked dependency sync, 349 tests, and Ruff before the later frontend and market-data additions; repeat against the final candidate rather than treating that earlier result as final evidence. PR #162 added a repeatable command sequence; the evidence still needs to be generated against the exact final commit.
 - [x] Run Gitleaks against Git history and resolve the public demo contract false positive (PR #155; owner reported Gitleaks passed on the post-merge `main` checkout on 2026-10-12; release checklist records the precise scope and limitation).
-- [x] Review the read-only market-data addition for scope and documentation (PR #159: owner-authenticated endpoint, fixed HTTPS providers, bounded timeouts, validated quote data, stale flags, sanitized upstream errors, and no wiring into transaction or policy decisions; equity data is documented as daily-close information).
+- [x] Review the read-only market-data addition for scope and documentation (PR #159: owner-authenticated endpoint, fixed HTTPS providers, bounded timeouts, validated quote data, stale flags, sanitized upstream errors, and no wiring into transaction or policy decisions; equity data is documented as daily-close information). PR #161 adds malformed-response and upstream-failure regression tests; PR #163 explicitly disables redirects for both fixed-host provider clients.
 - [ ] Tag/version only after the release criteria and checks are satisfied.
 
 **Exit criteria:** a reviewer can understand the architecture, run the demo, inspect tests, and distinguish implemented guarantees from limitations.
@@ -219,16 +219,15 @@ This would be a separate design/security project, not a simple continuation of t
 
 ## 4. Iteration estimate
 
-A reasonable current planning range is **about 13–23 additional focused PRs** to reach a strong simulation-only showcase:
+As of PR #163, Milestones 1–6 are complete and only the final release gates in Milestone 7 remain. A reasonable estimate is **about 2–4 additional focused PRs** to reach the tagged simulation-only demo/portfolio release, assuming the final clean-checkout and dependency-audit checks pass without finding issues that need fixes. This estimate excludes the verification work itself, which is required but does not necessarily need a PR.
 
-- Milestone 2: complete.
-- Milestone 3: roughly 3–5 PRs.
-- Milestone 4: roughly 3–5 PRs.
-- Milestone 5: roughly 2–4 PRs.
-- Milestone 6: roughly 3–6 PRs.
-- Milestone 7: roughly 2–3 PRs.
+Likely remaining work:
 
-Ranges overlap in practice: a PR may satisfy more than one acceptance criterion, and test findings can add work. Milestone 8 is excluded and would require a separate estimate.
+- Keep the tracker and release evidence aligned with the latest merged changes (one focused documentation PR where needed).
+- Resolve any issues uncovered by the final fresh-checkout, test, lint, or dependency-audit run (zero to two PRs depending on findings).
+- Prepare intentional release metadata/version and release notes, then tag only after every required release gate is satisfied.
+
+This is a planning range, not a promise. Milestone 8 remains optional, out of scope, and would require a separate decision.
 
 ## 5. Merged PR history
 
@@ -396,6 +395,10 @@ This is a compact summary of merged work. Use the actual PRs and source code as 
 | #157 | Refresh final release validation evidence | Merged |
 | #158 | Add local Aegis frontend control centre | Merged |
 | #159 | Add shared read-only market-data providers for crypto and equities | Merged |
+| #160 | Align release gate with market-data integration | Merged |
+| #161 | Test malformed market-data provider responses and upstream failures | Merged |
+| #162 | Add reproducible final-candidate verification steps | Merged |
+| #163 | Reject redirects from market-data providers | Merged |
 
 ## 6. Current architecture and useful code locations
 
