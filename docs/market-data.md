@@ -14,7 +14,7 @@ Examples:
 - `GET /market-data/equity/AAPL` — Stooq daily close quote for a US-listed equity.
 - `GET /market-data/equity/BRK.B` — Stooq daily close quote for a share class.
 
-A successful response includes `asset_class`, normalized `symbol`, `price`, `currency`, `as_of`, `source`, and `is_stale`. Prices are USD-denominated. Crypto timestamps come from the provider's last-update time. Stooq supplies daily session data rather than a timezone-aware intraday timestamp; its `as_of` value marks the session date and is only a freshness approximation.
+A successful response includes `asset_class`, normalized `symbol`, `price`, `currency`, `as_of`, `source`, and `is_stale`. Prices are USD-denominated. Crypto timestamps come from the provider's last-update time. Stooq supplies daily session data rather than a timezone-aware intraday timestamp; its `as_of` value marks the session date and is only a freshness approximation. For the current UTC session date, `as_of` is capped at the current time; a future session date is rejected.
 
 ## Provider and error behaviour
 
