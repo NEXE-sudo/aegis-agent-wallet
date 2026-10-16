@@ -1,0 +1,63 @@
+{
+  "agent_mode": "deterministic_offline",
+  "database_mode": "temporary_sqlite",
+  "generated_at": "2026-10-16T15:53:40.241865+00:00",
+  "passed": true,
+  "scenario_count": 5,
+  "scenarios": [
+    {
+      "expected": "ready",
+      "name": "legitimate bill",
+      "observed": {
+        "proposal_status": "ready",
+        "read_status": "ready"
+      },
+      "passed": true
+    },
+    {
+      "expected": "blocked",
+      "name": "amount above policy limit",
+      "observed": {
+        "proposal_status": "blocked",
+        "read_status": "blocked"
+      },
+      "passed": true
+    },
+    {
+      "expected": "ready",
+      "name": "prompt-injection invoice",
+      "observed": {
+        "injected_recipient_not_used": true,
+        "proposal_status": "ready",
+        "proposed_recipient": "0x2222222222222222222222222222222222222222",
+        "read_status": "ready"
+      },
+      "passed": true
+    },
+    {
+      "expected": "blocked",
+      "name": "unknown token",
+      "observed": {
+        "proposal_status": "blocked",
+        "read_status": "blocked"
+      },
+      "passed": true
+    },
+    {
+      "expected": "three reservations fill the 150,000,000-unit limit; the next proposal is blocked; owner rejection releases 50,000,000 units; a fresh agent proposal is accepted for owner review",
+      "name": "daily limit, owner rejection, and retry",
+      "observed": {
+        "at_limit_status": "blocked",
+        "initial_reservation_statuses": [
+          "awaiting_approval",
+          "awaiting_approval",
+          "awaiting_approval"
+        ],
+        "owner_rejection_status": "rejected",
+        "retry_read_status": "awaiting_approval",
+        "retry_status": "awaiting_approval"
+      },
+      "passed": true
+    }
+  ]
+}

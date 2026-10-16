@@ -5,6 +5,8 @@
 ## Highlights
 
 - Add owner-authenticated cancellation of pending proposals, releasing reserved daily budget and recording the cancellation in the audit trail.
+- Add owner-authenticated rejection of pending proposals, releasing reserved daily budget and recording rejection in the audit trail.
+- Accept Stooq quotes for the current session date without treating the end-of-day timestamp as a future quote; retain staleness checks for older data and rejection of genuinely future dates.
 - Correct same-day equity quote handling for Stooq session dates.
 - Clarify that readable ERC-20 metadata is not token verification and cap metadata string size.
 - Explicitly close SQLite connections and consolidate duplicated approval-expiry logic.

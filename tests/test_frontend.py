@@ -73,6 +73,7 @@ def test_frontend_covers_supported_views_and_workflow_endpoints():
         "api('/transactions/propose'",
         "/transactions/${encodeURIComponent(transactionId)}/approve",
         "/transactions/${encodeURIComponent(transactionId)}/execute",
+        "/transactions/${encodeURIComponent(transactionId)}/receipt",
         "/transactions/${encodeURIComponent(transactionId)}/cancel",
         "/transactions/${encodeURIComponent(transactionId)}/audit",
         "/market-data/${assetClass}/${symbol}",
@@ -132,7 +133,7 @@ def test_frontend_async_actions_do_not_clear_newer_session_busy_state():
     response = client.get("/")
 
     assert response.status_code == 200
-    for name in ("handleApprove", "handleSimulate"):
+    for name in ("handleApprove", "handleExecute"):
         function = _script_function(response.text, name)
         assert "if (sessionVersion === state.sessionVersion) {" in function
         assert "state.busyActions.delete(transactionId);" in function
@@ -184,6 +185,7 @@ def test_stale_connection_attempt_cannot_overwrite_newer_session():
     source = "\n".join(
         (
             _script_function(response.text, "handleConnect"),
+            _script_function(response.text, "setExecutionMode"),
             _script_function(response.text, "invalidatePendingRequests"),
         )
     )
@@ -195,7 +197,7 @@ const state = {
   sessionVersion: 0, refreshId: 0, healthRequestId: 0, marketRequestId: 0,
   marketSnapshotId: 0, marketQuoteRequestIds: new Map(), auditRequestId: 0,
   auditSummaryRequestId: 0, proposalRequestId: 0, connectionRequestId: 0,
-  tokens: {agent: '', owner: ''}, connected: false
+  tokens: {agent: '', owner: ''}, connected: false, executionMode: null
 };
 const firstHealth = {};
 firstHealth.promise = new Promise((resolve, reject) => {
@@ -205,7 +207,7 @@ firstHealth.promise = new Promise((resolve, reject) => {
 let healthCalls = 0;
 const api = async (_path, _options, role) => {
   if (role === 'public' && ++healthCalls === 1) return firstHealth.promise;
-  if (role === 'public') return {status: 'ok'};
+  if (role === 'public') return {status: 'ok', mode: 'simulated'};
   return [];
 };
 let formCalls = 0;
@@ -311,14 +313,15 @@ def test_market_failure_is_unavailable_and_action_failures_are_not_success():
     response = client.get("/")
     source = "\n".join(
         _script_function(response.text, name)
-        for name in ("loadMarketQuote", "handleApprove", "handleSimulate")
+        for name in ("loadMarketQuote", "handleApprove", "handleExecute")
     )
     _run_node(
         source,
         """
 const assert = require('node:assert/strict');
 const state = {
-  sessionVersion: 1, marketRequestId: 0, marketQuoteRequestIds: new Map(),
+  sessionVersion: 1, executionMode: 'simulated', transactions: [],
+  marketRequestId: 0, marketQuoteRequestIds: new Map(),
   marketSelected: {assetClass: 'crypto', symbol: 'BTC'},
   marketQuotes: {}, tokens: {owner: 'owner-token'}, busyActions: new Set()
 };
@@ -343,10 +346,10 @@ const window = {confirm: () => true};
   assert.equal(quoteShown, false);
 
   await handleApprove('tx-1', 'a'.repeat(64));
-  await handleSimulate('tx-2');
+  await handleExecute('tx-2');
   assert.equal(notices.length, 2);
   assert.match(notices[0].message, /Approval was not confirmed/);
-  assert.match(notices[1].message, /Simulation request was not confirmed/);
+  assert.match(notices[1].message, /Execution request was not confirmed/);
   assert.ok(notices.every((notice) => notice.kind === 'error'));
   assert.ok(notices.every((notice) => !/confirmed approval|confirmed simulated execution/.test(notice.message)));
   assert.equal(state.busyActions.size, 0);

@@ -26,6 +26,9 @@ AUDIT_EVENT_TYPES = {
     "risk_escalation_requires_approval",
     "simulated_execution",
     "transaction_cancelled",
+    "transaction_rejected",
+    "onchain_transaction_signed",
+    "onchain_transaction_submitted",
 }
 AUDIT_ACTOR_ROLES = {"agent", "owner", "system"}
 AUDIT_STATUSES = {
@@ -35,7 +38,14 @@ AUDIT_STATUSES = {
     "cancelled",
     "executed_simulated",
     "ready",
+    "rejected",
+    "submitting_onchain",
+    "submitted_onchain",
 }
+
+
+class OnchainSubmissionError(RuntimeError):
+    """Raised when a signed testnet transaction cannot be safely submitted."""
 
 
 def _proposal_fingerprint(proposal: dict[str, Any]) -> str:
@@ -106,6 +116,7 @@ class WorkflowStore:
                     approval_fingerprint TEXT,
                     approved_at TEXT,
                     execution_reference TEXT,
+                    signed_transaction TEXT,
                     executed_at TEXT,
                     recipient_normalized TEXT,
                     created_day TEXT,
@@ -124,6 +135,7 @@ class WorkflowStore:
             migrations = {
                 "idempotency_key": "TEXT",
                 "approved_at": "TEXT",
+                "signed_transaction": "TEXT",
                 "executed_at": "TEXT",
                 "recipient_normalized": "TEXT",
                 "created_day": "TEXT",
@@ -141,7 +153,8 @@ class WorkflowStore:
             # Older simulated executions used updated_at as their execution timestamp.
             db.execute(
                 """UPDATE transactions SET executed_at = updated_at
-                   WHERE status = 'executed_simulated' AND executed_at IS NULL"""
+                   WHERE status IN ('executed_simulated', 'submitted_onchain')
+                   AND executed_at IS NULL"""
             )
             # Backfill indexed spend keys for existing records without rewriting history.
             db.execute(
@@ -150,7 +163,8 @@ class WorkflowStore:
             )
             db.execute(
                 "UPDATE transactions SET executed_day = date(executed_at) "
-                "WHERE status = 'executed_simulated' AND executed_at IS NOT NULL "
+                "WHERE status IN ('executed_simulated', 'submitted_onchain') "
+                "AND executed_at IS NOT NULL "
                 "AND (executed_day IS NULL OR executed_day = '')"
             )
             rows = db.execute(
@@ -218,7 +232,7 @@ class WorkflowStore:
                     WHEN recipient_normalized IS NULL OR recipient_normalized !=
                          normalize_recipient(json_extract(proposal_json, '$.recipient')) THEN 1
                     WHEN created_day IS NULL OR created_day != date(created_at) THEN 1
-                    WHEN status = 'executed_simulated' AND (
+                    WHEN status IN ('executed_simulated', 'submitted_onchain') AND (
                         executed_at IS NULL OR executed_day IS NULL
                         OR executed_day != date(executed_at)
                     ) THEN 1
@@ -251,7 +265,7 @@ class WorkflowStore:
                             WHEN lower(trim(NEW.token_address)) !=
                                  lower(trim(json_extract(NEW.proposal_json, '$.token_address'))) THEN 1
                             WHEN NEW.created_day IS NULL OR NEW.created_day != date(NEW.created_at) THEN 1
-                            WHEN NEW.status = 'executed_simulated' AND (
+                            WHEN NEW.status IN ('executed_simulated', 'submitted_onchain') AND (
                                 NEW.executed_at IS NULL OR NEW.executed_day IS NULL
                                 OR NEW.executed_day != date(NEW.executed_at)
                             ) THEN 1
@@ -260,6 +274,32 @@ class WorkflowStore:
                         ELSE 1
                     END
                     WHERE transaction_id = NEW.transaction_id;
+                END
+            """)
+            db.execute("DROP TRIGGER IF EXISTS transactions_status_insert_guard")
+            db.execute("""
+                CREATE TRIGGER IF NOT EXISTS transactions_status_insert_guard
+                BEFORE INSERT ON transactions
+                WHEN NEW.status NOT IN (
+                    'blocked', 'ready', 'awaiting_approval', 'approved', 'cancelled',
+                    'rejected', 'executed_simulated', 'submitting_onchain',
+                    'submitted_onchain'
+                )
+                BEGIN
+                    SELECT RAISE(ABORT, 'invalid transaction status');
+                END
+            """)
+            db.execute("DROP TRIGGER IF EXISTS transactions_status_update_guard")
+            db.execute("""
+                CREATE TRIGGER IF NOT EXISTS transactions_status_update_guard
+                BEFORE UPDATE OF status ON transactions
+                WHEN NEW.status NOT IN (
+                    'blocked', 'ready', 'awaiting_approval', 'approved', 'cancelled',
+                    'rejected', 'executed_simulated', 'submitting_onchain',
+                    'submitted_onchain'
+                )
+                BEGIN
+                    SELECT RAISE(ABORT, 'invalid transaction status');
                 END
             """)
             db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_fingerprint ON transactions(fingerprint)")
@@ -307,6 +347,37 @@ class WorkflowStore:
                     details_json TEXT NOT NULL DEFAULT '{}',
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
+            """)
+            db.execute("DROP TRIGGER IF EXISTS audit_events_validation_guard")
+            db.execute("""
+                CREATE TRIGGER IF NOT EXISTS audit_events_validation_guard
+                BEFORE INSERT ON audit_events
+                WHEN NEW.event_type NOT IN (
+                    'approval_expired', 'approval_granted', 'idempotency_conflict',
+                    'policy_revalidation_blocked', 'policy_revalidation_requires_approval',
+                    'proposal_created', 'proposal_integrity_mismatch', 'proposal_replayed',
+                    'risk_escalation_requires_approval', 'simulated_execution',
+                    'transaction_cancelled', 'transaction_rejected',
+                    'onchain_transaction_signed', 'onchain_transaction_submitted'
+                )
+                OR NEW.actor_role NOT IN ('agent', 'owner', 'system')
+                OR (
+                    NEW.from_status IS NOT NULL AND NEW.from_status NOT IN (
+                        'approved', 'awaiting_approval', 'blocked', 'cancelled',
+                        'executed_simulated', 'ready', 'rejected', 'submitting_onchain',
+                        'submitted_onchain'
+                    )
+                )
+                OR (
+                    NEW.to_status IS NOT NULL AND NEW.to_status NOT IN (
+                        'approved', 'awaiting_approval', 'blocked', 'cancelled',
+                        'executed_simulated', 'ready', 'rejected', 'submitting_onchain',
+                        'submitted_onchain'
+                    )
+                )
+                BEGIN
+                    SELECT RAISE(ABORT, 'invalid audit event metadata');
+                END
             """)
             db.execute("""
                 CREATE INDEX IF NOT EXISTS idx_audit_events_transaction
@@ -445,7 +516,9 @@ class WorkflowStore:
                     (status IN ('ready', 'awaiting_approval', 'approved')
                      AND (created_day = ? OR date(created_at) = ?))
                     OR
-                    (status = 'executed_simulated'
+                    status = 'submitting_onchain'
+                    OR
+                    (status IN ('executed_simulated', 'submitted_onchain')
                      AND (executed_day = ? OR date(executed_at) = ?))
                   )
                 )
@@ -460,7 +533,8 @@ class WorkflowStore:
                     WHEN lower(trim(json_extract(proposal_json, '$.token_address'))) != ? THEN 0
                     WHEN status IN ('ready', 'awaiting_approval', 'approved')
                       AND (created_day = ? OR date(created_at) = ?) THEN 1
-                    WHEN status = 'executed_simulated'
+                    WHEN status = 'submitting_onchain' THEN 1
+                    WHEN status IN ('executed_simulated', 'submitted_onchain')
                       AND (executed_day = ? OR date(executed_at) = ?) THEN 1
                     ELSE 0
                   END = 1
@@ -501,8 +575,9 @@ class WorkflowStore:
         normalized_token = token_address.strip().lower()
         query = (
             "SELECT amount_base_units FROM transactions "
-            f"WHERE chain_id = ? AND token_address = ? AND created_day = ? "
-            f"AND status IN ({status_placeholders})"
+            f"WHERE chain_id = ? AND token_address = ? AND "
+            f"((created_day = ? AND status IN ({status_placeholders})) "
+            "OR status = 'submitting_onchain')"
         )
         args: list[Any] = [chain_id, normalized_token, today, *reservation_statuses]
         if exclude_transaction_id is not None:
@@ -511,7 +586,7 @@ class WorkflowStore:
         query += (
             " UNION ALL SELECT amount_base_units FROM transactions "
             "WHERE chain_id = ? AND token_address = ? AND executed_day = ? "
-            "AND status = 'executed_simulated'"
+            "AND status IN ('executed_simulated', 'submitted_onchain')"
         )
         args.extend([chain_id, normalized_token, today])
         if exclude_transaction_id is not None:
@@ -536,7 +611,8 @@ class WorkflowStore:
         query = (
             "SELECT amount_base_units FROM transactions "
             f"WHERE chain_id = ? AND token_address = ? AND recipient_normalized = ? "
-            f"AND created_day = ? AND status IN ({status_placeholders})"
+            f"AND ((created_day = ? AND status IN ({status_placeholders})) "
+            "OR status = 'submitting_onchain')"
         )
         args: list[Any] = [
             chain_id, normalized_token, normalized_recipient, today, *reservation_statuses
@@ -547,7 +623,8 @@ class WorkflowStore:
         query += (
             " UNION ALL SELECT amount_base_units FROM transactions "
             "WHERE chain_id = ? AND token_address = ? AND recipient_normalized = ? "
-            "AND executed_day = ? AND status = 'executed_simulated'"
+            "AND executed_day = ? "
+            "AND status IN ('executed_simulated', 'submitted_onchain')"
         )
         args.extend([chain_id, normalized_token, normalized_recipient, today])
         if exclude_transaction_id is not None:
@@ -718,6 +795,9 @@ class WorkflowStore:
             if record["status"] == "executed_simulated":
                 db.execute("COMMIT")
                 return "already_executed", record
+            if record["status"] == "submitted_onchain":
+                db.execute("COMMIT")
+                return "already_submitted", record
             if record["status"] == "approved":
                 now = _utc_now()
                 approved_at = record.get("approved_at")
@@ -792,8 +872,145 @@ class WorkflowStore:
             db.execute("COMMIT")
         return "cancelled", self.get(transaction_id)
 
+    def reject(
+        self, transaction_id: str, actor_role: str = "owner"
+    ) -> tuple[str, dict[str, Any] | None]:
+        """Reject a pending proposal and release its daily spend reservation."""
+        with closing(self._connect()) as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)
+            ).fetchone()
+            if row is None:
+                db.execute("COMMIT")
+                return "not_found", None
+            record = self._decode(row)
+            if record["status"] == "rejected":
+                db.execute("COMMIT")
+                return "already_rejected", record
+            if record["status"] not in {"ready", "awaiting_approval", "approved"}:
+                db.execute("COMMIT")
+                return "invalid_state", record
+            db.execute(
+                """UPDATE transactions SET status = 'rejected',
+                   approval_fingerprint = NULL, approved_at = NULL,
+                   updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
+                (transaction_id,),
+            )
+            self._append_audit(
+                db, transaction_id, "transaction_rejected", actor_role,
+                record["status"], "rejected", record["fingerprint"],
+                {"reservation_released": True},
+            )
+            db.execute("COMMIT")
+        return "rejected", self.get(transaction_id)
+
     def execute_simulated(
         self, transaction_id: str, policy: Any, actor_role: str = "owner"
+    ) -> tuple[str, dict[str, Any] | None]:
+        return self._execute_with_validation(transaction_id, policy, actor_role)
+
+    def execute_onchain(
+        self,
+        transaction_id: str,
+        policy: Any,
+        prepare: Callable[[dict[str, Any]], tuple[str, str]],
+        broadcast: Callable[[str], str],
+        actor_role: str = "owner",
+    ) -> tuple[str, dict[str, Any] | None]:
+        pending = self._pending_submission(transaction_id)
+        if pending is not None:
+            status, raw_transaction, transaction_hash, record = pending
+            if status == "not_found":
+                return "not_found", None
+            if status == "submitting_onchain":
+                return self._broadcast_pending(
+                    transaction_id, raw_transaction, transaction_hash, broadcast
+                )
+            if status == "submitted_onchain":
+                return "already_submitted", record
+        return self._execute_with_validation(
+            transaction_id, policy, actor_role, prepare, broadcast
+        )
+
+    def _pending_submission(
+        self, transaction_id: str
+    ) -> tuple[str, str, str, dict[str, Any]] | None:
+        with closing(self._connect()) as db:
+            row = db.execute(
+                "SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)
+            ).fetchone()
+        if row is None:
+            return ("not_found", "", "", {})
+        record = self._decode(row)
+        if record["status"] not in {"submitting_onchain", "submitted_onchain"}:
+            return None
+        self._validate_accounting_consistency(record)
+        if _proposal_fingerprint(record["proposal"]) != record["fingerprint"]:
+            raise WorkflowDataError("Stored workflow data is invalid")
+        raw_transaction = row["signed_transaction"]
+        transaction_hash = record["execution_reference"]
+        if (
+            record["status"] == "submitting_onchain"
+            and (not isinstance(raw_transaction, str) or not raw_transaction.startswith("0x"))
+        ) or not isinstance(transaction_hash, str):
+            raise WorkflowDataError("Stored workflow data is invalid")
+        return record["status"], raw_transaction or "", transaction_hash, record
+
+    def _broadcast_pending(
+        self,
+        transaction_id: str,
+        raw_transaction: str,
+        transaction_hash: str,
+        broadcast: Callable[[str], str],
+    ) -> tuple[str, dict[str, Any] | None]:
+        returned_hash = broadcast(raw_transaction)
+        if returned_hash.lower() != transaction_hash.lower():
+            raise OnchainSubmissionError("RPC returned a different transaction hash")
+        with closing(self._connect()) as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT status, fingerprint, execution_reference FROM transactions "
+                "WHERE transaction_id = ?",
+                (transaction_id,),
+            ).fetchone()
+            if row is None:
+                db.execute("ROLLBACK")
+                raise WorkflowDataError("Stored workflow data is invalid")
+            if (
+                row["status"] == "submitted_onchain"
+                and row["execution_reference"] == transaction_hash
+            ):
+                db.execute("COMMIT")
+                return "already_submitted", self.get(transaction_id)
+            if (
+                row["status"] != "submitting_onchain"
+                or row["execution_reference"] != transaction_hash
+            ):
+                db.execute("ROLLBACK")
+                raise WorkflowDataError("Stored workflow data is invalid")
+            executed_at = _utc_now().isoformat()
+            db.execute(
+                """UPDATE transactions SET status = 'submitted_onchain',
+                   signed_transaction = NULL, executed_at = ?, executed_day = date(?),
+                   updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
+                (executed_at, executed_at, transaction_id),
+            )
+            self._append_audit(
+                db, transaction_id, "onchain_transaction_submitted", "owner",
+                "submitting_onchain", "submitted_onchain", row["fingerprint"],
+                {"transaction_hash": transaction_hash},
+            )
+            db.execute("COMMIT")
+        return "submitted", self.get(transaction_id)
+
+    def _execute_with_validation(
+        self,
+        transaction_id: str,
+        policy: Any,
+        actor_role: str = "owner",
+        prepare_onchain: Callable[[dict[str, Any]], tuple[str, str]] | None = None,
+        broadcast_onchain: Callable[[str], str] | None = None,
     ) -> tuple[str, dict[str, Any] | None]:
         """Revalidates policy and spend inside the same write lock as execution."""
         from app.policy.engine import evaluate_transaction
@@ -931,20 +1148,51 @@ class WorkflowStore:
                 db.execute("COMMIT")
                 return "approval_required", record
 
-            reference = "simulated:" + record["fingerprint"][:24]
-            executed_at = _utc_now().isoformat()
-            db.execute(
-                """UPDATE transactions SET status = 'executed_simulated',
-                   execution_reference = ?, executed_at = ?, executed_day = date(?),
-                   updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
-                (reference, executed_at, executed_at, transaction_id),
+            if prepare_onchain is not None or broadcast_onchain is not None:
+                if prepare_onchain is None or broadcast_onchain is None:
+                    raise OnchainSubmissionError("Onchain signing and submission must both be configured")
+                raw_transaction, transaction_hash = prepare_onchain(record["proposal"])
+                if (
+                    not isinstance(raw_transaction, str)
+                    or not raw_transaction.startswith("0x")
+                    or not isinstance(transaction_hash, str)
+                    or len(transaction_hash) != 66
+                    or not transaction_hash.startswith("0x")
+                ):
+                    raise OnchainSubmissionError("Signed transaction data is invalid")
+                db.execute(
+                    """UPDATE transactions SET status = 'submitting_onchain',
+                       execution_reference = ?, signed_transaction = ?,
+                       updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
+                    (transaction_hash, raw_transaction, transaction_id),
+                )
+                self._append_audit(
+                    db, transaction_id, "onchain_transaction_signed", actor_role,
+                    record["status"], "submitting_onchain", record["fingerprint"],
+                    {"transaction_hash": transaction_hash},
+                )
+                db.execute("COMMIT")
+                pending = (raw_transaction, transaction_hash)
+            else:
+                reference = "simulated:" + record["fingerprint"][:24]
+                executed_at = _utc_now().isoformat()
+                db.execute(
+                    """UPDATE transactions SET status = 'executed_simulated',
+                       execution_reference = ?, executed_at = ?, executed_day = date(?),
+                       updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
+                    (reference, executed_at, executed_at, transaction_id),
+                )
+                self._append_audit(
+                    db, transaction_id, "simulated_execution", actor_role,
+                    record["status"], "executed_simulated", record["fingerprint"],
+                    {"execution_reference": reference},
+                )
+                db.execute("COMMIT")
+                pending = None
+        if pending is not None and broadcast_onchain is not None:
+            return self._broadcast_pending(
+                transaction_id, pending[0], pending[1], broadcast_onchain
             )
-            self._append_audit(
-                db, transaction_id, "simulated_execution", actor_role,
-                record["status"], "executed_simulated", record["fingerprint"],
-                {"execution_reference": reference},
-            )
-            db.execute("COMMIT")
         return "executed", self.get(transaction_id)
 
     @staticmethod
@@ -970,7 +1218,8 @@ class WorkflowStore:
             or record["risk_level"] not in {"low", "medium", "high"}
             or record["status"] not in {
                 "blocked", "ready", "awaiting_approval", "approved", "cancelled",
-                "executed_simulated",
+                "rejected", "executed_simulated", "submitting_onchain",
+                "submitted_onchain",
             }
             or type(record.get("risk_score")) is not int
             or not 0 <= record["risk_score"] <= 100
@@ -1012,6 +1261,14 @@ class WorkflowStore:
         record["proposal"] = proposal
         record["policy_reasons"] = policy_reasons
         record["risk_reasons"] = risk_reasons
+        signed_transaction = record.pop("signed_transaction", None)
+        if (
+            record["status"] == "submitting_onchain"
+            and (not isinstance(signed_transaction, str) or not signed_transaction.startswith("0x"))
+        ) or (
+            record["status"] != "submitting_onchain" and signed_transaction is not None
+        ):
+            raise WorkflowDataError("Stored workflow data is invalid")
         return record
 
 

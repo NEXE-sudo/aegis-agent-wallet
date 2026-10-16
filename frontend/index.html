@@ -240,7 +240,7 @@ button.audit-card{text-align:left;width:100%;color:inherit}
     <div class="side-section">
       <div class="guard-card">
         <strong><span class="dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent)"></span> AUTHORITY GUARD</strong>
-        <p>AI proposes. Human approves. Risk and policy revalidate before simulated execution.</p>
+        <p>AI proposes. Human approves. Risk and policy revalidate before execution.</p>
       </div>
       <button type="button" class="connect-box" id="open-connection" aria-label="Connect to local API">
         <span class="indicator" aria-hidden="true"></span>
@@ -249,7 +249,7 @@ button.audit-card{text-align:left;width:100%;color:inherit}
           <small id="connection-status">No active session</small>
         </span>
       </button>
-      <div class="mode-chip">◆ <span>SIMULATION MODE</span> <span style="margin-left:auto;color:#8f9fb3;letter-spacing:0;text-transform:none;font-weight:700">v1.10.2 API</span></div>
+      <div class="mode-chip">◆ <span id="execution-mode-chip">CHECKING EXECUTION MODE</span> <span style="margin-left:auto;color:#8f9fb3;letter-spacing:0;text-transform:none;font-weight:700">v1.10.3 API</span></div>
     </div>
   </aside>
   <main class="main">
@@ -257,7 +257,7 @@ button.audit-card{text-align:left;width:100%;color:inherit}
       <div class="crumb"><span>Workspace</span><span>/</span><strong id="breadcrumb">Overview</strong></div>
       <div class="top-actions">
         <span class="api-state" id="api-state"><span class="dot"></span><span id="api-state-label">Checking API</span></span>
-        <span class="mode-pill"><span class="dot"></span> SIMULATION ONLY</span>
+        <span class="mode-pill"><span class="dot"></span> <span id="execution-mode-pill">CHECKING MODE</span></span>
         <button class="icon-button" type="button" id="refresh" aria-label="Refresh data">↻</button>
         <button class="avatar" type="button" id="avatar" aria-label="Connection settings">A</button>
       </div>
@@ -276,10 +276,10 @@ button.audit-card{text-align:left;width:100%;color:inherit}
       <div class="notice">
         <div class="notice-icon">◇</div>
         <div>
-          <strong>Simulation-only workflow</strong>
-          <p>Proposal decisions, approvals, and execution requests are handled by the authenticated backend.</p>
+          <strong id="execution-notice-title">Execution mode is reported by the API</strong>
+          <p id="execution-notice-body">Proposal decisions, approvals, and execution requests are handled by the authenticated backend.</p>
         </div>
-        <span class="notice-tag">NO BROADCAST</span>
+        <span class="notice-tag" id="execution-notice-tag">MODE-DEPENDENT</span>
       </div>
       <div class="metrics">
         <article class="metric">
@@ -293,9 +293,9 @@ button.audit-card{text-align:left;width:100%;color:inherit}
           <div class="metric-foot">Awaiting owner review in loaded set</div>
         </article>
         <article class="metric">
-          <div class="metric-top"><span>Simulated</span><span class="metric-icon">✓</span></div>
+          <div class="metric-top"><span id="metric-executed-label">Executed</span><span class="metric-icon">✓</span></div>
           <div class="metric-value" id="metric-executed">—</div>
-          <div class="metric-foot">Simulated in loaded set</div>
+          <div class="metric-foot" id="metric-executed-foot">Simulated in loaded set</div>
         </article>
         <article class="metric">
           <div class="metric-top"><span>Blocked / expired</span><span class="metric-icon">✕</span></div>
@@ -590,6 +590,7 @@ button.audit-card{text-align:left;width:100%;color:inherit}
 const state = {
   view: 'overview',
   connected: false,
+  executionMode: null,
   sessionVersion: 0,
   refreshId: 0,
   healthRequestId: 0,
@@ -622,6 +623,32 @@ const state = {
   marketSelected: { assetClass: 'crypto', symbol: 'BTC' },
   audit: [],
   proposalAttempt: null
+};
+
+const setExecutionMode = (mode) => {
+  if (!['simulated', 'base_sepolia'].includes(mode)) {
+    throw new Error('The API did not report a supported execution mode.');
+  }
+  state.executionMode = mode;
+  const isTestnet = mode === 'base_sepolia';
+  const label = isTestnet ? 'BASE SEPOLIA TESTNET' : 'SIMULATION ONLY';
+  document.getElementById('execution-mode-chip').textContent = label;
+  document.getElementById('execution-mode-pill').textContent = label;
+  document.getElementById('execution-notice-title').textContent = isTestnet
+    ? 'Base Sepolia testnet execution'
+    : 'Simulation-only workflow';
+  document.getElementById('execution-notice-body').textContent = isTestnet
+    ? 'Owner execution signs and broadcasts an allowlisted testnet transfer after policy and risk revalidation. This is not mainnet.'
+    : 'Proposal decisions, approvals, and execution requests are handled by the authenticated backend. No transaction is broadcast.';
+  document.getElementById('execution-notice-tag').textContent = isTestnet
+    ? 'TESTNET · NOT MAINNET'
+    : 'NO BROADCAST';
+  document.getElementById('metric-executed-label').textContent = isTestnet
+    ? 'Submitted on testnet'
+    : 'Simulated';
+  document.getElementById('metric-executed-foot').textContent = isTestnet
+    ? 'Submitted in loaded set'
+    : 'Simulated in loaded set';
 };
 
 const handleCancel = async (transactionId) => {
@@ -682,13 +709,15 @@ const setApiState = (label, kind = '') => {
 };
 
 const statusLabel = (status) => ({
-  ready: 'Ready to simulate',
+  ready: state.executionMode === 'base_sepolia' ? 'Ready for testnet execution' : 'Ready to simulate',
   awaiting_approval: 'Approval required',
-  approved: 'Approved · ready to simulate',
+  approved: state.executionMode === 'base_sepolia' ? 'Approved · ready for testnet' : 'Approved · ready to simulate',
   blocked: 'Blocked by policy',
   cancelled: 'Cancelled · reservation released',
   expired: 'Expired',
-  executed_simulated: 'Simulated'
+  executed_simulated: 'Simulated',
+  submitting_onchain: 'Testnet submission pending',
+  submitted_onchain: 'Submitted · receipt pending'
 }[status] || 'Unknown state');
 
 const kindClass = (status) => {
@@ -699,6 +728,8 @@ const kindClass = (status) => {
     blocked: 'status-blocked',
     cancelled: 'status-expired',
     executed_simulated: 'status-executed',
+    submitting_onchain: 'status-awaiting',
+    submitted_onchain: 'status-executed',
     expired: 'status-expired'
   };
   return map[status] || 'status-expired';
@@ -857,7 +888,9 @@ const renderOverview = () => {
   const rows = state.transactions || [];
   const total = rows.length;
   const approvals = rows.filter((tx) => tx.status === 'awaiting_approval').length;
-  const executed = rows.filter((tx) => tx.status === 'executed_simulated').length;
+  const executed = rows.filter((tx) => state.executionMode === 'base_sepolia'
+    ? tx.status === 'submitted_onchain'
+    : tx.status === 'executed_simulated').length;
   const blocked = rows.filter((tx) => tx.status === 'blocked' || tx.status === 'expired').length;
   document.getElementById('metric-total').textContent = state.transactionsLoaded ? total : '—';
   document.getElementById('metric-approvals').textContent = state.transactionsLoaded ? approvals : '—';
@@ -1064,7 +1097,8 @@ const renderActivity = () => {
   const body = !state.transactionsLoaded
     ? `<tr><td colspan="7" class="empty">${esc(state.transactionError || 'Connect with an owner token to load workflow history.')}</td></tr>`
     : rows.length ? rows.map((tx) => {
-      const canExecute = ['ready', 'approved'].includes(tx.status);
+      const canExecute = ['ready', 'approved'].includes(tx.status)
+        || (state.executionMode === 'base_sepolia' && tx.status === 'submitting_onchain');
       const canCancel = ['ready', 'awaiting_approval', 'approved'].includes(tx.status);
       const action = `<div style="display:flex;align-items:center;gap:7px">
         <button class="btn secondary" type="button" data-action="inspect" data-id="${esc(tx.transaction_id)}">Inspect</button>
@@ -1072,10 +1106,14 @@ const renderActivity = () => {
           ? `<button class="btn secondary" type="button" data-action="cancel" data-id="${esc(tx.transaction_id)}" ${state.busyActions.has(tx.transaction_id) ? 'disabled' : ''}>Cancel</button>`
           : ''}
         ${canExecute
-          ? `<button class="btn primary" type="button" data-action="execute" data-id="${esc(tx.transaction_id)}" ${state.busyActions.has(tx.transaction_id) ? 'disabled' : ''}>${state.busyActions.has(tx.transaction_id) ? 'Working…' : 'Simulate'}</button>`
+          ? `<button class="btn primary" type="button" data-action="execute" data-id="${esc(tx.transaction_id)}" ${state.busyActions.has(tx.transaction_id) || !state.executionMode ? 'disabled' : ''}>${state.busyActions.has(tx.transaction_id) ? 'Working…' : tx.status === 'submitting_onchain' ? 'Retry submission' : state.executionMode === 'base_sepolia' ? 'Execute testnet' : 'Simulate'}</button>`
           : tx.status === 'awaiting_approval' ? '<span class="muted">Approval required</span>'
             : tx.status === 'blocked' ? '<span class="muted">Blocked by policy</span>'
               : tx.status === 'executed_simulated' ? '<span class="muted">Simulation complete</span>'
+                : tx.status === 'submitted_onchain'
+                  ? `<button class="btn secondary" type="button" data-action="receipt" data-id="${esc(tx.transaction_id)}" ${state.busyActions.has(tx.transaction_id) ? 'disabled' : ''}>Check receipt</button>`
+                  : tx.status === 'submitting_onchain'
+                    ? `<button class="btn secondary" type="button" data-action="receipt" data-id="${esc(tx.transaction_id)}" ${state.busyActions.has(tx.transaction_id) ? 'disabled' : ''}>Check receipt</button>`
                 : tx.status === 'cancelled' ? '<span class="muted">Reservation released</span>'
                 : '<span class="muted">—</span>'}
       </div>`;
@@ -1265,6 +1303,7 @@ const handleConnect = async (event) => {
     const health = await api('/health', { method: 'GET' }, 'public');
     if (sessionVersion !== state.sessionVersion || connectionRequestId !== state.connectionRequestId) return;
     if (health?.status !== 'ok') throw new Error('The local API health check did not succeed.');
+    setExecutionMode(health.mode);
     const transactions = await api('/transactions?limit=50', { method: 'GET' }, 'owner');
     if (sessionVersion !== state.sessionVersion || connectionRequestId !== state.connectionRequestId) return;
     state.transactions = Array.isArray(transactions) ? transactions : [];
@@ -1275,7 +1314,7 @@ const handleConnect = async (event) => {
     document.getElementById('connection-status').textContent = 'Agent token stored in memory';
     document.querySelector('.connect-box').classList.add('ready');
     document.getElementById('settings-status').textContent = 'Owner verified · agent token stored';
-    document.getElementById('settings-health').textContent = 'API responding · simulation-only mode';
+    document.getElementById('settings-health').textContent = `API responding · ${health.mode} mode`;
     setApiState('Owner API connected', 'ready');
     renderAll();
     void refreshAuditSummary();
@@ -1356,8 +1395,9 @@ const checkApiHealth = async () => {
     const outcome = await api('/health', { method: 'GET' }, 'public');
     if (sessionVersion !== state.sessionVersion || requestId !== state.healthRequestId) return;
     const healthy = outcome?.status === 'ok';
+    if (healthy) setExecutionMode(outcome.mode);
     document.getElementById('settings-health').textContent = healthy
-      ? 'API responding · simulation-only mode'
+      ? `API responding · ${outcome.mode} mode`
       : 'API returned an unexpected health response.';
     if (!state.connected) setApiState(healthy ? 'API reachable · owner auth required' : 'API health unavailable', healthy ? '' : 'error');
   } catch {
@@ -1484,9 +1524,20 @@ const handleApprove = async (transactionId, fingerprint) => {
   }
 };
 
-const handleSimulate = async (transactionId) => {
+const handleExecute = async (transactionId) => {
   if (!state.tokens.owner || state.busyActions.has(transactionId)) return;
-  if (!window.confirm('Request a simulation only? No transaction will be signed or broadcast.')) return;
+  if (!state.executionMode) {
+    notify('Execution mode is not available from the API health check.', 'error');
+    return;
+  }
+  const transaction = state.transactions.find((item) => item.transaction_id === transactionId);
+  const proposal = transaction?.proposal;
+  const confirmation = state.executionMode === 'base_sepolia'
+    ? transaction?.status === 'submitting_onchain'
+      ? `Retry submission of the same signed Base Sepolia testnet transaction to ${proposal?.recipient || 'the recorded recipient'}?`
+      : `Sign and broadcast ${formatMoney(proposal?.amount_base_units, proposal?.token_symbol || 'USDC', proposal?.token_decimals ?? 6)} to ${proposal?.recipient || 'the recorded recipient'} on Base Sepolia testnet? This cannot be reversed after confirmation.`
+    : 'Request a simulation only? No transaction will be signed or broadcast.';
+  if (!window.confirm(confirmation)) return;
   state.busyActions.add(transactionId);
   const sessionVersion = state.sessionVersion;
   renderActivity();
@@ -1502,14 +1553,47 @@ const handleSimulate = async (transactionId) => {
         ? ` Simulation reference: ${result.execution_reference}.`
         : '';
       notify(`Backend confirmed simulated execution. No on-chain transaction occurred.${reference}`, 'success');
+    } else if (result.status === 'submitted_onchain') {
+      notify(
+        `Base Sepolia RPC accepted the transaction ${result.execution_reference || ''}. Check its receipt separately; submission is not confirmation.`,
+        'success'
+      );
     } else {
       notify(`Backend returned workflow status: ${statusLabel(result.status)}.`, 'error');
     }
     void refreshAuditSummary();
   } catch (error) {
     if (sessionVersion !== state.sessionVersion) return;
-    notify(`Simulation request was not confirmed: ${error.message}`, 'error');
+    notify(`Execution request was not confirmed: ${error.message}`, 'error');
     await refreshTransactions();
+  } finally {
+    if (sessionVersion === state.sessionVersion) {
+      state.busyActions.delete(transactionId);
+      renderActivity();
+    }
+  }
+};
+
+const handleReceipt = async (transactionId) => {
+  if (!state.tokens.owner || state.busyActions.has(transactionId)) return;
+  state.busyActions.add(transactionId);
+  renderActivity();
+  const sessionVersion = state.sessionVersion;
+  try {
+    const receipt = await api(
+      `/transactions/${encodeURIComponent(transactionId)}/receipt`,
+      { method: 'GET' },
+      'owner'
+    );
+    if (sessionVersion !== state.sessionVersion) return;
+    const block = receipt.block_number === null ? '' : ` in block ${receipt.block_number}`;
+    notify(
+      `Base Sepolia receipt: ${receipt.status}${block}. Receipt status is not finality.`,
+      receipt.status === 'failed' ? 'error' : 'success'
+    );
+  } catch (error) {
+    if (sessionVersion !== state.sessionVersion) return;
+    notify(`Receipt status is unavailable: ${error.message}`, 'error');
   } finally {
     if (sessionVersion === state.sessionVersion) {
       state.busyActions.delete(transactionId);
@@ -1646,7 +1730,8 @@ document.addEventListener('click', async (event) => {
   const fingerprint = element.dataset.fingerprint;
   if (action === 'approve') await handleApprove(transactionId, fingerprint);
   if (action === 'inspect') await inspectTransaction(transactionId);
-  if (action === 'execute') await handleSimulate(transactionId);
+  if (action === 'execute') await handleExecute(transactionId);
+  if (action === 'receipt') await handleReceipt(transactionId);
   if (action === 'cancel') await handleCancel(transactionId);
 });
 

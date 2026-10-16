@@ -1,4 +1,4 @@
-"""Read-only JSON-RPC helpers for Base Sepolia. No signing or transaction submission."""
+"""Base Sepolia JSON-RPC helpers for metadata, execution, and receipts."""
 from __future__ import annotations
 
 import os
@@ -13,6 +13,7 @@ BASE_SEPOLIA_USDC_ADDRESS = "0x036cbd53842c5426634e7929541ec2318f3dcf7e"
 _ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 _QUANTITY_RE = re.compile(r"^0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)$")
 _DATA_RE = re.compile(r"^0x(?:[0-9a-fA-F]{2})*$")
+_TRANSACTION_HASH_RE = re.compile(r"^0x[0-9a-fA-F]{64}$")
 _MAX_TOKEN_METADATA_BYTES = 256
 
 
@@ -55,7 +56,7 @@ def _decode_abi_string(value: str) -> str:
 
 
 class BaseSepoliaRpc:
-    """Minimal JSON-RPC client limited to chain metadata and ERC-20 read calls."""
+    """Minimal JSON-RPC client for Base Sepolia reads and signed transaction submission."""
 
     def __init__(self, url: str | None = None, transport: httpx.BaseTransport | None = None):
         self.url = url or os.environ.get("BASE_SEPOLIA_RPC_URL", "")
@@ -106,6 +107,68 @@ class BaseSepoliaRpc:
             return int(result, 16)
         except ValueError as exc:
             raise RpcRequestError("RPC returned an invalid chain ID") from exc
+
+    def transaction_count(self, address: str) -> int:
+        result = self._rpc(
+            "eth_getTransactionCount", [validate_address(address), "pending"]
+        )
+        return self._parse_quantity(result, "transaction count")
+
+    def gas_price(self) -> int:
+        return self._parse_quantity(self._rpc("eth_gasPrice", []), "gas price")
+
+    def estimate_gas(self, transaction: dict[str, str]) -> int:
+        return self._parse_quantity(
+            self._rpc("eth_estimateGas", [transaction]), "gas estimate"
+        )
+
+    def send_raw_transaction(self, raw_transaction: str) -> str:
+        if not isinstance(raw_transaction, str) or not _DATA_RE.fullmatch(raw_transaction):
+            raise RpcRequestError("Signed transaction data is malformed")
+        result = self._rpc("eth_sendRawTransaction", [raw_transaction])
+        if not isinstance(result, str) or not _TRANSACTION_HASH_RE.fullmatch(result):
+            raise RpcRequestError("RPC returned an invalid transaction hash")
+        return result.lower()
+
+    def transaction_receipt(self, transaction_hash: str) -> dict[str, int | str | None]:
+        if not isinstance(transaction_hash, str) or not _TRANSACTION_HASH_RE.fullmatch(
+            transaction_hash
+        ):
+            raise ValueError("Transaction hash must be 32-byte hexadecimal data")
+        result = self._rpc("eth_getTransactionReceipt", [transaction_hash])
+        if result is None:
+            return {
+                "transaction_hash": transaction_hash.lower(),
+                "status": "pending",
+                "block_number": None,
+            }
+        if not isinstance(result, dict):
+            raise RpcRequestError("RPC returned a malformed transaction receipt")
+        returned_hash = result.get("transactionHash")
+        status = result.get("status")
+        if (
+            not isinstance(returned_hash, str)
+            or not _TRANSACTION_HASH_RE.fullmatch(returned_hash)
+            or returned_hash.lower() != transaction_hash.lower()
+            or not isinstance(status, str)
+            or status not in {"0x0", "0x1"}
+        ):
+            raise RpcRequestError("RPC returned a malformed transaction receipt")
+        block_number = self._parse_quantity(result.get("blockNumber"), "receipt block number")
+        return {
+            "transaction_hash": returned_hash.lower(),
+            "status": "success" if status == "0x1" else "failed",
+            "block_number": block_number,
+        }
+
+    @staticmethod
+    def _parse_quantity(value: Any, field_name: str) -> int:
+        if not isinstance(value, str) or not _QUANTITY_RE.fullmatch(value):
+            raise RpcRequestError(f"RPC returned an invalid {field_name}")
+        try:
+            return int(value, 16)
+        except ValueError as exc:
+            raise RpcRequestError(f"RPC returned an invalid {field_name}") from exc
 
     def get_code(self, address: str) -> str:
         result = self._rpc("eth_getCode", [validate_address(address), "latest"])

@@ -1,6 +1,6 @@
 # SQLite Backup, Restore, and Local Reset
 
-This guide applies to the local, simulation-only Aegis Agent Wallet prototype. The SQLite database contains transaction workflow state and audit history. Treat the database and every backup as sensitive application data.
+This guide applies to the local Aegis Agent Wallet prototype. The SQLite database contains transaction workflow state and audit history; in explicitly enabled Base Sepolia execution mode it may also contain signed transaction bytes awaiting a safe retry. Treat the database and every backup as sensitive application data.
 
 ## Before you begin
 
@@ -99,4 +99,4 @@ To return to the previous database, stop the API and set `AEGIS_DB_PATH` back to
 - **WAL or shared-memory files exist:** stop all processes using the database before maintenance. Do not selectively remove SQLite sidecar files while a process is active.
 - **A backup is not a security boundary:** anyone with access to it may be able to inspect persisted proposals and audit history. Protect, retain, and delete backup copies according to your data-handling needs.
 
-These steps are for local prototype operations, not a production backup policy. The project remains simulation-only; database restore does not establish on-chain execution or transaction finality.
+These steps are for local prototype operations, not a production backup policy. Database restore does not establish on-chain execution or transaction finality.

@@ -105,6 +105,44 @@ def test_equity_provider_accepts_current_session_date_without_future_timestamp()
     assert quote.is_stale is False
 
 
+def test_equity_provider_accepts_two_day_old_session_date_as_fresh():
+    session_date = datetime.now(UTC).date() - timedelta(days=2)
+    provider = StooqProvider(
+        _transport(
+            lambda request: httpx.Response(
+                200,
+                text=(
+                    "Symbol,Date,Time,Open,High,Low,Close,Volume\n"
+                    f"AAPL.US,{session_date.isoformat()},16:00:00,1,2,1,190,10\n"
+                ),
+            )
+        )
+    )
+
+    quote = provider.get_quote("equity", "AAPL")
+
+    assert quote.as_of.date() == session_date
+    assert quote.is_stale is False
+
+
+def test_equity_provider_rejects_future_session_date():
+    future_date = datetime.now(UTC).date() + timedelta(days=1)
+    provider = StooqProvider(
+        _transport(
+            lambda request: httpx.Response(
+                200,
+                text=(
+                    "Symbol,Date,Time,Open,High,Low,Close,Volume\n"
+                    f"AAPL.US,{future_date.isoformat()},16:00:00,1,2,1,190,10\n"
+                ),
+            )
+        )
+    )
+
+    with pytest.raises(MarketDataError, match="future timestamp"):
+        provider.get_quote("equity", "AAPL")
+
+
 @pytest.mark.parametrize("body", [
     "Symbol,Date,Time,Open,High,Low,Close,Volume\nAAPL.US,N/D,N/D,N/D,N/D,N/D,N/D,N/D\n",
     "Symbol,Date,Time,Open,High,Low,Close,Volume\nMSFT.US,2026-10-13,16:00:00,1,2,1,0,10\n",

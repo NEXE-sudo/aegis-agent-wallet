@@ -1,4 +1,8 @@
 """Regression tests for workflow state transitions and audit consistency."""
+import sqlite3
+
+import pytest
+
 from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
 from app.policy.models import TransactionProposal
 from app.workflow.controller import TransactionController
@@ -151,3 +155,67 @@ def test_cancelling_pending_transaction_is_terminal_and_audited(tmp_path):
         "reservation_released": True
     }
     assert controller.cancel(record["transaction_id"])[0] == "already_cancelled"
+
+
+def test_rejecting_pending_transaction_is_terminal_idempotent_and_audited(tmp_path):
+    from app.main import DEMO_POLICY
+
+    store, controller = _workflow(tmp_path, DEMO_POLICY)
+    outcome, record = controller.propose(
+        _proposal(recipient="0x4444444444444444444444444444444444444444")
+    )
+    assert outcome == "created"
+    assert record["status"] == "awaiting_approval"
+
+    outcome, rejected = controller.reject(record["transaction_id"])
+    assert outcome == "rejected"
+    assert rejected["status"] == "rejected"
+    assert store.daily_spend(84532, record["proposal"]["token_address"]) == 0
+    with store._connect() as db:
+        recipient_spend = store._recipient_daily_spend(
+            db,
+            84532,
+            record["proposal"]["token_address"],
+            record["proposal"]["recipient"],
+        )
+    assert recipient_spend == 0
+
+    outcome, repeated = controller.reject(record["transaction_id"])
+    assert outcome == "already_rejected"
+    assert repeated["status"] == "rejected"
+
+    events = store.audit_events(record["transaction_id"])
+    assert [event["event_type"] for event in events] == [
+        "proposal_created",
+        "transaction_rejected",
+    ]
+    assert (events[-1]["from_status"], events[-1]["to_status"]) == (
+        "awaiting_approval",
+        "rejected",
+    )
+    assert events[-1]["details"] == {"reservation_released": True}
+
+
+def test_sqlite_guards_accept_rejected_and_reject_unknown_status_and_audit_type(tmp_path):
+    from app.main import DEMO_POLICY
+
+    store, controller = _workflow(tmp_path, DEMO_POLICY)
+    _, record = controller.propose(_proposal())
+
+    with store._connect() as db:
+        db.execute(
+            "UPDATE transactions SET status = 'rejected' WHERE transaction_id = ?",
+            (record["transaction_id"],),
+        )
+        with pytest.raises(sqlite3.IntegrityError, match="invalid transaction status"):
+            db.execute(
+                "UPDATE transactions SET status = 'unknown' WHERE transaction_id = ?",
+                (record["transaction_id"],),
+            )
+        with pytest.raises(sqlite3.IntegrityError, match="invalid audit event metadata"):
+            db.execute(
+                """INSERT INTO audit_events
+                   (transaction_id, event_type, actor_role, from_status, to_status)
+                   VALUES (?, 'unknown-event', 'owner', 'ready', 'rejected')""",
+                (record["transaction_id"],),
+            )

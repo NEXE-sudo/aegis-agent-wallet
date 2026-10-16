@@ -91,7 +91,12 @@ def _mock_api(
         })
         if parsed.path == "/health":
             status = remaining_health_statuses.pop(0) if remaining_health_statuses else 200
-            fulfill(route, status, {"status": "ok"} if status == 200 else {"detail": "unavailable"})
+            fulfill(
+                route,
+                status,
+                {"status": "ok", "mode": "simulated"}
+                if status == 200 else {"detail": "unavailable"},
+            )
         elif parsed.path == "/transactions" and request.method == "GET":
             status = remaining_transaction_statuses.pop(0) if remaining_transaction_statuses else 200
             fulfill(route, status, transactions if status == 200 and transactions is not None else [])
@@ -364,7 +369,7 @@ def test_browser_transaction_failures_keep_auth_and_confirmation_contracts(page:
     page.on("dialog", lambda dialog: (confirmation_messages.append(dialog.message), dialog.accept()))
     page.locator('nav [data-view="activity"]').click()
     page.get_by_role("button", name="Simulate").click()
-    expect(page.locator("#global-feedback")).to_contain_text("Simulation request was not confirmed")
+    expect(page.locator("#global-feedback")).to_contain_text("Execution request was not confirmed")
     assert confirmation_messages == [
         "Request a simulation only? No transaction will be signed or broadcast."
     ]
