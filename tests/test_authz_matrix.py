@@ -20,18 +20,21 @@ def configured_tokens(monkeypatch):
 def _request(method, path, headers=None):
     kwargs = {"headers": headers} if headers is not None else {}
     if method == "post":
-        kwargs["json"] = {
-            "transaction_fingerprint": "a" * 64,
-            "confirmation": "APPROVE",
-        } if path.endswith("/approve") else {
-            "agent_id": "devops-01",
-            "chain_id": 84532,
-            "token_symbol": "USDC",
-            "token_address": BASE_SEPOLIA_USDC_ADDRESS,
-            "recipient": "0x2222222222222222222222222222222222222222",
-            "amount_base_units": 1_000_000,
-            "token_decimals": 6,
-        }
+        if path.endswith("/approve"):
+            kwargs["json"] = {
+                "transaction_fingerprint": "a" * 64,
+                "confirmation": "APPROVE",
+            }
+        elif path == "/transactions/propose":
+            kwargs["json"] = {
+                "agent_id": "devops-01",
+                "chain_id": 84532,
+                "token_symbol": "USDC",
+                "token_address": BASE_SEPOLIA_USDC_ADDRESS,
+                "recipient": "0x2222222222222222222222222222222222222222",
+                "amount_base_units": 1_000_000,
+                "token_decimals": 6,
+            }
     return client.request(method.upper(), path, **kwargs)
 
 
@@ -43,6 +46,7 @@ def _request(method, path, headers=None):
         ("get", "/transactions/security-review-id/audit", OWNER_TOKEN),
         ("post", "/transactions/security-review-id/approve", OWNER_TOKEN),
         ("post", "/transactions/security-review-id/execute", OWNER_TOKEN),
+        ("post", "/transactions/security-review-id/reject", OWNER_TOKEN),
         ("get", "/chain/base-sepolia/status", OWNER_TOKEN),
         (
             "get",
@@ -56,6 +60,7 @@ def _request(method, path, headers=None):
         "owner-audit-read",
         "owner-approval",
         "owner-simulated-execution",
+        "owner-rejection",
         "owner-chain-status",
         "owner-token-inspection",
     ],
@@ -106,6 +111,7 @@ def test_documented_standalone_evaluation_endpoints_remain_public(path):
         ("get", "/transactions/security-review-id/audit", OWNER_TOKEN),
         ("post", "/transactions/security-review-id/approve", OWNER_TOKEN),
         ("post", "/transactions/security-review-id/execute", OWNER_TOKEN),
+        ("post", "/transactions/security-review-id/reject", OWNER_TOKEN),
         ("get", "/chain/base-sepolia/status", OWNER_TOKEN),
         (
             "get",
@@ -119,6 +125,7 @@ def test_documented_standalone_evaluation_endpoints_remain_public(path):
         "owner-audit-read",
         "owner-approval",
         "owner-simulated-execution",
+        "owner-rejection",
         "owner-chain-status",
         "owner-token-inspection",
     ],
@@ -155,6 +162,7 @@ def test_protected_endpoint_fails_closed_when_tokens_are_identical(
         ("get", "/transactions/security-review-id/audit", "AEGIS_APPROVAL_TOKEN", OWNER_TOKEN),
         ("post", "/transactions/security-review-id/approve", "AEGIS_APPROVAL_TOKEN", OWNER_TOKEN),
         ("post", "/transactions/security-review-id/execute", "AEGIS_APPROVAL_TOKEN", OWNER_TOKEN),
+        ("post", "/transactions/security-review-id/reject", "AEGIS_APPROVAL_TOKEN", OWNER_TOKEN),
     ],
     ids=[
         "agent-proposal-missing-owner-token",
@@ -162,6 +170,7 @@ def test_protected_endpoint_fails_closed_when_tokens_are_identical(
         "owner-audit-read-missing-agent-token",
         "owner-approval-missing-agent-token",
         "owner-execution-missing-agent-token",
+        "owner-rejection-missing-agent-token",
     ],
 )
 def test_workflow_endpoint_fails_closed_when_other_token_is_missing(

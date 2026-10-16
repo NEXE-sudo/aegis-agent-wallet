@@ -354,6 +354,74 @@ def test_owner_can_cancel_reservation_and_restore_daily_budget():
     assert event["details"]["reservation_released"] is True
 
 
+def test_owner_can_reject_reservation_and_restore_daily_budget():
+    proposals = [
+        propose(_payload(amount_base_units=50_000_000)).json()
+        for _ in range(3)
+    ]
+    assert sum(record["status"] != "blocked" for record in proposals) == 3
+    previously_blocked = propose(_payload(amount_base_units=50_000_000)).json()
+    assert previously_blocked["status"] == "blocked"
+    transaction_id = proposals[0]["transaction_id"]
+    assert main.store.daily_spend(84532, BASE_SEPOLIA_USDC_ADDRESS) == 150_000_000
+
+    unauthorized = client.post(
+        f"/transactions/{transaction_id}/reject", headers=AGENT_HEADERS
+    )
+    assert unauthorized.status_code == 401
+
+    rejected = owner_post(f"/transactions/{transaction_id}/reject")
+    assert rejected.status_code == 200
+    assert rejected.json()["status"] == "rejected"
+    assert main.store.daily_spend(84532, BASE_SEPOLIA_USDC_ADDRESS) == 100_000_000
+
+    replacement = propose(_payload(amount_base_units=50_000_000))
+    assert replacement.status_code == 201
+    assert replacement.json()["status"] != "blocked"
+
+    audit = client.get(
+        f"/transactions/{transaction_id}/audit", headers=OWNER_HEADERS
+    )
+    assert audit.status_code == 200
+    event = audit.json()[-1]
+    assert event["event_type"] == "transaction_rejected"
+    assert event["from_status"] == proposals[0]["status"]
+    assert event["to_status"] == "rejected"
+    assert event["actor_role"] == "owner"
+    assert event["details"]["reservation_released"] is True
+
+
+def test_reject_is_idempotent_without_duplicate_audit_event():
+    record = propose().json()
+    path = f"/transactions/{record['transaction_id']}/reject"
+
+    first = owner_post(path)
+    second = owner_post(path)
+
+    assert first.status_code == second.status_code == 200
+    assert first.json()["status"] == second.json()["status"] == "rejected"
+    events = client.get(
+        f"/transactions/{record['transaction_id']}/audit", headers=OWNER_HEADERS
+    ).json()
+    assert [event["event_type"] for event in events] == [
+        "proposal_created",
+        "transaction_rejected",
+    ]
+
+
+@pytest.mark.parametrize("initial_status", ["blocked", "executed_simulated"])
+def test_reject_returns_clear_error_for_blocked_or_executed_transactions(initial_status):
+    record = propose(_payload(chain_id=1) if initial_status == "blocked" else None).json()
+    if initial_status == "executed_simulated":
+        executed = owner_post(f"/transactions/{record['transaction_id']}/execute")
+        assert executed.status_code == 200
+
+    response = owner_post(f"/transactions/{record['transaction_id']}/reject")
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Transaction cannot be rejected in its current state"
+
+
 def test_cancel_rejects_terminal_transactions():
     record = propose().json()
     executed = owner_post(f"/transactions/{record['transaction_id']}/execute")
@@ -1795,6 +1863,8 @@ def test_invalid_persisted_workflow_metadata_returns_sanitized_server_error(
 ):
     record = propose().json()
     with sqlite3.connect(main.store.db_path) as db:
+        if column == "status":
+            db.execute("DROP TRIGGER transactions_status_update_guard")
         db.execute(
             f"UPDATE transactions SET {column} = ? WHERE transaction_id = ?",
             (corrupt_value, record["transaction_id"]),

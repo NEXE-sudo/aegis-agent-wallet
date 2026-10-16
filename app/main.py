@@ -371,6 +371,20 @@ def cancel_transaction(transaction_id: str) -> TransactionResponse:
     return _record_response(record or {})
 
 
+@app.post(
+    "/transactions/{transaction_id}/reject",
+    response_model=TransactionResponse,
+    dependencies=[Depends(require_owner)],
+)
+def reject_transaction(transaction_id: str) -> TransactionResponse:
+    outcome, record = controller.reject(transaction_id)
+    if outcome == "not_found":
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    if outcome == "invalid_state":
+        raise HTTPException(status_code=409, detail="Transaction cannot be rejected in its current state")
+    return _record_response(record or {})
+
+
 @app.get(
     "/market-data/{asset_class}/{symbol}",
     response_model=MarketDataResponse,

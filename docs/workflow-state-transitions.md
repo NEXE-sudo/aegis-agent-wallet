@@ -15,6 +15,9 @@ stateDiagram-v2
     ready --> cancelled: Owner cancels proposal
     awaiting_approval --> cancelled: Owner cancels proposal
     approved --> cancelled: Owner cancels proposal
+    ready --> rejected: Owner rejects proposal
+    awaiting_approval --> rejected: Owner rejects proposal
+    approved --> rejected: Owner rejects proposal
     awaiting_approval --> approved: Valid owner approval
     approved --> awaiting_approval: Approval missing, malformed, future-dated, or expired
 
@@ -28,7 +31,7 @@ stateDiagram-v2
     approved --> executed_simulated: Simulation succeeds
 ```
 
-`cancelled` and `executed_simulated` are terminal. Cancelling releases the proposal's daily spend reservation. No path in this diagram signs or submits an on-chain transaction. For exact audit-event names and the conditions governing reuse of an existing approval, use the transition table and notes below.
+`cancelled`, `rejected`, and `executed_simulated` are terminal. Cancelling or rejecting releases the proposal's daily spend reservation. Repeating a rejection leaves the record unchanged and returns its current state. No path in this diagram signs or submits an on-chain transaction. For exact audit-event names and the conditions governing reuse of an existing approval, use the transition table and notes below.
 
 ## States
 
@@ -37,6 +40,7 @@ stateDiagram-v2
 - `approved`: an owner approved the proposal fingerprint and the approval timestamp is still valid.
 - `blocked`: policy hard-blocked the proposal, either initially or during execution-time revalidation.
 - `cancelled`: the owner cancelled a pending proposal; its daily spend reservation is released.
+- `rejected`: the owner rejected a pending proposal; its daily spend reservation is released.
 - `executed_simulated`: the simulation completed. This is terminal; no real signing or submission occurs.
 
 ## State-changing transitions
@@ -48,6 +52,7 @@ stateDiagram-v2
 | Proposal is allowed without approval | none | `ready` | `proposal_created` |
 | Valid owner approval | `awaiting_approval` | `approved` | `approval_granted` |
 | Owner cancels a pending proposal | `ready`, `awaiting_approval`, or `approved` | `cancelled` | `transaction_cancelled` |
+| Owner rejects a pending proposal | `ready`, `awaiting_approval`, or `approved` | `rejected` | `transaction_rejected` |
 | Approved timestamp is missing, malformed, in the future, or expired | `approved` | `awaiting_approval` | `approval_expired` |
 | Execution-time policy revalidation blocks the proposal | `ready` or `approved` | `blocked` | `policy_revalidation_blocked` |
 | Execution-time risk requires fresh approval | `ready` or `approved` | `awaiting_approval` | `risk_escalation_requires_approval` |
@@ -71,9 +76,15 @@ These outcomes must not change the stored status:
 | Execute an `executed_simulated` transaction again | `already_executed` | Remains `executed_simulated` |
 | Cancel a `cancelled` transaction again | `already_cancelled` | Remains `cancelled` |
 | Cancel a blocked or executed transaction | `invalid_state` | Remains unchanged |
+| Reject a `rejected` transaction again | `already_rejected` | Remains `rejected`; no additional audit event |
+| Reject a blocked or executed transaction | `invalid_state` | Remains unchanged |
 | Execute an `approved` transaction whose approval fingerprint does not match | `approval_mismatch` | Remains `approved` |
 
 A missing transaction returns `not_found` and does not create a transaction state or audit event. A persisted proposal integrity mismatch is rejected without changing status and is audited as `proposal_integrity_mismatch`.
+
+## Existing SQLite databases
+
+No database recreation is required. On startup, `WorkflowStore` additively installs SQLite triggers that accept the new `rejected` status and `transaction_rejected` audit event while validating allowed transaction statuses and audit metadata. Existing transaction and audit rows are preserved.
 
 ## Audit expectations and limitations
 

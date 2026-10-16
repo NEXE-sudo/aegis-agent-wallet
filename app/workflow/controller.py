@@ -65,3 +65,6 @@ class TransactionController:
 
     def cancel(self, transaction_id: str) -> tuple[str, dict[str, Any] | None]:
         return self.store.cancel(transaction_id)
+
+    def reject(self, transaction_id: str) -> tuple[str, dict[str, Any] | None]:
+        return self.store.reject(transaction_id)

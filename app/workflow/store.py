@@ -26,6 +26,7 @@ AUDIT_EVENT_TYPES = {
     "risk_escalation_requires_approval",
     "simulated_execution",
     "transaction_cancelled",
+    "transaction_rejected",
 }
 AUDIT_ACTOR_ROLES = {"agent", "owner", "system"}
 AUDIT_STATUSES = {
@@ -35,6 +36,7 @@ AUDIT_STATUSES = {
     "cancelled",
     "executed_simulated",
     "ready",
+    "rejected",
 }
 
 
@@ -262,6 +264,28 @@ class WorkflowStore:
                     WHERE transaction_id = NEW.transaction_id;
                 END
             """)
+            db.execute("""
+                CREATE TRIGGER IF NOT EXISTS transactions_status_insert_guard
+                BEFORE INSERT ON transactions
+                WHEN NEW.status NOT IN (
+                    'blocked', 'ready', 'awaiting_approval', 'approved', 'cancelled',
+                    'rejected', 'executed_simulated'
+                )
+                BEGIN
+                    SELECT RAISE(ABORT, 'invalid transaction status');
+                END
+            """)
+            db.execute("""
+                CREATE TRIGGER IF NOT EXISTS transactions_status_update_guard
+                BEFORE UPDATE OF status ON transactions
+                WHEN NEW.status NOT IN (
+                    'blocked', 'ready', 'awaiting_approval', 'approved', 'cancelled',
+                    'rejected', 'executed_simulated'
+                )
+                BEGIN
+                    SELECT RAISE(ABORT, 'invalid transaction status');
+                END
+            """)
             db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_fingerprint ON transactions(fingerprint)")
             db.execute("""
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_idempotency
@@ -307,6 +331,33 @@ class WorkflowStore:
                     details_json TEXT NOT NULL DEFAULT '{}',
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
+            """)
+            db.execute("""
+                CREATE TRIGGER IF NOT EXISTS audit_events_validation_guard
+                BEFORE INSERT ON audit_events
+                WHEN NEW.event_type NOT IN (
+                    'approval_expired', 'approval_granted', 'idempotency_conflict',
+                    'policy_revalidation_blocked', 'policy_revalidation_requires_approval',
+                    'proposal_created', 'proposal_integrity_mismatch', 'proposal_replayed',
+                    'risk_escalation_requires_approval', 'simulated_execution',
+                    'transaction_cancelled', 'transaction_rejected'
+                )
+                OR NEW.actor_role NOT IN ('agent', 'owner', 'system')
+                OR (
+                    NEW.from_status IS NOT NULL AND NEW.from_status NOT IN (
+                        'approved', 'awaiting_approval', 'blocked', 'cancelled',
+                        'executed_simulated', 'ready', 'rejected'
+                    )
+                )
+                OR (
+                    NEW.to_status IS NOT NULL AND NEW.to_status NOT IN (
+                        'approved', 'awaiting_approval', 'blocked', 'cancelled',
+                        'executed_simulated', 'ready', 'rejected'
+                    )
+                )
+                BEGIN
+                    SELECT RAISE(ABORT, 'invalid audit event metadata');
+                END
             """)
             db.execute("""
                 CREATE INDEX IF NOT EXISTS idx_audit_events_transaction
@@ -792,6 +843,39 @@ class WorkflowStore:
             db.execute("COMMIT")
         return "cancelled", self.get(transaction_id)
 
+    def reject(
+        self, transaction_id: str, actor_role: str = "owner"
+    ) -> tuple[str, dict[str, Any] | None]:
+        """Reject a pending proposal and release its daily spend reservation."""
+        with closing(self._connect()) as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)
+            ).fetchone()
+            if row is None:
+                db.execute("COMMIT")
+                return "not_found", None
+            record = self._decode(row)
+            if record["status"] == "rejected":
+                db.execute("COMMIT")
+                return "already_rejected", record
+            if record["status"] not in {"ready", "awaiting_approval", "approved"}:
+                db.execute("COMMIT")
+                return "invalid_state", record
+            db.execute(
+                """UPDATE transactions SET status = 'rejected',
+                   approval_fingerprint = NULL, approved_at = NULL,
+                   updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
+                (transaction_id,),
+            )
+            self._append_audit(
+                db, transaction_id, "transaction_rejected", actor_role,
+                record["status"], "rejected", record["fingerprint"],
+                {"reservation_released": True},
+            )
+            db.execute("COMMIT")
+        return "rejected", self.get(transaction_id)
+
     def execute_simulated(
         self, transaction_id: str, policy: Any, actor_role: str = "owner"
     ) -> tuple[str, dict[str, Any] | None]:
@@ -970,7 +1054,7 @@ class WorkflowStore:
             or record["risk_level"] not in {"low", "medium", "high"}
             or record["status"] not in {
                 "blocked", "ready", "awaiting_approval", "approved", "cancelled",
-                "executed_simulated",
+                "rejected", "executed_simulated",
             }
             or type(record.get("risk_score")) is not int
             or not 0 <= record["risk_score"] <= 100
