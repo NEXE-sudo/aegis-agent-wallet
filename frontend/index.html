@@ -249,7 +249,7 @@ button.audit-card{text-align:left;width:100%;color:inherit}
           <small id="connection-status">No active session</small>
         </span>
       </button>
-      <div class="mode-chip">◆ <span>SIMULATION MODE</span> <span style="margin-left:auto;color:#8f9fb3;letter-spacing:0;text-transform:none;font-weight:700">v1.10.1 API</span></div>
+      <div class="mode-chip">◆ <span>SIMULATION MODE</span> <span style="margin-left:auto;color:#8f9fb3;letter-spacing:0;text-transform:none;font-weight:700">v1.10.2 API</span></div>
     </div>
   </aside>
   <main class="main">
@@ -624,6 +624,34 @@ const state = {
   proposalAttempt: null
 };
 
+const handleCancel = async (transactionId) => {
+  if (!state.tokens.owner || state.busyActions.has(transactionId)) return;
+  if (!window.confirm('Cancel this proposal and release its daily budget reservation?')) return;
+  state.busyActions.add(transactionId);
+  const sessionVersion = state.sessionVersion;
+  renderAll();
+  try {
+    const result = await api(`/transactions/${encodeURIComponent(transactionId)}/cancel`, {
+      method: 'POST'
+    }, 'owner');
+    if (sessionVersion !== state.sessionVersion) return;
+    upsertTransaction(result);
+    renderAll();
+    void refreshAuditSummary();
+    notify('Backend confirmed cancellation. The daily budget reservation was released.', 'success');
+  } catch (error) {
+    if (sessionVersion !== state.sessionVersion) return;
+    notify(`Cancellation was not confirmed: ${error.message}`, 'error');
+    await refreshTransactions();
+  } finally {
+    if (sessionVersion === state.sessionVersion) {
+      state.busyActions.delete(transactionId);
+      renderApprovals();
+      renderActivity();
+    }
+  }
+};
+
 const invalidatePendingRequests = () => {
   state.refreshId += 1;
   state.healthRequestId += 1;
@@ -658,6 +686,7 @@ const statusLabel = (status) => ({
   awaiting_approval: 'Approval required',
   approved: 'Approved · ready to simulate',
   blocked: 'Blocked by policy',
+  cancelled: 'Cancelled · reservation released',
   expired: 'Expired',
   executed_simulated: 'Simulated'
 }[status] || 'Unknown state');
@@ -668,6 +697,7 @@ const kindClass = (status) => {
     awaiting_approval: 'status-awaiting',
     approved: 'status-approved',
     blocked: 'status-blocked',
+    cancelled: 'status-expired',
     executed_simulated: 'status-executed',
     expired: 'status-expired'
   };
@@ -1017,6 +1047,7 @@ const renderApprovals = () => {
         <div>
           <button class="btn secondary" type="button" data-action="inspect" data-id="${esc(tx.transaction_id || '')}">Inspect</button>
           <button class="btn primary" type="button" data-action="approve" data-id="${esc(tx.transaction_id || '')}" data-fingerprint="${esc(tx.fingerprint || '')}" ${state.busyActions.has(tx.transaction_id) ? 'disabled' : ''}>${state.busyActions.has(tx.transaction_id) ? 'Approving…' : 'Approve'}</button>
+          <button class="btn secondary" type="button" data-action="cancel" data-id="${esc(tx.transaction_id || '')}" ${state.busyActions.has(tx.transaction_id) ? 'disabled' : ''}>Cancel</button>
         </div>
       </div>
     </article>
@@ -1034,13 +1065,18 @@ const renderActivity = () => {
     ? `<tr><td colspan="7" class="empty">${esc(state.transactionError || 'Connect with an owner token to load workflow history.')}</td></tr>`
     : rows.length ? rows.map((tx) => {
       const canExecute = ['ready', 'approved'].includes(tx.status);
+      const canCancel = ['ready', 'awaiting_approval', 'approved'].includes(tx.status);
       const action = `<div style="display:flex;align-items:center;gap:7px">
         <button class="btn secondary" type="button" data-action="inspect" data-id="${esc(tx.transaction_id)}">Inspect</button>
+        ${canCancel
+          ? `<button class="btn secondary" type="button" data-action="cancel" data-id="${esc(tx.transaction_id)}" ${state.busyActions.has(tx.transaction_id) ? 'disabled' : ''}>Cancel</button>`
+          : ''}
         ${canExecute
           ? `<button class="btn primary" type="button" data-action="execute" data-id="${esc(tx.transaction_id)}" ${state.busyActions.has(tx.transaction_id) ? 'disabled' : ''}>${state.busyActions.has(tx.transaction_id) ? 'Working…' : 'Simulate'}</button>`
           : tx.status === 'awaiting_approval' ? '<span class="muted">Approval required</span>'
             : tx.status === 'blocked' ? '<span class="muted">Blocked by policy</span>'
               : tx.status === 'executed_simulated' ? '<span class="muted">Simulation complete</span>'
+                : tx.status === 'cancelled' ? '<span class="muted">Reservation released</span>'
                 : '<span class="muted">—</span>'}
       </div>`;
       return `
@@ -1611,6 +1647,7 @@ document.addEventListener('click', async (event) => {
   if (action === 'approve') await handleApprove(transactionId, fingerprint);
   if (action === 'inspect') await inspectTransaction(transactionId);
   if (action === 'execute') await handleSimulate(transactionId);
+  if (action === 'cancel') await handleCancel(transactionId);
 });
 
 document.addEventListener('click', async (event) => {

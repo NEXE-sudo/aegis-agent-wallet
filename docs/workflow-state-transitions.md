@@ -12,6 +12,9 @@ stateDiagram-v2
     [*] --> awaiting_approval: Approval required or high risk
     [*] --> ready: Allowed without approval
 
+    ready --> cancelled: Owner cancels proposal
+    awaiting_approval --> cancelled: Owner cancels proposal
+    approved --> cancelled: Owner cancels proposal
     awaiting_approval --> approved: Valid owner approval
     approved --> awaiting_approval: Approval missing, malformed, future-dated, or expired
 
@@ -25,7 +28,7 @@ stateDiagram-v2
     approved --> executed_simulated: Simulation succeeds
 ```
 
-`executed_simulated` is terminal. No path in this diagram signs or submits an on-chain transaction. For exact audit-event names and the conditions governing reuse of an existing approval, use the transition table and notes below.
+`cancelled` and `executed_simulated` are terminal. Cancelling releases the proposal's daily spend reservation. No path in this diagram signs or submits an on-chain transaction. For exact audit-event names and the conditions governing reuse of an existing approval, use the transition table and notes below.
 
 ## States
 
@@ -33,6 +36,7 @@ stateDiagram-v2
 - `awaiting_approval`: execution is gated on an owner approval.
 - `approved`: an owner approved the proposal fingerprint and the approval timestamp is still valid.
 - `blocked`: policy hard-blocked the proposal, either initially or during execution-time revalidation.
+- `cancelled`: the owner cancelled a pending proposal; its daily spend reservation is released.
 - `executed_simulated`: the simulation completed. This is terminal; no real signing or submission occurs.
 
 ## State-changing transitions
@@ -43,6 +47,7 @@ stateDiagram-v2
 | Proposal requires approval or starts high-risk | none | `awaiting_approval` | `proposal_created` |
 | Proposal is allowed without approval | none | `ready` | `proposal_created` |
 | Valid owner approval | `awaiting_approval` | `approved` | `approval_granted` |
+| Owner cancels a pending proposal | `ready`, `awaiting_approval`, or `approved` | `cancelled` | `transaction_cancelled` |
 | Approved timestamp is missing, malformed, in the future, or expired | `approved` | `awaiting_approval` | `approval_expired` |
 | Execution-time policy revalidation blocks the proposal | `ready` or `approved` | `blocked` | `policy_revalidation_blocked` |
 | Execution-time risk requires fresh approval | `ready` or `approved` | `awaiting_approval` | `risk_escalation_requires_approval` |
@@ -64,6 +69,8 @@ These outcomes must not change the stored status:
 | Execute an `awaiting_approval` transaction | `approval_required` | Remains `awaiting_approval` |
 | Execute a `blocked` transaction | `blocked` | Remains `blocked` |
 | Execute an `executed_simulated` transaction again | `already_executed` | Remains `executed_simulated` |
+| Cancel a `cancelled` transaction again | `already_cancelled` | Remains `cancelled` |
+| Cancel a blocked or executed transaction | `invalid_state` | Remains unchanged |
 | Execute an `approved` transaction whose approval fingerprint does not match | `approval_mismatch` | Remains `approved` |
 
 A missing transaction returns `not_found` and does not create a transaction state or audit event. A persisted proposal integrity mismatch is rejected without changing status and is audited as `proposal_integrity_mismatch`.

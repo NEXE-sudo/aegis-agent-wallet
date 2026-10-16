@@ -2,6 +2,8 @@
 
 This guide describes the environment variables read by the current simulation-only prototype. Keep the API on loopback for local development; the bearer tokens are development controls, not production identity.
 
+The package declares Python `>=3.11`. CI tests the minimum supported version (3.11) and the newer compatibility target (3.14); intermediate Python releases satisfy the declared constraint but are not individually tested in CI.
+
 ## Configuration reference
 
 | Variable | Required? | Default | Purpose and validation |
@@ -48,6 +50,10 @@ The chain inspection routes are separate:
 - `GET /chain/base-sepolia/token/{address}` reads contract bytecode and ERC-20 metadata.
 
 Both chain routes require the owner/approval bearer token and are read-only. A readable token response does not prove that a token is official or safe.
+
+## Workflow cancellation
+
+`POST /transactions/{transaction_id}/cancel` requires the owner token. It cancels a `ready`, `awaiting_approval`, or `approved` proposal, clears any approval, records an audit event, and releases the daily spend reservation. Blocked, already-cancelled, and simulated-executed transactions cannot be cancelled.
 
 ## Common configuration symptoms
 

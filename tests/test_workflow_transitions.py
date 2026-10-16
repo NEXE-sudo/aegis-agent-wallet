@@ -126,3 +126,28 @@ def test_ready_transaction_cannot_be_approved_without_an_approval_requirement(tm
     assert [event["event_type"] for event in store.audit_events(record["transaction_id"])] == [
         "proposal_created"
     ]
+
+
+def test_cancelling_pending_transaction_is_terminal_and_audited(tmp_path):
+    from app.main import DEMO_POLICY
+
+    store, controller = _workflow(tmp_path, DEMO_POLICY)
+    outcome, record = controller.propose(
+        _proposal(recipient="0x4444444444444444444444444444444444444444")
+    )
+    assert outcome == "created"
+    assert record["status"] == "awaiting_approval"
+
+    outcome, cancelled = controller.cancel(record["transaction_id"])
+
+    assert outcome == "cancelled"
+    assert cancelled["status"] == "cancelled"
+    assert store.daily_spend(84532, record["proposal"]["token_address"]) == 0
+    assert [event["event_type"] for event in store.audit_events(record["transaction_id"])] == [
+        "proposal_created",
+        "transaction_cancelled",
+    ]
+    assert store.audit_events(record["transaction_id"])[-1]["details"] == {
+        "reservation_released": True
+    }
+    assert controller.cancel(record["transaction_id"])[0] == "already_cancelled"

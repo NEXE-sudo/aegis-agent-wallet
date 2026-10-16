@@ -35,6 +35,13 @@ def test_frontend_homepage_is_served():
     assert response.status_code == 200
     assert "Aegis" in response.text
     assert 'id="connection-form"' in response.text
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["referrer-policy"] == "no-referrer"
+    assert response.headers["x-frame-options"] == "DENY"
+    nonce = response.headers["content-security-policy"].split("script-src 'nonce-", 1)[1].split("'", 1)[0]
+    assert nonce
+    assert f'<script nonce="{nonce}">' in response.text
+    assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
 
 
 def test_frontend_contains_inline_styles_and_application_script():
@@ -66,6 +73,7 @@ def test_frontend_covers_supported_views_and_workflow_endpoints():
         "api('/transactions/propose'",
         "/transactions/${encodeURIComponent(transactionId)}/approve",
         "/transactions/${encodeURIComponent(transactionId)}/execute",
+        "/transactions/${encodeURIComponent(transactionId)}/cancel",
         "/transactions/${encodeURIComponent(transactionId)}/audit",
         "/market-data/${assetClass}/${symbol}",
     ):
@@ -76,6 +84,7 @@ def test_frontend_covers_supported_views_and_workflow_endpoints():
     assert "}, 'agent');" in response.text
     assert "}, 'owner');" in response.text
     assert 'data-action="execute"' in response.text
+    assert 'data-action="cancel"' in response.text
     assert "No on-chain transaction occurred." in response.text
 
 

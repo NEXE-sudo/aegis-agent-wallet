@@ -6,6 +6,7 @@ import json
 import os
 import sqlite3
 from collections.abc import Callable
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -24,12 +25,14 @@ AUDIT_EVENT_TYPES = {
     "proposal_replayed",
     "risk_escalation_requires_approval",
     "simulated_execution",
+    "transaction_cancelled",
 }
 AUDIT_ACTOR_ROLES = {"agent", "owner", "system"}
 AUDIT_STATUSES = {
     "approved",
     "awaiting_approval",
     "blocked",
+    "cancelled",
     "executed_simulated",
     "ready",
 }
@@ -46,6 +49,19 @@ def _normalize_recipient(value: Any) -> str | None:
     if not isinstance(value, str):
         return None
     return value.strip().lower()
+
+
+def _approval_expired(approved_at: str | None, now: datetime, expires_seconds: int) -> bool:
+    if approved_at is None:
+        return True
+    try:
+        approval_time = datetime.fromisoformat(approved_at)
+        if approval_time.tzinfo is None:
+            approval_time = approval_time.replace(tzinfo=UTC)
+        elapsed = (now - approval_time).total_seconds()
+        return elapsed < 0 or elapsed >= int(expires_seconds)
+    except (TypeError, ValueError):
+        return True
 
 
 
@@ -75,7 +91,7 @@ class WorkflowStore:
         return connection
 
     def _init_db(self) -> None:
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             db.execute("""
                 CREATE TABLE IF NOT EXISTS transactions (
                     transaction_id TEXT PRIMARY KEY,
@@ -348,7 +364,7 @@ class WorkflowStore:
         )
 
     def audit_events(self, transaction_id: str) -> list[dict[str, Any]]:
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             rows = db.execute(
                 """SELECT event_id, transaction_id, event_type, actor_role, from_status,
                           to_status, fingerprint, details_json, created_at
@@ -545,7 +561,7 @@ class WorkflowStore:
         actor_role: str = "agent",
     ) -> tuple[str, dict[str, Any]]:
         """Serializes spend check + reservation so concurrent proposals cannot overspend."""
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
             if idempotency_key:
                 prior = db.execute(
@@ -566,14 +582,6 @@ class WorkflowStore:
                         return "idempotency_conflict", record
                     self._validate_accounting_consistency(record)
                     if _proposal_fingerprint(record["proposal"]) != _proposal_fingerprint(proposal):
-                        self._append_audit(
-                            db, record["transaction_id"], "idempotency_conflict", actor_role,
-                            record["status"], record["status"], record["fingerprint"],
-                            {"reason": "key reused with a different proposal"},
-                        )
-                        db.execute("COMMIT")
-                        return "idempotency_conflict", record
-                    if record["fingerprint"] != build_record(0, 0)["fingerprint"]:
                         self._append_audit(
                             db, record["transaction_id"], "idempotency_conflict", actor_role,
                             record["status"], record["status"], record["fingerprint"],
@@ -634,7 +642,7 @@ class WorkflowStore:
     def create(self, record: dict[str, Any], actor_role: str = "system") -> None:
         proposal = record["proposal"]
         executed_at = _utc_now().isoformat() if record["status"] == "executed_simulated" else None
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
             db.execute(
                 """INSERT INTO transactions (
@@ -662,11 +670,11 @@ class WorkflowStore:
 
     def daily_spend(self, chain_id: int, token_address: str,
                     exclude_transaction_id: str | None = None) -> int:
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             return self._daily_spend(db, chain_id, token_address, exclude_transaction_id)
 
     def get(self, transaction_id: str) -> dict[str, Any] | None:
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             row = db.execute("SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)).fetchone()
         return self._decode(row) if row else None
 
@@ -674,7 +682,7 @@ class WorkflowStore:
         """Return the newest persisted workflow records for owner-facing inspection."""
         if not 1 <= limit <= 100:
             raise ValueError("limit must be between 1 and 100")
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             rows = db.execute(
                 "SELECT * FROM transactions ORDER BY created_at DESC, transaction_id DESC LIMIT ?",
                 (limit,),
@@ -685,7 +693,7 @@ class WorkflowStore:
         self, transaction_id: str, fingerprint: str, actor_role: str = "owner",
         approval_expires_seconds: int = 300,
     ) -> tuple[str, dict[str, Any] | None]:
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)).fetchone()
             if row is None:
@@ -713,16 +721,7 @@ class WorkflowStore:
             if record["status"] == "approved":
                 now = _utc_now()
                 approved_at = record.get("approved_at")
-                expired = approved_at is None
-                if approved_at is not None:
-                    try:
-                        approval_time = datetime.fromisoformat(approved_at)
-                        if approval_time.tzinfo is None:
-                            approval_time = approval_time.replace(tzinfo=UTC)
-                        elapsed = (now - approval_time).total_seconds()
-                        expired = elapsed < 0 or elapsed >= int(approval_expires_seconds)
-                    except (TypeError, ValueError):
-                        expired = True
+                expired = _approval_expired(approved_at, now, approval_expires_seconds)
                 if expired:
                     db.execute(
                         """UPDATE transactions SET status = 'awaiting_approval',
@@ -760,6 +759,39 @@ class WorkflowStore:
             db.execute("COMMIT")
         return "approved", self.get(transaction_id)
 
+    def cancel(
+        self, transaction_id: str, actor_role: str = "owner"
+    ) -> tuple[str, dict[str, Any] | None]:
+        """Cancel a pending proposal and release its daily spend reservation."""
+        with closing(self._connect()) as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)
+            ).fetchone()
+            if row is None:
+                db.execute("COMMIT")
+                return "not_found", None
+            record = self._decode(row)
+            if record["status"] == "cancelled":
+                db.execute("COMMIT")
+                return "already_cancelled", record
+            if record["status"] not in {"ready", "awaiting_approval", "approved"}:
+                db.execute("COMMIT")
+                return "invalid_state", record
+            db.execute(
+                """UPDATE transactions SET status = 'cancelled',
+                   approval_fingerprint = NULL, approved_at = NULL,
+                   updated_at = CURRENT_TIMESTAMP WHERE transaction_id = ?""",
+                (transaction_id,),
+            )
+            self._append_audit(
+                db, transaction_id, "transaction_cancelled", actor_role,
+                record["status"], "cancelled", record["fingerprint"],
+                {"reservation_released": True},
+            )
+            db.execute("COMMIT")
+        return "cancelled", self.get(transaction_id)
+
     def execute_simulated(
         self, transaction_id: str, policy: Any, actor_role: str = "owner"
     ) -> tuple[str, dict[str, Any] | None]:
@@ -769,7 +801,7 @@ class WorkflowStore:
         from app.risk.engine import assess_transaction_risk
         from app.risk.models import RiskLevel
 
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)).fetchone()
             if row is None:
@@ -803,16 +835,9 @@ class WorkflowStore:
             if record["status"] == "approved":
                 now = _utc_now()
                 approved_at = record.get("approved_at")
-                expired = approved_at is None
-                if approved_at is not None:
-                    try:
-                        approval_time = datetime.fromisoformat(approved_at)
-                        if approval_time.tzinfo is None:
-                            approval_time = approval_time.replace(tzinfo=UTC)
-                        elapsed = (now - approval_time).total_seconds()
-                        expired = elapsed < 0 or elapsed >= int(policy.approval_expires_seconds)
-                    except (TypeError, ValueError):
-                        expired = True
+                expired = _approval_expired(
+                    approved_at, now, policy.approval_expires_seconds
+                )
                 if expired:
                     db.execute(
                         """UPDATE transactions SET status = 'awaiting_approval',
@@ -944,7 +969,8 @@ class WorkflowStore:
             record["policy_decision"] not in {"allow", "require_approval", "block"}
             or record["risk_level"] not in {"low", "medium", "high"}
             or record["status"] not in {
-                "blocked", "ready", "awaiting_approval", "approved", "executed_simulated"
+                "blocked", "ready", "awaiting_approval", "approved", "cancelled",
+                "executed_simulated",
             }
             or type(record.get("risk_score")) is not int
             or not 0 <= record["risk_score"] <= 100

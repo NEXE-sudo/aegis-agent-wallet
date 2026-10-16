@@ -32,7 +32,7 @@ The prototype aims to:
 
 - `POST /transactions/propose` requires the agent bearer token.
 - Transaction retrieval, approval, simulated execution, audit retrieval, and Base Sepolia inspection require the owner/approval bearer token.
-- `/health`, `/policy/evaluate`, and `/risk/assess` are demo endpoints without bearer-token dependencies. Evaluation endpoints accept caller-supplied spend for isolated evaluation only; that value is not the workflow's persisted reservation ledger.
+- `/health`, `/policy/evaluate`, and `/risk/assess` are demo endpoints without bearer-token dependencies. Evaluation endpoints accept caller-supplied spend for isolated evaluation only; that value is not the workflow's persisted reservation ledger. They expose a policy oracle: callers can vary inputs to infer configured limits and allowlists. Keep these endpoints reachable only on the local prototype; deployments exposed to untrusted callers should require owner authentication or otherwise restrict access.
 - Request validation and policy checks reduce invalid input, but authentication is a small development bearer-token scheme, not a production identity, role-management, or session system.
 
 ### Application and SQLite database

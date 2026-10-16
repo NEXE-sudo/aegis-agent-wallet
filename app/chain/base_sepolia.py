@@ -13,6 +13,7 @@ BASE_SEPOLIA_USDC_ADDRESS = "0x036cbd53842c5426634e7929541ec2318f3dcf7e"
 _ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 _QUANTITY_RE = re.compile(r"^0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)$")
 _DATA_RE = re.compile(r"^0x(?:[0-9a-fA-F]{2})*$")
+_MAX_TOKEN_METADATA_BYTES = 256
 
 
 class RpcConfigurationError(RuntimeError):
@@ -35,6 +36,8 @@ def _decode_abi_string(value: str) -> str:
         raise RpcRequestError("RPC returned malformed ABI data")
     raw = bytes.fromhex(value[2:])
     if len(raw) == 32:
+        if len(raw.rstrip(b"\x00")) > _MAX_TOKEN_METADATA_BYTES:
+            raise RpcRequestError("RPC returned oversized token metadata")
         return raw.rstrip(b"\x00").decode("utf-8", errors="replace")
     if len(raw) < 64:
         raise RpcRequestError("RPC returned truncated ABI string data")
@@ -44,6 +47,8 @@ def _decode_abi_string(value: str) -> str:
     length = int.from_bytes(raw[offset:offset + 32], "big")
     start = offset + 32
     end = start + length
+    if length > _MAX_TOKEN_METADATA_BYTES:
+        raise RpcRequestError("RPC returned oversized token metadata")
     if end > len(raw):
         raise RpcRequestError("RPC returned truncated ABI string")
     return raw[start:end].decode("utf-8", errors="replace")
@@ -126,7 +131,6 @@ class BaseSepoliaRpc:
                 "name": None,
                 "symbol": None,
                 "decimals": None,
-                "verified": False,
                 "warnings": ["No contract bytecode found at this address."],
             }
 
@@ -158,7 +162,6 @@ class BaseSepoliaRpc:
             "name": name,
             "symbol": symbol,
             "decimals": decimals,
-            "verified": True,
             "warnings": warnings + [
                 "This confirms bytecode and readable metadata only; it does not establish that the token is official, safe, or liquid."
             ],

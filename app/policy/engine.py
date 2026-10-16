@@ -109,7 +109,6 @@ def evaluate_transaction(
         _normalise_address(address): limit
         for address, limit in policy.recipient_daily_limits_base_units.items()
     }
-    recipient = _normalise_address(proposal.recipient)
     recipient_limit = recipient_limits.get(recipient)
     if recipient_daily_spent_base_units < 0:
         hard_block = True

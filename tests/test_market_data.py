@@ -85,6 +85,26 @@ def test_equity_provider_parses_daily_close_and_normalizes_share_class():
     assert "s=brk-b.us" in seen["url"]
 
 
+def test_equity_provider_accepts_current_session_date_without_future_timestamp():
+    today = datetime.now(UTC).date().isoformat()
+    provider = StooqProvider(
+        _transport(
+            lambda request: httpx.Response(
+                200,
+                text=(
+                    "Symbol,Date,Time,Open,High,Low,Close,Volume\n"
+                    f"AAPL.US,{today},16:00:00,1,2,1,190,10\n"
+                ),
+            )
+        )
+    )
+
+    quote = provider.get_quote("equity", "AAPL")
+
+    assert quote.as_of <= datetime.now(UTC)
+    assert quote.is_stale is False
+
+
 @pytest.mark.parametrize("body", [
     "Symbol,Date,Time,Open,High,Low,Close,Volume\nAAPL.US,N/D,N/D,N/D,N/D,N/D,N/D,N/D\n",
     "Symbol,Date,Time,Open,High,Low,Close,Volume\nMSFT.US,2026-10-13,16:00:00,1,2,1,0,10\n",

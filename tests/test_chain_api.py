@@ -142,7 +142,6 @@ def test_chain_token_endpoint_returns_read_only_metadata(monkeypatch):
         "name": "Example Token",
         "symbol": "EXT",
         "decimals": 18,
-        "verified": True,
         "warnings": ["Metadata readability does not prove token authenticity."],
     }
 
@@ -167,7 +166,7 @@ def test_chain_token_endpoint_returns_read_only_metadata(monkeypatch):
     assert response.json() == expected
 
 
-def test_chain_token_endpoint_preserves_unverified_no_code_result(monkeypatch):
+def test_chain_token_endpoint_preserves_unreadable_metadata_result(monkeypatch):
     monkeypatch.setenv("AEGIS_APPROVAL_TOKEN", OWNER_HEADERS["Authorization"].split()[-1])
     expected = {
         "address": "0x1111111111111111111111111111111111111111",
@@ -177,7 +176,6 @@ def test_chain_token_endpoint_preserves_unverified_no_code_result(monkeypatch):
         "name": None,
         "symbol": None,
         "decimals": None,
-        "verified": False,
         "warnings": ["No contract bytecode found at this address."],
     }
 

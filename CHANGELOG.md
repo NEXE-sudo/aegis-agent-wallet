@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.10.2 (unreleased)
+
+- Add an owner-authenticated cancellation action for pending proposals; cancellation clears approval state, appends an audit event, and releases the daily reservation.
+- Correct same-day Stooq equity quote timestamps so today's session date is not rejected as a future quote.
+- Replace the misleading token `verified` field with `erc20_metadata_readable` and reject token metadata strings longer than 256 bytes.
+- Explicitly close SQLite connections, consolidate approval-expiry checks, and remove redundant idempotency and normalization work.
+- Add nonce-based Content Security Policy and standard browser security headers to the served frontend.
+- Document the unauthenticated evaluation endpoints' policy-oracle exposure.
+- Test the declared Python minimum (3.11) and a newer supported runtime (3.14) in CI.
+
+## 1.10.1
+
+- Add a dependency-free local frontend control centre for proposals, approvals, simulation, workflow search, audit inspection, and connection settings.
+- Add read-only crypto and equity market-data quotes with fixed HTTPS providers, response validation, stale-data indicators, and sanitized failures.
+- Add locked dependency, test, lint, and dependency-audit workflows and document the simulation-only security boundary.
+
 ## 1.10.0
 
 - Detect expired approvals when an approval retry is attempted, clear stale approval state, and record an expiry audit event.

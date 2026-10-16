@@ -173,6 +173,9 @@ class StooqProvider:
             if not row.get("Time") or row["Time"].upper() == "N/D":
                 raise ValueError
             as_of = datetime.combine(session_date, time.max, tzinfo=UTC)
+            now = datetime.now(UTC)
+            if session_date == now.date():
+                as_of = min(as_of, now)
         except (KeyError, TypeError, ValueError) as exc:
             raise MarketDataError("Equity market-data provider returned an invalid response") from exc
         return _quote("equity", normalized, price, as_of, self.source, _EQUITY_MAX_AGE)

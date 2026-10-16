@@ -1,6 +1,7 @@
 """Aegis Agent Wallet API. Workflow execution is simulation-only."""
 import logging
 import os
+import secrets
 import sqlite3
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -9,7 +10,7 @@ from time import perf_counter
 from typing import Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from app.auth import require_agent, require_owner
@@ -201,6 +202,10 @@ async def log_http_requests(request: Request, call_next):
             "duration_ms": round((perf_counter() - started) * 1000, 2),
         },
     )
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
     return response
 
 
@@ -222,9 +227,9 @@ def _proposal(request: EvaluationRequest | ProposalRequest) -> TransactionPropos
     return TransactionProposal(
         agent_id=request.agent_id,
         chain_id=request.chain_id,
-        token_symbol=request.token_symbol.strip().upper(),
-        token_address=request.token_address.strip().lower(),
-        recipient=request.recipient.strip().lower(),
+        token_symbol=request.token_symbol,
+        token_address=request.token_address,
+        recipient=request.recipient,
         amount_base_units=request.amount_base_units,
         token_decimals=request.token_decimals,
     )
@@ -350,6 +355,22 @@ def execute_transaction(transaction_id: str) -> TransactionResponse:
     return _record_response(record or {})
 
 
+@app.post(
+    "/transactions/{transaction_id}/cancel",
+    response_model=TransactionResponse,
+    dependencies=[Depends(require_owner)],
+)
+def cancel_transaction(transaction_id: str) -> TransactionResponse:
+    outcome, record = controller.cancel(transaction_id)
+    if outcome == "not_found":
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    if outcome == "invalid_state":
+        raise HTTPException(status_code=409, detail="Transaction cannot be cancelled in its current state")
+    if outcome == "already_cancelled":
+        raise HTTPException(status_code=409, detail="Transaction has already been cancelled")
+    return _record_response(record or {})
+
+
 @app.get(
     "/market-data/{asset_class}/{symbol}",
     response_model=MarketDataResponse,
@@ -375,6 +396,19 @@ _frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 
 
 @app.get("/", include_in_schema=False)
-def frontend_index() -> FileResponse:
-    """Serve the local control centre at the site root."""
-    return FileResponse(_frontend_dir / "index.html")
+def frontend_index() -> HTMLResponse:
+    """Serve the local control centre with a nonce-scoped script policy."""
+    nonce = secrets.token_urlsafe(18)
+    html = (_frontend_dir / "index.html").read_text(encoding="utf-8")
+    html = html.replace("<script>", f'<script nonce="{nonce}">', 1)
+    return HTMLResponse(
+        html,
+        headers={
+            "Content-Security-Policy": (
+                f"default-src 'self'; script-src 'nonce-{nonce}'; "
+                "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+                "connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+            ),
+            "Cache-Control": "no-store",
+        },
+    )

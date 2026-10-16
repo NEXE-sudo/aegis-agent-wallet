@@ -62,3 +62,6 @@ class TransactionController:
 
     def execute(self, transaction_id: str) -> tuple[str, dict[str, Any] | None]:
         return self.store.execute_simulated(transaction_id, self.policy)
+
+    def cancel(self, transaction_id: str) -> tuple[str, dict[str, Any] | None]:
+        return self.store.cancel(transaction_id)

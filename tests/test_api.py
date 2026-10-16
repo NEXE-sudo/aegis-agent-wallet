@@ -323,6 +323,48 @@ def test_daily_spend_reservations_block_overspend():
     assert "daily spending limit" in " ".join(fourth["policy_reasons"]).lower()
 
 
+def test_owner_can_cancel_reservation_and_restore_daily_budget():
+    proposals = [
+        propose(_payload(amount_base_units=50_000_000)).json()
+        for _ in range(3)
+    ]
+    assert sum(record["status"] != "blocked" for record in proposals) == 3
+    transaction_id = proposals[0]["transaction_id"]
+    assert main.store.daily_spend(84532, BASE_SEPOLIA_USDC_ADDRESS) == 150_000_000
+
+    unauthorized = client.post(f"/transactions/{transaction_id}/cancel")
+    assert unauthorized.status_code == 401
+
+    cancelled = owner_post(f"/transactions/{transaction_id}/cancel")
+    assert cancelled.status_code == 200
+    assert cancelled.json()["status"] == "cancelled"
+    assert main.store.daily_spend(84532, BASE_SEPOLIA_USDC_ADDRESS) == 100_000_000
+    assert owner_post(f"/transactions/{transaction_id}/execute").status_code == 409
+
+    replacement = propose(_payload(amount_base_units=50_000_000))
+    assert replacement.status_code == 201
+    assert replacement.json()["status"] != "blocked"
+
+    audit = client.get(
+        f"/transactions/{transaction_id}/audit", headers=OWNER_HEADERS
+    )
+    assert audit.status_code == 200
+    event = audit.json()[-1]
+    assert event["event_type"] == "transaction_cancelled"
+    assert event["details"]["reservation_released"] is True
+
+
+def test_cancel_rejects_terminal_transactions():
+    record = propose().json()
+    executed = owner_post(f"/transactions/{record['transaction_id']}/execute")
+    assert executed.status_code == 200
+
+    response = owner_post(f"/transactions/{record['transaction_id']}/cancel")
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Transaction cannot be cancelled in its current state"
+
+
 @pytest.mark.parametrize("key", ["        ", "\t\t\t\t\t\t\t\t", " \t       "])
 def test_idempotency_key_rejects_whitespace_only_values(key):
     response = client.post(
