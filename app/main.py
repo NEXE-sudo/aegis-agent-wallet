@@ -137,6 +137,13 @@ class TransactionResponse(BaseModel):
     updated_at: str
 
 
+class AgentTransactionStatusResponse(BaseModel):
+    transaction_id: str
+    status: str
+    execution_reference: str | None = None
+    updated_at: str
+
+
 class TransactionReceiptResponse(BaseModel):
     transaction_id: str
     transaction_hash: str
@@ -332,6 +339,25 @@ def get_transaction(transaction_id: str) -> TransactionResponse:
     return _record_response(record)
 
 
+@app.get(
+    "/agent/transactions/{transaction_id}",
+    response_model=AgentTransactionStatusResponse,
+    dependencies=[Depends(require_agent)],
+)
+def get_agent_transaction_status(
+    transaction_id: str,
+) -> AgentTransactionStatusResponse:
+    record = store.get(transaction_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    return AgentTransactionStatusResponse(
+        transaction_id=record["transaction_id"],
+        status=record["status"],
+        execution_reference=record["execution_reference"],
+        updated_at=record["updated_at"],
+    )
+
+
 @app.post("/transactions/{transaction_id}/approve", response_model=TransactionResponse,
           dependencies=[Depends(require_owner)])
 def approve_transaction(transaction_id: str, request: ApprovalRequest) -> TransactionResponse:
@@ -450,12 +476,7 @@ def reject_transaction(transaction_id: str) -> TransactionResponse:
     return _record_response(record or {})
 
 
-@app.get(
-    "/market-data/{asset_class}/{symbol}",
-    response_model=MarketDataResponse,
-    dependencies=[Depends(require_owner)],
-)
-def get_market_quote(asset_class: str, symbol: str) -> MarketDataResponse:
+def _market_quote(asset_class: str, symbol: str) -> MarketDataResponse:
     """Return a validated, read-only crypto or equity quote."""
     try:
         quote = market_data_provider.get_quote(asset_class, symbol)
@@ -464,6 +485,24 @@ def get_market_quote(asset_class: str, symbol: str) -> MarketDataResponse:
     except MarketDataError as exc:
         raise HTTPException(status_code=502, detail="Market-data provider unavailable") from exc
     return MarketDataResponse(**quote.__dict__)
+
+
+@app.get(
+    "/market-data/{asset_class}/{symbol}",
+    response_model=MarketDataResponse,
+    dependencies=[Depends(require_owner)],
+)
+def get_market_quote(asset_class: str, symbol: str) -> MarketDataResponse:
+    return _market_quote(asset_class, symbol)
+
+
+@app.get(
+    "/agent/market-data/{asset_class}/{symbol}",
+    response_model=MarketDataResponse,
+    dependencies=[Depends(require_agent)],
+)
+def get_agent_market_quote(asset_class: str, symbol: str) -> MarketDataResponse:
+    return _market_quote(asset_class, symbol)
 
 
 # Read-only chain inspection; this router exposes no signing or submission methods.

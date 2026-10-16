@@ -32,11 +32,13 @@ Keep both tokens private. The agent token and owner/approval token must be diffe
 
 For requests, send `Authorization: Bearer <AEGIS_AGENT_TOKEN>` to `POST /transactions/propose`. Use `Authorization: Bearer <AEGIS_APPROVAL_TOKEN>` for transaction retrieval, approval, and simulated execution. `/health`, `/policy/evaluate`, and `/risk/assess` are demo endpoints; the latter two accept caller-provided spend only for isolated evaluation and do not create transactions.
 
+Agent-token calls include proposal creation plus the limited agent status and market-quote reads. Full transaction records, approval, rejection, execution, and audit operations remain owner-only. The agent itself only proposes; it never acts as owner. See the [agent guide](docs/agent.md) for task structure, LLM configuration, and offline evaluation.
+
 ## Local frontend control centre
 
 Start the API with the commands above, then open [http://127.0.0.1:8000/](http://127.0.0.1:8000/). The dependency-free frontend shares the API origin and includes an overview, read-only crypto/equity market quotes, proposal submission, owner approvals, mode-aware execution, workflow search, audit inspection, and local connection settings. Connect with distinct local agent and owner tokens. The browser keeps them in memory only; disconnect or reload to clear them. Market prices are informational (equity quotes are daily closes). See [the frontend guide](docs/frontend.md) for functionality, validation, and safety limitations.
 
-The UI reflects the current USDC-on-Base-Sepolia demo workflow. Owner-authenticated market quotes are provided by the separate read-only market-data API; see [the market-data guide](docs/market-data.md) for supported symbols and provider freshness. No broker/exchange order routing or real transaction execution is provided.
+The UI reflects the current USDC-on-Base-Sepolia demo workflow. Owner-authenticated market quotes are provided by the separate read-only market-data API; see [the market-data guide](docs/market-data.md) for supported symbols and provider freshness. No broker or exchange order routing is provided. On-chain transfers are restricted to explicitly enabled Base Sepolia testnet execution; simulated mode is the default.
 
 ## Base Sepolia integration (v0.7.0)
 
@@ -57,6 +59,8 @@ Policy construction fails fast when global transaction or daily limits are non-p
 
 - `POST /transactions/propose` — atomically calculates today's persisted spend, reserves the proposed amount, evaluates policy/risk, and saves the proposal. Supports the optional `Idempotency-Key` header (8–128 characters). Reusing a key with the same proposal returns the original record; reusing it with a different proposal returns HTTP 409.
 - `GET /transactions/{transaction_id}` — retrieves persisted state; owner token required.
+- `GET /agent/transactions/{transaction_id}` — agent-token-only status view with no proposal or audit details.
+- `GET /agent/market-data/{asset_class}/{symbol}` — agent-token-only read of validated market quotes.
 - `GET /transactions/{transaction_id}/audit` — retrieves ordered audit events, including actor role, state transition, fingerprint, timestamp, and event details; owner token required.
 - `POST /transactions/{transaction_id}/approve` — requires the owner token, the exact stored SHA-256 fingerprint, and body confirmation `APPROVE`. Approval expires after `AEGIS_APPROVAL_EXPIRES_SECONDS` (default 300 seconds); expired approvals must be granted again.
 - `POST /transactions/{transaction_id}/cancel` — requires the owner token and cancels a `ready`, `awaiting_approval`, or `approved` proposal, releasing its daily spend reservation.

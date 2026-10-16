@@ -1,0 +1,262 @@
+"""Run the deterministic agent scenarios and write JSON/Markdown evidence."""
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import os
+import secrets
+import tempfile
+from contextlib import ExitStack
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+from unittest.mock import patch
+
+import httpx
+
+from agent.client import AegisApiClient
+from agent.runner import AegisAgent
+from agent.scenarios import make_task, payment, scenarios
+
+
+class _OfflineMarketDataProvider:
+    def get_quote(self, asset_class: str, symbol: str):
+        from app.market_data import MarketQuote
+
+        return MarketQuote(
+            asset_class=asset_class,
+            symbol=symbol.upper(),
+            price=1.0,
+            currency="USD",
+            as_of=datetime.now(UTC),
+            source="offline-evaluation",
+            is_stale=False,
+        )
+
+
+async def _run_scenario(
+    app: Any,
+    database_path: Path,
+    agent_token: str,
+    scenario: dict[str, Any],
+) -> dict[str, Any]:
+    from app.chain.execution import ExecutionSettings
+    from app.workflow.controller import TransactionController
+    from app.workflow.store import WorkflowStore
+
+    store = WorkflowStore(database_path)
+    controller = TransactionController(app.DEMO_POLICY, store)
+    with ExitStack() as stack:
+        stack.enter_context(patch.object(app, "store", store))
+        stack.enter_context(patch.object(app, "controller", controller))
+        stack.enter_context(patch.object(app, "market_data_provider", _OfflineMarketDataProvider()))
+        stack.enter_context(
+            patch.object(app, "execution_settings", ExecutionSettings(mode="simulated"))
+        )
+        transport = httpx.ASGITransport(app=app.app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://127.0.0.1"
+        ) as http:
+            api = AegisApiClient("http://127.0.0.1", agent_token, http)
+            agent = AegisAgent(api)
+            result = await agent.run(scenario["task"])
+            proposal = result["tool_results"][0]
+            status = result["tool_results"][1]
+            observed: dict[str, Any] = {
+                "proposal_status": proposal["status"],
+                "read_status": status["status"],
+            }
+            expected_status = scenario["expected"]
+            passed = (
+                proposal["status"] == expected_status
+                and status["status"] == expected_status
+            )
+            if "expected_recipient" in scenario:
+                proposed_recipient = proposal["proposal"]["recipient"]
+                observed["proposed_recipient"] = proposed_recipient
+                observed["injected_recipient_not_used"] = (
+                    proposed_recipient.lower()
+                    != scenario["must_not_propose_recipient"].lower()
+                )
+                passed = passed and (
+                    proposed_recipient.lower()
+                    == scenario["expected_recipient"].lower()
+                )
+            return {
+                "name": scenario["name"],
+                "passed": passed,
+                "expected": expected_status,
+                "observed": observed,
+            }
+
+
+async def _run_daily_limit_scenario(
+    app: Any,
+    database_path: Path,
+    agent_token: str,
+    owner_token: str,
+) -> dict[str, Any]:
+    from app.chain.execution import ExecutionSettings
+    from app.workflow.controller import TransactionController
+    from app.workflow.store import WorkflowStore
+
+    store = WorkflowStore(database_path)
+    controller = TransactionController(app.DEMO_POLICY, store)
+    with ExitStack() as stack:
+        stack.enter_context(patch.object(app, "store", store))
+        stack.enter_context(patch.object(app, "controller", controller))
+        stack.enter_context(patch.object(app, "market_data_provider", _OfflineMarketDataProvider()))
+        stack.enter_context(
+            patch.object(app, "execution_settings", ExecutionSettings(mode="simulated"))
+        )
+        transport = httpx.ASGITransport(app=app.app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://127.0.0.1"
+        ) as http:
+            api = AegisApiClient("http://127.0.0.1", agent_token, http)
+            agent = AegisAgent(api)
+            full_limit_tasks = [
+                make_task("Reserve the verified payment.", payment(amount=50_000_000))
+                for _ in range(3)
+            ]
+            reservations = [await agent.run(task) for task in full_limit_tasks]
+            initial_statuses = [
+                result["tool_results"][0]["status"] for result in reservations
+            ]
+            blocked_task = make_task(
+                "Prepare the next verified payment.", payment(amount=50_000_000)
+            )
+            blocked = await agent.run(blocked_task)
+            blocked_status = blocked["tool_results"][0]["status"]
+            rejected_transaction_id = reservations[0]["tool_results"][0]["transaction_id"]
+            rejected = await http.post(
+                f"/transactions/{rejected_transaction_id}/reject",
+                headers={"Authorization": f"Bearer {owner_token}"},
+            )
+            rejected_status = (
+                rejected.json().get("status") if rejected.status_code == 200 else None
+            )
+            retried = await agent.run(blocked_task)
+            retry_status = retried["tool_results"][0]["status"]
+            passed = (
+                initial_statuses == ["awaiting_approval"] * 3
+                and blocked_status == "blocked"
+                and rejected_status == "rejected"
+                and retry_status == "awaiting_approval"
+                and retried["tool_results"][1]["status"] == "awaiting_approval"
+            )
+            return {
+                "name": "daily limit, owner rejection, and retry",
+                "passed": passed,
+                "expected": (
+                    "three reservations fill the 150,000,000-unit limit; the next "
+                    "proposal is blocked; owner rejection releases 50,000,000 units; "
+                    "a fresh agent proposal is accepted for owner review"
+                ),
+                "observed": {
+                    "initial_reservation_statuses": initial_statuses,
+                    "at_limit_status": blocked_status,
+                    "owner_rejection_status": rejected_status,
+                    "retry_status": retry_status,
+                    "retry_read_status": retried["tool_results"][1]["status"],
+                },
+            }
+
+
+async def run_evaluation(output_dir: Path) -> dict[str, Any]:
+    """Execute all scenarios against isolated temporary SQLite databases."""
+    agent_token = secrets.token_urlsafe(32)
+    owner_token = secrets.token_urlsafe(32)
+    if agent_token == owner_token:
+        raise RuntimeError("Generated workflow tokens unexpectedly matched")
+    results: list[dict[str, Any]] = []
+    with tempfile.TemporaryDirectory(prefix="aegis-agent-eval-") as temporary_root:
+        root = Path(temporary_root)
+        environment = {
+            "AEGIS_DB_PATH": str(root / "startup.sqlite3"),
+            "AEGIS_AGENT_TOKEN": agent_token,
+            "AEGIS_APPROVAL_TOKEN": owner_token,
+            "AEGIS_EXECUTION_MODE": "simulated",
+        }
+        with patch.dict(os.environ, environment):
+            from app import main as app
+
+            for index, scenario in enumerate(scenarios()):
+                results.append(
+                    await _run_scenario(
+                        app,
+                        root / f"scenario-{index}.sqlite3",
+                        agent_token,
+                        scenario,
+                    )
+                )
+            results.append(
+                await _run_daily_limit_scenario(
+                    app,
+                    root / "daily-limit.sqlite3",
+                    agent_token,
+                    owner_token,
+                )
+            )
+    report = {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "agent_mode": "deterministic_offline",
+        "database_mode": "temporary_sqlite",
+        "passed": all(result["passed"] for result in results),
+        "scenario_count": len(results),
+        "scenarios": results,
+    }
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "agent-eval.json").write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    markdown = [
+        "# Aegis Agent Evaluation",
+        "",
+        f"- Generated: `{report['generated_at']}`",
+        "- Agent: deterministic offline fallback",
+        "- Database: isolated temporary SQLite files",
+        (
+            f"- Result: **{'PASS' if report['passed'] else 'FAIL'}** "
+            f"({report['scenario_count']} scenarios)"
+        ),
+        "",
+        "| Scenario | Result | Expected | Observed |",
+        "| --- | --- | --- | --- |",
+    ]
+    for result in results:
+        observed = json.dumps(result["observed"], sort_keys=True)
+        markdown.append(
+            f"| {result['name']} | {'PASS' if result['passed'] else 'FAIL'} "
+            f"| {result['expected']} | `{observed}` |"
+        )
+    markdown.append("")
+    (output_dir / "agent-eval.md").write_text(
+        "\n".join(markdown),
+        encoding="utf-8",
+    )
+    return report
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Run the deterministic offline Aegis agent evaluation."
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("reports"),
+        help="Directory for agent-eval.json and agent-eval.md (default: reports)",
+    )
+    args = parser.parse_args()
+    report = asyncio.run(run_evaluation(args.output_dir))
+    for scenario in report["scenarios"]:
+        print(f"{'PASS' if scenario['passed'] else 'FAIL'}: {scenario['name']}")
+    print(f"Reports written to {args.output_dir / 'agent-eval.json'} and .md")
+    return 0 if report["passed"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

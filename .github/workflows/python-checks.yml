@@ -38,6 +38,9 @@ jobs:
       - name: Run tests
         run: uv run --locked python -m pytest -q
 
+      - name: Run deterministic agent evaluation
+        run: uv run --locked python -m agent.eval --output-dir "$RUNNER_TEMP/aegis-agent-eval"
+
       - name: Install dependency audit tooling
         run: |
           uv pip install --python .venv/bin/python "setuptools>=83.0.0" "pip-audit==2.10.1"

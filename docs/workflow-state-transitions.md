@@ -36,6 +36,10 @@ stateDiagram-v2
 
 `cancelled`, `rejected`, `executed_simulated`, and `submitted_onchain` are terminal workflow states. Cancelling or rejecting releases the proposal's daily spend reservation. Repeating a rejection leaves the record unchanged and returns its current state. `submitting_onchain` means the exact signed transaction is durably stored for safe retry after an uncertain RPC outcome; execution retries rebroadcast those same bytes rather than selecting a new nonce. A `submitted_onchain` state means the RPC accepted the transaction, not that it has been mined or finalized. For exact audit-event names and the conditions governing reuse of an existing approval, use the transition table and notes below.
 
+The agent-only `GET /agent/transactions/{transaction_id}` endpoint exposes status,
+execution reference, and update time without returning proposal fields or audit data.
+It does not change workflow state.
+
 ## States
 
 - `ready`: proposal passed initial policy checks and does not currently require approval.

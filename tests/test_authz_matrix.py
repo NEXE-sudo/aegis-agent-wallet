@@ -42,6 +42,8 @@ def _request(method, path, headers=None):
     ("method", "path", "valid_token"),
     [
         ("post", "/transactions/propose", AGENT_TOKEN),
+        ("get", "/agent/transactions/security-review-id", AGENT_TOKEN),
+        ("get", "/agent/market-data/crypto/BTC", AGENT_TOKEN),
         ("get", "/transactions/security-review-id", OWNER_TOKEN),
         ("get", "/transactions/security-review-id/audit", OWNER_TOKEN),
         ("get", "/transactions/security-review-id/receipt", OWNER_TOKEN),
@@ -57,6 +59,8 @@ def _request(method, path, headers=None):
     ],
     ids=[
         "agent-proposal",
+        "agent-transaction-status",
+        "agent-market-data",
         "owner-transaction-read",
         "owner-audit-read",
         "owner-receipt-read",
@@ -109,6 +113,8 @@ def test_documented_standalone_evaluation_endpoints_remain_public(path):
     ("method", "path", "valid_token"),
     [
         ("post", "/transactions/propose", AGENT_TOKEN),
+        ("get", "/agent/transactions/security-review-id", AGENT_TOKEN),
+        ("get", "/agent/market-data/crypto/BTC", AGENT_TOKEN),
         ("get", "/transactions/security-review-id", OWNER_TOKEN),
         ("get", "/transactions/security-review-id/audit", OWNER_TOKEN),
         ("get", "/transactions/security-review-id/receipt", OWNER_TOKEN),
@@ -124,6 +130,8 @@ def test_documented_standalone_evaluation_endpoints_remain_public(path):
     ],
     ids=[
         "agent-proposal",
+        "agent-transaction-status",
+        "agent-market-data",
         "owner-transaction-read",
         "owner-audit-read",
         "owner-receipt-read",
@@ -162,6 +170,18 @@ def test_protected_endpoint_fails_closed_when_tokens_are_identical(
     ("method", "path", "configured_env", "configured_token"),
     [
         ("post", "/transactions/propose", "AEGIS_AGENT_TOKEN", AGENT_TOKEN),
+        (
+            "get",
+            "/agent/transactions/security-review-id",
+            "AEGIS_AGENT_TOKEN",
+            AGENT_TOKEN,
+        ),
+        (
+            "get",
+            "/agent/market-data/crypto/BTC",
+            "AEGIS_AGENT_TOKEN",
+            AGENT_TOKEN,
+        ),
         ("get", "/transactions/security-review-id", "AEGIS_APPROVAL_TOKEN", OWNER_TOKEN),
         ("get", "/transactions/security-review-id/audit", "AEGIS_APPROVAL_TOKEN", OWNER_TOKEN),
         ("get", "/transactions/security-review-id/receipt", "AEGIS_APPROVAL_TOKEN", OWNER_TOKEN),
@@ -171,6 +191,8 @@ def test_protected_endpoint_fails_closed_when_tokens_are_identical(
     ],
     ids=[
         "agent-proposal-missing-owner-token",
+        "agent-transaction-status-missing-owner-token",
+        "agent-market-data-missing-owner-token",
         "owner-transaction-read-missing-agent-token",
         "owner-audit-read-missing-agent-token",
         "owner-receipt-read-missing-agent-token",
