@@ -1,4 +1,4 @@
-"""Coordinates policy, risk, approval, and a deliberately simulated executor."""
+"""Coordinates policy, risk, approval, and transaction execution."""
 from __future__ import annotations
 
 import hashlib
@@ -7,6 +7,7 @@ import uuid
 from dataclasses import asdict
 from typing import Any
 
+from app.chain.execution import BaseSepoliaExecutor
 from app.policy.engine import evaluate_transaction
 from app.policy.models import AgentPolicy, PolicyDecision, TransactionProposal
 from app.risk.engine import assess_transaction_risk
@@ -60,8 +61,24 @@ class TransactionController:
     def approve(self, transaction_id: str, fingerprint: str) -> tuple[str, dict[str, Any] | None]:
         return self.store.approve(transaction_id, fingerprint, approval_expires_seconds=self.policy.approval_expires_seconds)
 
-    def execute(self, transaction_id: str) -> tuple[str, dict[str, Any] | None]:
-        return self.store.execute_simulated(transaction_id, self.policy)
+    def execute(
+        self,
+        transaction_id: str,
+        onchain_executor: BaseSepoliaExecutor | None = None,
+    ) -> tuple[str, dict[str, Any] | None]:
+        if onchain_executor is None:
+            return self.store.execute_simulated(transaction_id, self.policy)
+
+        def prepare(proposal: dict[str, Any]) -> tuple[str, str]:
+            signed = onchain_executor.prepare(proposal)
+            return signed.raw_transaction, signed.transaction_hash
+
+        return self.store.execute_onchain(
+            transaction_id,
+            self.policy,
+            prepare,
+            onchain_executor.broadcast,
+        )
 
     def cancel(self, transaction_id: str) -> tuple[str, dict[str, Any] | None]:
         return self.store.cancel(transaction_id)

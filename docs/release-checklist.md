@@ -2,7 +2,7 @@
 
 > **Release correction (2026-10-15):** The published `v1.10.0` tag resolves to `4c9c9431dca31d15137501cb99b026fcac829236`. The already-published `v1.10.1` tag resolves to `4b2649ef03619f6b8a512891cb73b9069b65fcd9`, which differs from the latest verified `main` commit `54b06ed9475720330d9abe652c7c86419e005f93`. Leave both published tags untouched. Use the next unused patch version, `v1.10.2`, and rerun the full fresh-checkout gate on its exact final commit before publishing.
 
-Aegis Agent Wallet is a local, simulation-only portfolio prototype. This checklist is a release gate for a tagged demo/portfolio version; completing it does not certify production readiness or independently audit security.
+Aegis Agent Wallet is a local testnet prototype with simulated execution by default and an explicitly gated Base Sepolia execution mode. This checklist is a release gate for a tagged demo/portfolio version; completing it does not certify production readiness or independently audit security.
 
 ## Repeatable final-candidate verification
 
@@ -41,15 +41,15 @@ Record the resolved commit SHA and the actual output/result of each command in t
 - [x] Review README setup commands, runtime configuration, and demo commands against the locked `uv` workflow (the walkthrough uses `uv sync --locked --extra dev`, `uv run --locked`, and loopback binding; the RPC URL is optional for simulation).
 - [x] Review the read-only market-data API and documentation for scope and safety (PR #159; owner-authenticated, fixed HTTPS provider endpoints, five-second timeouts, validated symbols/prices/timestamps, stale flags, sanitized provider errors, and no integration with policy or transaction execution; Stooq equity quotes are daily-close data).
 - [x] Review tracked paths, representative secret/token patterns, and Git history for accidentally committed secrets, private keys, local databases, and provider credentials (2026-10-12: current-tree/path and selected-pattern checks found no suspicious matches; `gitleaks git --redact --verbose .` passed after PR #155 added a narrowly scoped allowlist for the public Base Sepolia USDC contract address used in `docs/demo-scenario.md`. The three reported historical findings were the same public contract address, not a credential. This is evidence from these checks, not proof that no secret has ever existed in repository history or outside the scanned patterns).
-- [x] Confirm all documentation describes execution as simulated and Base Sepolia inspection as read-only (reviewed README, runtime configuration, demo scenario, and threat model).
-- [x] Review the known limitations below and the [threat model](threat-model.md); confirm they accurately describe simulation-only execution, development bearer-token authentication, heuristic risk scoring, local accounting, and the audit-integrity boundary without claiming production readiness (reviewed 2026-10-12).
-- [ ] Only after every required item is checked, choose an intentional version/tag and publish release notes that state the simulation-only scope.
+- [x] Confirm documentation distinguishes the default simulated mode from explicitly configured Base Sepolia (84532) testnet signing and submission; do not describe the testnet RPC as read-only when execution mode is enabled.
+- [x] Review the known limitations below and the [threat model](threat-model.md); ensure they accurately describe testnet-only execution, development bearer-token authentication, heuristic risk scoring, local accounting, and the audit-integrity boundary without claiming production readiness.
+- [ ] Only after every required item is checked, choose an intentional version/tag and publish release notes that describe the explicitly gated testnet-only execution scope.
 
 Do not mark a checklist item complete based on intention alone. Record any accepted exception and its rationale in the release notes.
 
 ## Known limitations
 
-- **No real transaction execution:** no private keys are loaded, transactions are not signed, and transactions are not submitted. The Base Sepolia integration is read-only.
+- **No mainnet or production execution:** simulated mode is the default. Base Sepolia mode can load a throwaway testnet key and submit allowlisted ERC-20 transfers, but the prototype does not provide production key custody or transaction finality guarantees.
 - **Heuristic risk score:** risk scoring is explainable but not a validated fraud detector.
 - **Development authentication:** bearer tokens are a local development guard, not a production identity or access-management system.
 - **Local accounting model:** persisted spending reservations are not confirmed on-chain balances, submissions, or receipts.

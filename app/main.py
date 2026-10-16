@@ -1,4 +1,4 @@
-"""Aegis Agent Wallet API. Workflow execution is simulation-only."""
+"""Aegis Agent Wallet API with simulated or explicitly gated Base Sepolia execution."""
 import logging
 import os
 import secrets
@@ -14,7 +14,17 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from app.auth import require_agent, require_owner
-from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
+from app.chain.base_sepolia import (
+    BASE_SEPOLIA_CHAIN_ID,
+    BASE_SEPOLIA_USDC_ADDRESS,
+    RpcConfigurationError,
+    RpcRequestError,
+)
+from app.chain.execution import (
+    BaseSepoliaExecutor,
+    ExecutionConfigurationError,
+    ExecutionSettings,
+)
 from app.chain.router import router as base_sepolia_router
 from app.market_data import (
     CompositeMarketDataProvider,
@@ -32,7 +42,7 @@ from app.policy.models import (
 from app.risk.engine import assess_transaction_risk
 from app.risk.models import RiskLevel
 from app.workflow.controller import TransactionController
-from app.workflow.store import WorkflowDataError, WorkflowStore
+from app.workflow.store import OnchainSubmissionError, WorkflowDataError, WorkflowStore
 
 
 def _canonical_ascii_proposal_field(value: object, field_name: str) -> object:
@@ -127,6 +137,14 @@ class TransactionResponse(BaseModel):
     updated_at: str
 
 
+class TransactionReceiptResponse(BaseModel):
+    transaction_id: str
+    transaction_hash: str
+    chain_id: Literal[84532]
+    status: Literal["pending", "success", "failed"]
+    block_number: int | None = None
+
+
 DEMO_POLICY = AgentPolicy(
     agent_id="devops-01",
     allowed_chain_ids={84532},
@@ -149,19 +167,23 @@ DEMO_POLICY = AgentPolicy(
     approval_expires_seconds=int(os.environ.get("AEGIS_APPROVAL_EXPIRES_SECONDS", "300")),
 )
 
+execution_settings = ExecutionSettings.from_environment()
 store = WorkflowStore(os.environ.get("AEGIS_DB_PATH", "aegis-workflow.sqlite3"))
 controller = TransactionController(DEMO_POLICY, store)
 market_data_provider = CompositeMarketDataProvider()
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(application: FastAPI):
+    global execution_settings
+    execution_settings = ExecutionSettings.from_environment()
+    application.state.execution_settings = execution_settings
     yield
 
 
 app = FastAPI(
     title="Aegis Agent Wallet API",
-    description="Policy, risk, and approval workflow simulation with optional read-only Base Sepolia inspection. No signing or transaction submission occurs.",
+    description="Policy, risk, and approval workflow with simulated execution by default and explicitly gated Base Sepolia testnet execution.",
     version="1.10.2",
     lifespan=lifespan,
 )
@@ -241,7 +263,7 @@ def _record_response(record: dict) -> TransactionResponse:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "mode": "approval-workflow-simulation-only"}
+    return {"status": "ok", "mode": execution_settings.mode}
 
 
 @app.post("/policy/evaluate", response_model=EvaluationResponse)
@@ -339,7 +361,16 @@ def approve_transaction(transaction_id: str, request: ApprovalRequest) -> Transa
 @app.post("/transactions/{transaction_id}/execute", response_model=TransactionResponse,
           dependencies=[Depends(require_owner)])
 def execute_transaction(transaction_id: str) -> TransactionResponse:
-    outcome, record = controller.execute(transaction_id)
+    executor = None
+    if execution_settings.mode == "base_sepolia":
+        try:
+            executor = BaseSepoliaExecutor(execution_settings, DEMO_POLICY)
+        except ExecutionConfigurationError as exc:
+            raise HTTPException(status_code=503, detail="Base Sepolia execution is not configured") from exc
+    try:
+        outcome, record = controller.execute(transaction_id, executor)
+    except (RpcConfigurationError, RpcRequestError, OnchainSubmissionError) as exc:
+        raise HTTPException(status_code=502, detail="Base Sepolia transaction submission failed") from exc
     if outcome == "not_found":
         raise HTTPException(status_code=404, detail="Transaction not found")
     if outcome == "blocked":
@@ -350,9 +381,43 @@ def execute_transaction(transaction_id: str) -> TransactionResponse:
         raise HTTPException(status_code=409, detail="Human approval is required before execution")
     if outcome == "already_executed":
         raise HTTPException(status_code=409, detail="Transaction has already been executed")
+    if outcome == "already_submitted":
+        raise HTTPException(status_code=409, detail="Transaction has already been submitted")
     if outcome in {"invalid_state", "approval_mismatch"}:
         raise HTTPException(status_code=409, detail="Transaction is not in an executable state")
     return _record_response(record or {})
+
+
+@app.get(
+    "/transactions/{transaction_id}/receipt",
+    response_model=TransactionReceiptResponse,
+    dependencies=[Depends(require_owner)],
+)
+def get_transaction_receipt(transaction_id: str) -> TransactionReceiptResponse:
+    record = store.get(transaction_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    if execution_settings.mode != "base_sepolia" or record["status"] not in {
+        "submitting_onchain",
+        "submitted_onchain",
+    }:
+        raise HTTPException(status_code=409, detail="Transaction has no Base Sepolia receipt")
+    try:
+        executor = BaseSepoliaExecutor(execution_settings, DEMO_POLICY)
+        receipt = executor.receipt(record["execution_reference"])
+    except ExecutionConfigurationError as exc:
+        raise HTTPException(status_code=503, detail="Base Sepolia execution is not configured") from exc
+    except (RpcConfigurationError, RpcRequestError) as exc:
+        raise HTTPException(status_code=502, detail="Base Sepolia receipt is unavailable") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail="Base Sepolia receipt is unavailable") from exc
+    return TransactionReceiptResponse(
+        transaction_id=transaction_id,
+        transaction_hash=receipt["transaction_hash"],
+        chain_id=BASE_SEPOLIA_CHAIN_ID,
+        status=receipt["status"],
+        block_number=receipt["block_number"],
+    )
 
 
 @app.post(

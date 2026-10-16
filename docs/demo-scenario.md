@@ -28,7 +28,7 @@ export AEGIS_DB_PATH="./aegis-demo.sqlite3"
 export AEGIS_APPROVAL_EXPIRES_SECONDS="300"
 ```
 
-Keep both tokens private and distinct. The RPC URL is optional for this simulation-only workflow; configure `BASE_SEPOLIA_RPC_URL` only if you plan to use the separate read-only chain-inspection endpoints.
+Keep both tokens private and distinct. The default simulated workflow does not require an RPC URL. Configure `BASE_SEPOLIA_RPC_URL` only for read-only chain inspection, or explicitly enable the separately documented Base Sepolia testnet execution mode.
 
 Start the API in Terminal 1:
 
@@ -49,7 +49,7 @@ export ALLOWED_RECIPIENT="0x2222222222222222222222222222222222222222"
 export UNKNOWN_RECIPIENT="0x4444444444444444444444444444444444444444"
 ```
 
-The API should respond to `GET /health` with `{"status":"ok","mode":"approval-workflow-simulation-only"}`.
+The API should respond to `GET /health` with `{"status":"ok","mode":"simulated"}`.
 
 The examples below use:
 

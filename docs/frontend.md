@@ -24,7 +24,7 @@ Credentials are held in JavaScript memory only. They are not written to local st
 - **Markets:** owner-authenticated read-only quotes for BTC, ETH, SOL and a small US-equity watchlist (AAPL, MSFT, NVDA). Quote values, provider, timestamps, and stale status come from the API. Equities are identified as daily-close data. Quotes are informational, not executable prices, holdings, or portfolio valuations.
 - **Proposals:** submit the current demo policy's Base Sepolia USDC proposal. The amount is entered in USDC and converted to six-decimal base units. The recipient is checked for EVM address shape in the browser; backend policy and schema validation remain authoritative. The resulting policy decision, heuristic risk score, reasons, workflow ID, and status are shown from the API response.
 - **Approvals:** view persisted proposals in `awaiting_approval`, approve only by sending the exact returned fingerprint with the API's required `APPROVE` confirmation, or cancel a pending reservation. Hard-blocked proposals are not offered for approval. The current transaction response does not expose an absolute approval-expiry timestamp; the UI does not estimate one, and it displays the backend's known expiry/conflict response when an action is rejected.
-- **Activity & Audit:** search the latest 50 workflow records, cancel `ready`, `awaiting_approval`, or `approved` proposals to release their daily reservations, request owner-authorized simulated execution only for `ready` or `approved` states, and inspect persisted audit events and state transitions. A successful execution result is labelled `Simulated`; it is not a transaction hash, chain receipt, broadcast, or on-chain confirmation.
+- **Activity & Audit:** search the latest 50 workflow records, cancel `ready`, `awaiting_approval`, or `approved` proposals to release their daily reservations, execute eligible proposals as owner under the API's reported mode, retry an uncertain testnet submission using the same signed bytes, read a Base Sepolia receipt status, and inspect persisted audit events and state transitions. Simulated execution is explicitly labelled as not broadcast; testnet submission shows its transaction hash and does not imply confirmation or finality.
 - **Settings:** inspect API and owner-authentication state, reconnect, or clear the in-memory credentials.
 
 The proposal form is intentionally bounded to the current demo policy: chain ID 84532, Circle's configured Base Sepolia USDC contract, six decimals, and a maximum amount of 50 USDC. These defaults do not configure live-trading controls. The API may apply other policy constraints, such as recipient and daily limits.
@@ -40,12 +40,13 @@ uv run --locked python -m pytest -q
 uv run --locked ruff check .
 ~~~
 
-The frontend tests check the served page structure, supported API operations, credential-handling indicators, and simulation-only wording. Focused browser regressions use Playwright with locally mocked API responses to exercise the connection dialog, responsive layout, and escaping of API-provided content. They do not replace a full security assessment.
+The frontend tests check the served page structure, supported API operations, credential handling, and mode-aware execution wording. Focused browser regressions use Playwright with locally mocked API responses to exercise the connection dialog, responsive layout, and escaping of API-provided content. They do not replace a full security assessment.
 
 ## Safety and limitations
 
-- The UI does not accept private keys or seed phrases and has no signing, transaction-submission, broker, or exchange-order code.
+- The UI never accepts private keys or seed phrases. In default simulated mode it does not sign or broadcast; testnet signing is performed locally by the backend only after explicit configuration and owner execution.
 - Approval and execution outcomes are shown only after API confirmation. Backend validation, policy blocks, expiry, and state transitions remain authoritative.
+- The UI reports `base_sepolia` as testnet only. A successful RPC submission and receipt status do not prove finality; the owner-only receipt API reads the reported pending/success/failed state.
 - The risk score is an explainable heuristic, not a validated fraud detector.
 - Market data is disconnected from policy decisions and execution. Crypto quotes may be delayed or stale; equity prices are daily closes. Provider availability and rate limits apply.
 - The workflow list is limited to the latest 50 API results. Audit summaries request events for only the latest workflows and do not imply complete lifetime history.

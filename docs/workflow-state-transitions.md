@@ -1,6 +1,6 @@
 # Workflow State-Transition Table
 
-This document describes the state transitions implemented by `TransactionController` and `WorkflowStore`. It is a behavioral contract for the simulation-only workflow, not a claim that transactions are submitted on-chain.
+This document describes the state transitions implemented by `TransactionController` and `WorkflowStore`. Simulated execution is the default; `submitted_onchain` is used only when Base Sepolia execution is explicitly enabled.
 
 ## State-transition diagram
 
@@ -29,9 +29,12 @@ stateDiagram-v2
 
     ready --> executed_simulated: Simulation succeeds
     approved --> executed_simulated: Simulation succeeds
+    ready --> submitting_onchain: Base Sepolia transaction signed after revalidation
+    approved --> submitting_onchain: Base Sepolia transaction signed after revalidation
+    submitting_onchain --> submitted_onchain: RPC accepts signed transaction
 ```
 
-`cancelled`, `rejected`, and `executed_simulated` are terminal. Cancelling or rejecting releases the proposal's daily spend reservation. Repeating a rejection leaves the record unchanged and returns its current state. No path in this diagram signs or submits an on-chain transaction. For exact audit-event names and the conditions governing reuse of an existing approval, use the transition table and notes below.
+`cancelled`, `rejected`, `executed_simulated`, and `submitted_onchain` are terminal workflow states. Cancelling or rejecting releases the proposal's daily spend reservation. Repeating a rejection leaves the record unchanged and returns its current state. `submitting_onchain` means the exact signed transaction is durably stored for safe retry after an uncertain RPC outcome; execution retries rebroadcast those same bytes rather than selecting a new nonce. A `submitted_onchain` state means the RPC accepted the transaction, not that it has been mined or finalized. For exact audit-event names and the conditions governing reuse of an existing approval, use the transition table and notes below.
 
 ## States
 
@@ -42,6 +45,8 @@ stateDiagram-v2
 - `cancelled`: the owner cancelled a pending proposal; its daily spend reservation is released.
 - `rejected`: the owner rejected a pending proposal; its daily spend reservation is released.
 - `executed_simulated`: the simulation completed. This is terminal; no real signing or submission occurs.
+- `submitting_onchain`: a fully revalidated Base Sepolia transaction has been signed and persisted while the RPC submission is pending or uncertain. Its reservation remains active; the signed bytes are internal and never returned by transaction APIs.
+- `submitted_onchain`: the Base Sepolia RPC accepted the signed transaction. It is terminal in the workflow and continues to count as spend for its execution day; receipt status is read separately.
 
 ## State-changing transitions
 
@@ -58,6 +63,8 @@ stateDiagram-v2
 | Execution-time risk requires fresh approval | `ready` or `approved` | `awaiting_approval` | `risk_escalation_requires_approval` |
 | Execution-time policy introduces a new approval requirement | `ready` or `approved` | `awaiting_approval` | `policy_revalidation_requires_approval` |
 | Successful simulated execution | `ready` or `approved` | `executed_simulated` | `simulated_execution` |
+| Testnet execution signs after full revalidation | `ready` or `approved` | `submitting_onchain` | `onchain_transaction_signed` (includes transaction hash) |
+| Base Sepolia RPC accepts the signed transaction | `submitting_onchain` | `submitted_onchain` | `onchain_transaction_submitted` (includes transaction hash) |
 
 For the policy-revalidation approval case, an already-approved transaction may proceed when the same approval requirement was present at proposal time and the approval remains valid. A newly introduced approval requirement invalidates that path. Risk escalation from an approved transaction requires fresh approval when the recalculated risk changed.
 
@@ -74,6 +81,8 @@ These outcomes must not change the stored status:
 | Execute an `awaiting_approval` transaction | `approval_required` | Remains `awaiting_approval` |
 | Execute a `blocked` transaction | `blocked` | Remains `blocked` |
 | Execute an `executed_simulated` transaction again | `already_executed` | Remains `executed_simulated` |
+| Execute a `submitted_onchain` transaction again | `already_submitted` | Remains `submitted_onchain` |
+| Retry a `submitting_onchain` transaction | Rebroadcasts the persisted signed bytes | Does not create a new transaction or nonce |
 | Cancel a `cancelled` transaction again | `already_cancelled` | Remains `cancelled` |
 | Cancel a blocked or executed transaction | `invalid_state` | Remains unchanged |
 | Reject a `rejected` transaction again | `already_rejected` | Remains `rejected`; no additional audit event |
@@ -84,7 +93,7 @@ A missing transaction returns `not_found` and does not create a transaction stat
 
 ## Existing SQLite databases
 
-No database recreation is required. On startup, `WorkflowStore` additively installs SQLite triggers that accept the new `rejected` status and `transaction_rejected` audit event while validating allowed transaction statuses and audit metadata. Existing transaction and audit rows are preserved.
+No database recreation is required. On startup, `WorkflowStore` additively adds the signed-transaction storage column and installs SQLite triggers for supported statuses and audit metadata. Existing transaction and audit rows are preserved.
 
 ## Audit expectations and limitations
 
