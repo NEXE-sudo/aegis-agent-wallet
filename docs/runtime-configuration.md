@@ -2,7 +2,7 @@
 
 This guide describes the environment variables read by the prototype. Execution is simulated by default; Base Sepolia testnet signing and submission require explicit configuration. Keep the API on loopback for local development; the bearer tokens are development controls, not production identity.
 
-The package declares Python `>=3.11`. CI tests the minimum supported version (3.11) and the newer compatibility target (3.14); intermediate Python releases satisfy the declared constraint but are not individually tested in CI.
+The package declares Python `>=3.11`. CI tests Python 3.11, 3.12, and 3.14; other Python releases satisfying the declared constraint are not individually tested in CI.
 
 ## Configuration reference
 

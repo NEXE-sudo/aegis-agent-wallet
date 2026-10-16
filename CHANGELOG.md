@@ -1,8 +1,18 @@
 # Changelog
 
+## 1.10.3 (unreleased)
+
+- Add opt-in, locally signed ERC-20 execution on Base Sepolia only (chain ID 84532); simulated execution remains the default.
+- Require explicit testnet key and HTTPS RPC configuration, revalidate workflow policy and risk before signing, and persist pending signed transactions for safe retry.
+- Add owner-only testnet receipt status reads and mode-aware frontend feedback; document the testnet boundary and manual faucet test.
+- Add an agent package with an agent-token-only proposal, market-quote, and status tool set, plus configurable OpenAI-compatible LLM and deterministic offline fallback.
+- Add five scripted offline evaluation scenarios and JSON/Markdown evidence; run the evaluation in CI.
+- Test Python 3.12 in CI in addition to Python 3.11 and 3.14.
+
 ## 1.10.2 (unreleased)
 
 - Add an owner-authenticated cancellation action for pending proposals; cancellation clears approval state, appends an audit event, and releases the daily reservation.
+- Add an owner-authenticated rejection action for pending proposals; rejection is audited, idempotent, and releases the daily reservation.
 - Correct same-day Stooq equity quote timestamps so today's session date is not rejected as a future quote.
 - Replace the misleading token `verified` field with `erc20_metadata_readable` and reject token metadata strings longer than 256 bytes.
 - Explicitly close SQLite connections, consolidate approval-expiry checks, and remove redundant idempotency and normalization work.

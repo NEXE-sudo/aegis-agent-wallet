@@ -56,9 +56,18 @@ def owner_post(path, **kwargs):
 
 
 def test_api_version_matches_package_version():
-    project_file = Path(__file__).resolve().parents[1] / "pyproject.toml"
-    project_version = tomllib.loads(project_file.read_text())["project"]["version"]
+    root = Path(__file__).resolve().parents[1]
+    project_version = tomllib.loads((root / "pyproject.toml").read_text())["project"]["version"]
+    lock_packages = tomllib.loads((root / "uv.lock").read_text())["package"]
+    locked_project_version = next(
+        package["version"]
+        for package in lock_packages
+        if package["name"] == "aegis-agent-wallet"
+    )
+    frontend = (root / "frontend" / "index.html").read_text()
     assert main.app.version == project_version
+    assert locked_project_version == project_version
+    assert f"v{project_version} API" in frontend
 
 
 def test_recent_transactions_list_requires_owner_and_returns_persisted_records():

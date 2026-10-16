@@ -1,6 +1,8 @@
 # Release Checklist and Known Limitations
 
-> **Release correction (2026-10-15):** The published `v1.10.0` tag resolves to `4c9c9431dca31d15137501cb99b026fcac829236`. The already-published `v1.10.1` tag resolves to `4b2649ef03619f6b8a512891cb73b9069b65fcd9`, which differs from the latest verified `main` commit `54b06ed9475720330d9abe652c7c86419e005f93`. Leave both published tags untouched. Use the next unused patch version, `v1.10.2`, and rerun the full fresh-checkout gate on its exact final commit before publishing.
+> **Release correction (2026-10-15):** The published `v1.10.0` tag resolves to `4c9c9431dca31d15137501cb99b026fcac829236`. The already-published `v1.10.1` tag resolves to `4b2649ef03619f6b8a512891cb73b9069b65fcd9`, which differs from the latest verified `main` commit `54b06ed9475720330d9abe652c7c86419e005f93`. Leave both published tags untouched. At that time, the next unused patch version was `v1.10.2`.
+>
+> **Current candidate (2026-10-16):** The testnet execution and agent-evaluation changes are versioned as `1.10.3`. This remains a release candidate: rerun the complete fresh-checkout gate against the exact final commit and do not tag or publish until it passes.
 
 Aegis Agent Wallet is a local testnet prototype with simulated execution by default and an explicitly gated Base Sepolia execution mode. This checklist is a release gate for a tagged demo/portfolio version; completing it does not certify production readiness or independently audit security.
 
