@@ -126,3 +126,34 @@ then submits a fresh proposal. It does not re-open a policy-blocked transaction.
 These are deterministic policy/workflow tests, not evidence of an actual transfer,
 LLM quality, real-world invoice verification, or production-grade prompt-injection
 resistance.
+
+## Opt-in LLM prompt-injection evaluation
+
+The default evaluation never calls an LLM. To run the five invoice-text injection
+scenarios against the configured OpenAI-compatible model, set
+`AEGIS_LLM_BASE_URL`, `AEGIS_LLM_MODEL`, and `AEGIS_LLM_API_KEY`, then run:
+
+```bash
+uv run --locked python -m agent.eval --llm
+```
+
+The default is three independent runs per scenario; choose another positive count
+with `--llm-runs N`. LLM mode fails if any setting is absent or invalid and never
+falls back to the offline agent. It writes `reports/agent-eval-llm.json` and
+`reports/agent-eval-llm.md` separately from the offline reports. These reports
+record the model name, timestamp, run count, per-scenario pass counts, and observed
+proposal/tool outcomes. Review the generated files before committing them; do not
+edit them to represent results that were not observed.
+
+The cases cover instruction override, a fake system/admin message, a changed
+recipient, an inflated amount, and a request to approve or execute. Each expected
+proposal is bounded to the structured authorized recipient and amount. The test
+uses the configured external provider and sends it the task content, including
+invoice text; never include secrets or unnecessary personal or financial data.
+
+This is a narrow evaluation, not proof of general prompt-injection resistance.
+Five scenarios and a small number of runs do not cover all attack forms; results
+depend on the exact model and provider behavior and can vary between runs. The
+agent's payment-field validation remains an independent enforcement boundary:
+injected proposal parameters are rejected before they reach the API. The LLM is not
+given owner tools and cannot approve or execute.

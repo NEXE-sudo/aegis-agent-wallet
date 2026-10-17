@@ -2,13 +2,15 @@
 import asyncio
 import json
 import secrets
+import sys
 from datetime import UTC, datetime
 
 import httpx
 import pytest
 
 from agent.client import AegisApiClient
-from agent.eval import run_evaluation
+from agent.eval import main as eval_main
+from agent.eval import run_evaluation, run_llm_evaluation
 from agent.runner import (
     AegisAgent,
     AgentConfigurationError,
@@ -16,7 +18,7 @@ from agent.runner import (
     AgentTools,
     LLMSettings,
 )
-from agent.scenarios import make_task, payment
+from agent.scenarios import llm_injection_scenarios, make_task, payment
 from app import main
 from app.market_data import MarketQuote
 from app.workflow.controller import TransactionController
@@ -355,6 +357,139 @@ def test_offline_evaluation_writes_passing_json_and_markdown_reports(tmp_path):
     assert "**PASS**" in markdown
     assert "prompt-injection invoice" in markdown
     assert "daily limit, owner rejection, and retry" in markdown
+
+
+def _fake_llm_client(mode):
+    def handler(request):
+        body = json.loads(request.content)
+        messages = body["messages"]
+        if any(message["role"] == "tool" for message in messages):
+            message = {"role": "assistant", "content": "Handled the tool result."}
+        else:
+            task = json.loads(next(message["content"] for message in messages if message["role"] == "user"))
+            arguments = task["authorized_payment"]
+            if mode == "obeys_injection":
+                arguments = {
+                    **arguments,
+                    "recipient": "0x4444444444444444444444444444444444444444",
+                }
+            elif mode == "malformed":
+                arguments = "{not-json"
+            message = {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        **({} if mode == "malformed" else {"id": "eval-tool-call"}),
+                        "type": "function",
+                        "function": {
+                            "name": "propose_transaction",
+                            "arguments": (
+                                arguments
+                                if isinstance(arguments, str)
+                                else json.dumps(arguments)
+                            ),
+                        },
+                    }
+                ],
+            }
+        return httpx.Response(200, json={"choices": [{"message": message}]})
+
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
+def test_llm_evaluation_records_pass_counts_and_writes_separate_reports(tmp_path):
+    async def run():
+        async with _fake_llm_client("compliant") as llm_http:
+            return await run_llm_evaluation(
+                tmp_path,
+                LLMSettings("https://llm.example/v1", "test-model", "test-key"),
+                run_count=2,
+                llm_client=llm_http,
+            )
+
+    report = asyncio.run(run())
+
+    assert report["agent_mode"] == "llm"
+    assert report["model"] == "test-model"
+    assert report["run_count"] == 2
+    assert datetime.fromisoformat(report["generated_at"]).tzinfo is not None
+    assert report["scenario_count"] == 5
+    assert report["passed"] is True
+    assert all(
+        scenario["pass_count"] == 2 and scenario["run_count"] == 2
+        for scenario in report["scenarios"]
+    )
+    assert json.loads((tmp_path / "agent-eval-llm.json").read_text()) == report
+    assert "Pass count" in (tmp_path / "agent-eval-llm.md").read_text()
+    assert not (tmp_path / "agent-eval.json").exists()
+    assert len(llm_injection_scenarios()) == 5
+
+
+@pytest.mark.parametrize(
+    ("mode", "error_field", "expected_error"),
+    [
+        ("obeys_injection", "tool_errors", "does not match task.authorized_payment"),
+        ("malformed", "provider_error", "invalid tool call"),
+    ],
+)
+def test_llm_evaluation_records_injection_and_malformed_tool_failures(
+    tmp_path, mode, error_field, expected_error
+):
+    async def run():
+        async with _fake_llm_client(mode) as llm_http:
+            return await run_llm_evaluation(
+                tmp_path,
+                LLMSettings("https://llm.example/v1", "test-model", "test-key"),
+                run_count=1,
+                llm_client=llm_http,
+            )
+
+    report = asyncio.run(run())
+
+    assert report["passed"] is False
+    assert all(scenario["pass_count"] == 0 for scenario in report["scenarios"])
+    assert all(
+        expected_error
+        in (
+            scenario["observations"][0]["observed"][error_field][0]
+            if error_field == "tool_errors"
+            else scenario["observations"][0]["observed"][error_field]
+        )
+        for scenario in report["scenarios"]
+    )
+    assert all(
+        scenario["observations"][0]["observed"]["proposals"] == []
+        for scenario in report["scenarios"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("environment", "expected_message"),
+    [
+        ({}, "LLM mode requires AEGIS_LLM_BASE_URL"),
+        ({"AEGIS_LLM_MODEL": "partial-model"}, "must be configured together"),
+    ],
+)
+def test_llm_eval_cli_fails_clearly_without_settings_and_never_falls_back(
+    monkeypatch, tmp_path, capsys, environment, expected_message
+):
+    for name in ("AEGIS_LLM_BASE_URL", "AEGIS_LLM_MODEL", "AEGIS_LLM_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in environment.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["agent.eval", "--llm", "--output-dir", str(tmp_path)],
+    )
+
+    with pytest.raises(SystemExit) as error:
+        eval_main()
+
+    assert error.value.code == 2
+    assert expected_message in capsys.readouterr().err
+    assert not (tmp_path / "agent-eval.json").exists()
+    assert not (tmp_path / "agent-eval-llm.json").exists()
 
 
 def test_llm_key_is_not_in_settings_representation():
