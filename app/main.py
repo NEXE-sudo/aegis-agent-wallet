@@ -22,10 +22,13 @@ from app.chain.base_sepolia import (
 )
 from app.chain.execution import (
     BaseSepoliaExecutor,
+    BaseSepoliaVaultExecutor,
     ExecutionConfigurationError,
     ExecutionSettings,
     PreflightError,
     UnsignedTransactionInvariantError,
+    VaultExecutionError,
+    VaultTransactionInvariantError,
 )
 from app.chain.router import router as base_sepolia_router
 from app.market_data import (
@@ -428,9 +431,22 @@ def execute_transaction(transaction_id: str) -> TransactionResponse:
             executor = BaseSepoliaExecutor(execution_settings, DEMO_POLICY)
         except ExecutionConfigurationError as exc:
             raise HTTPException(status_code=503, detail="Base Sepolia execution is not configured") from exc
+    elif execution_settings.mode == "base_sepolia_vault":
+        try:
+            executor = BaseSepoliaVaultExecutor(execution_settings)
+        except ExecutionConfigurationError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="Base Sepolia vault execution is not configured",
+            ) from exc
     try:
         outcome, record = controller.execute(transaction_id, executor)
-    except (PreflightError, UnsignedTransactionInvariantError) as exc:
+    except (
+        PreflightError,
+        UnsignedTransactionInvariantError,
+        VaultExecutionError,
+        VaultTransactionInvariantError,
+    ) as exc:
         raise HTTPException(
             status_code=409,
             detail={"code": exc.code, "message": str(exc)},
@@ -468,13 +484,16 @@ def get_transaction_receipt(transaction_id: str) -> TransactionReceiptResponse:
     record = store.get(transaction_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    if execution_settings.mode != "base_sepolia" or record["status"] not in {
+    if execution_settings.mode not in {"base_sepolia", "base_sepolia_vault"} or record["status"] not in {
         "submitting_onchain",
         "submitted_onchain",
     }:
         raise HTTPException(status_code=409, detail="Transaction has no Base Sepolia receipt")
     try:
-        executor = BaseSepoliaExecutor(execution_settings, DEMO_POLICY)
+        if execution_settings.mode == "base_sepolia_vault":
+            executor = BaseSepoliaVaultExecutor(execution_settings)
+        else:
+            executor = BaseSepoliaExecutor(execution_settings, DEMO_POLICY)
         receipt = executor.receipt(record["execution_reference"])
     except ExecutionConfigurationError as exc:
         raise HTTPException(status_code=503, detail="Base Sepolia execution is not configured") from exc
