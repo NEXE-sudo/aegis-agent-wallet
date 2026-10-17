@@ -176,7 +176,9 @@ class BaseSepoliaRpc:
             "input": calldata.lower(),
         }
 
-    def transaction_receipt(self, transaction_hash: str) -> dict[str, int | str | None]:
+    def transaction_receipt(
+        self, transaction_hash: str
+    ) -> dict[str, int | str | list[dict[str, Any]] | None]:
         if not isinstance(transaction_hash, str) or not _TRANSACTION_HASH_RE.fullmatch(
             transaction_hash
         ):
@@ -187,6 +189,7 @@ class BaseSepoliaRpc:
                 "transaction_hash": transaction_hash.lower(),
                 "status": "pending",
                 "block_number": None,
+                "logs": [],
             }
         if not isinstance(result, dict):
             raise RpcRequestError("RPC returned a malformed transaction receipt")
@@ -201,10 +204,47 @@ class BaseSepoliaRpc:
         ):
             raise RpcRequestError("RPC returned a malformed transaction receipt")
         block_number = self._parse_quantity(result.get("blockNumber"), "receipt block number")
+        raw_logs = result.get("logs")
+        if not isinstance(raw_logs, list):
+            raise RpcRequestError("RPC returned malformed receipt logs")
+        logs: list[dict[str, Any]] = []
+        for raw_log in raw_logs:
+            if not isinstance(raw_log, dict):
+                raise RpcRequestError("RPC returned a malformed receipt log")
+            address = raw_log.get("address")
+            topics = raw_log.get("topics")
+            data = raw_log.get("data")
+            log_transaction_hash = raw_log.get("transactionHash")
+            if (
+                not isinstance(address, str)
+                or not _ADDRESS_RE.fullmatch(address)
+                or not isinstance(topics, list)
+                or len(topics) > 4
+                or not all(
+                    isinstance(topic, str)
+                    and _TRANSACTION_HASH_RE.fullmatch(topic)
+                    for topic in topics
+                )
+                or not isinstance(data, str)
+                or not _DATA_RE.fullmatch(data)
+                or not isinstance(log_transaction_hash, str)
+                or not _TRANSACTION_HASH_RE.fullmatch(log_transaction_hash)
+                or log_transaction_hash.lower() != transaction_hash.lower()
+            ):
+                raise RpcRequestError("RPC returned a malformed receipt log")
+            log_index = raw_log.get("logIndex")
+            log_index = self._parse_quantity(log_index, "receipt log index")
+            logs.append({
+                "address": address.lower(),
+                "topics": [topic.lower() for topic in topics],
+                "data": data.lower(),
+                "log_index": log_index,
+            })
         return {
             "transaction_hash": returned_hash.lower(),
             "status": "success" if status == "0x1" else "failed",
             "block_number": block_number,
+            "logs": logs,
         }
 
     @staticmethod

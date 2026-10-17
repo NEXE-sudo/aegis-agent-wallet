@@ -801,6 +801,7 @@ def test_onchain_execution_is_audited_and_receipt_is_owner_readable(
             "transactionHash": params[0],
             "status": "0x1",
             "blockNumber": "0x123",
+            "logs": [],
         }
 
     store, agent_headers, owner_headers = isolated_app
