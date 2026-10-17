@@ -3,6 +3,7 @@
 ## 1.10.3 (unreleased)
 
 - Add opt-in, locally signed ERC-20 execution on Base Sepolia only (chain ID 84532); simulated execution remains the default.
+- Verify the complete unsigned transfer against its approved proposal immediately before signing.
 - Require explicit testnet key and HTTPS RPC configuration, revalidate workflow policy and risk before signing, and persist pending signed transactions for safe retry.
 - Add owner-only testnet receipt status reads and mode-aware frontend feedback; document the testnet boundary and manual faucet test.
 - Add an agent package with an agent-token-only proposal, market-quote, and status tool set, plus configurable OpenAI-compatible LLM and deterministic offline fallback.

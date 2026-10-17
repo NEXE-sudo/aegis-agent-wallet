@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Callable
+import re
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Literal
 from urllib.parse import urlsplit
@@ -21,10 +22,60 @@ from app.policy.models import MAX_SQLITE_INTEGER, AgentPolicy
 ExecutionMode = Literal["simulated", "base_sepolia"]
 _MAX_GAS_PRICE_WEI = 100_000_000_000
 _MAX_GAS_LIMIT = 200_000
+_ERC20_TRANSFER_SELECTOR = "0xa9059cbb"
 
 
 class ExecutionConfigurationError(ValueError):
     """Raised when execution-mode configuration is missing or invalid."""
+
+
+class UnsignedTransactionInvariantError(RuntimeError):
+    """Raised when the built transaction differs from its approved proposal."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__("Unsigned transaction does not match the approved proposal")
+        self.code = code
+
+
+def _validate_unsigned_transaction(
+    transaction: Mapping[str, object],
+    token_address: str,
+    recipient: str,
+    amount: int,
+) -> None:
+    if type(transaction.get("chainId")) is not int or transaction["chainId"] != 84532:
+        raise UnsignedTransactionInvariantError("chain_id_mismatch")
+
+    transaction_to = transaction.get("to")
+    if not isinstance(transaction_to, str):
+        raise UnsignedTransactionInvariantError("token_address_mismatch")
+    try:
+        normalized_to = validate_address(transaction_to)
+    except ValueError as exc:
+        raise UnsignedTransactionInvariantError("token_address_mismatch") from exc
+    if normalized_to != validate_address(token_address):
+        raise UnsignedTransactionInvariantError("token_address_mismatch")
+
+    value = transaction.get("value")
+    if type(value) is not int or value != 0:
+        raise UnsignedTransactionInvariantError("value_mismatch")
+
+    data = transaction.get("data")
+    if not isinstance(data, str) or re.fullmatch(r"0x[0-9a-fA-F]{136}", data) is None:
+        raise UnsignedTransactionInvariantError("calldata_invalid")
+    if data[:10].lower() != _ERC20_TRANSFER_SELECTOR:
+        raise UnsignedTransactionInvariantError("selector_mismatch")
+
+    recipient_word = data[10:74].lower()
+    if recipient_word[:24] != "0" * 24:
+        raise UnsignedTransactionInvariantError("recipient_mismatch")
+    decoded_recipient = "0x" + recipient_word[24:]
+    if decoded_recipient != validate_address(recipient):
+        raise UnsignedTransactionInvariantError("recipient_mismatch")
+
+    decoded_amount = int(data[74:138], 16)
+    if decoded_amount != amount:
+        raise UnsignedTransactionInvariantError("amount_mismatch")
 
 
 @dataclass(frozen=True)
@@ -126,7 +177,7 @@ class BaseSepoliaExecutor:
 
         account = Account.from_key(self._private_key)
         transfer_data = (
-            "0xa9059cbb"
+            _ERC20_TRANSFER_SELECTOR
             + recipient[2:].rjust(64, "0")
             + amount.to_bytes(32, "big").hex()
         )
@@ -157,6 +208,7 @@ class BaseSepoliaExecutor:
                 raise RpcRequestError("RPC gas estimate exceeds the configured execution safety limit")
             transaction["gas"] = gas_limit
 
+        _validate_unsigned_transaction(transaction, token_address, recipient, amount)
         signed = Account.sign_transaction(transaction, self._private_key)
         raw_transaction = "0x" + bytes(signed.raw_transaction).hex()
         transaction_hash = "0x" + bytes(signed.hash).hex()

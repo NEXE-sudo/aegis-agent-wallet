@@ -9,6 +9,7 @@ from eth_account import Account
 from eth_utils import keccak
 from fastapi.testclient import TestClient
 
+import app.chain.execution as execution_module
 from app import main
 from app.chain.base_sepolia import (
     BASE_SEPOLIA_CHAIN_ID,
@@ -200,6 +201,83 @@ def test_base_sepolia_executor_signs_only_allowlisted_transfer_with_mocked_rpc(
         + proposal["recipient"][2:].rjust(64, "0")
         + proposal["amount_base_units"].to_bytes(32, "big").hex()
     )
+
+
+@pytest.mark.parametrize(
+    ("field", "error_code"),
+    [
+        ("chain", "chain_id_mismatch"),
+        ("to", "token_address_mismatch"),
+        ("value", "value_mismatch"),
+        ("selector", "selector_mismatch"),
+        ("recipient", "recipient_mismatch"),
+        ("amount", "amount_mismatch"),
+    ],
+)
+def test_mutated_unsigned_transaction_is_rejected_before_signing(
+    isolated_app, monkeypatch, field, error_code
+):
+    store, agent_headers, owner_headers = isolated_app
+    _mocked_executor(monkeypatch, _mock_methods(lambda _: "0x" + "22" * 32))
+    original_validator = execution_module._validate_unsigned_transaction
+    sign_calls = []
+
+    def reject_signing(*args, **kwargs):
+        sign_calls.append((args, kwargs))
+        raise AssertionError("mutated transaction must not reach the signer")
+
+    def mutate_then_validate(transaction, token_address, recipient, amount):
+        if field == "chain":
+            transaction["chainId"] = 1
+        elif field == "to":
+            transaction["to"] = "0x1111111111111111111111111111111111111111"
+        elif field == "value":
+            transaction["value"] = 1
+        elif field == "selector":
+            transaction["data"] = "0xdeadbeef" + transaction["data"][10:]
+        elif field == "recipient":
+            transaction["data"] = (
+                transaction["data"][:34]
+                + "1" * 40
+                + transaction["data"][74:]
+            )
+        else:
+            transaction["data"] = (
+                transaction["data"][:74]
+                + (amount + 1).to_bytes(32, "big").hex()
+            )
+        original_validator(transaction, token_address, recipient, amount)
+
+    monkeypatch.setattr(
+        execution_module, "_validate_unsigned_transaction", mutate_then_validate
+    )
+    monkeypatch.setattr(Account, "sign_transaction", reject_signing)
+    proposal = client.post(
+        "/transactions/propose",
+        headers=agent_headers,
+        json={
+            "agent_id": "devops-01",
+            "chain_id": BASE_SEPOLIA_CHAIN_ID,
+            "token_symbol": "USDC",
+            "token_address": BASE_SEPOLIA_USDC_ADDRESS,
+            "recipient": "0x2222222222222222222222222222222222222222",
+            "amount_base_units": 1_000_000,
+            "token_decimals": 6,
+        },
+    ).json()
+
+    response = client.post(
+        f"/transactions/{proposal['transaction_id']}/execute",
+        headers=owner_headers,
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == error_code
+    assert not sign_calls
+    assert store.get(proposal["transaction_id"])["status"] == "ready"
+    assert [event["event_type"] for event in store.audit_events(
+        proposal["transaction_id"]
+    )] == ["proposal_created"]
 
 
 def test_execution_rejects_wrong_chain_before_signing_or_broadcasting(
