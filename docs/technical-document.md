@@ -232,7 +232,7 @@ inspection, and key cleanup. No live transfer is claimed by this document.
 
 - **Evidence (pending owner-run test; not yet verified):**
   Transaction hash: TODO (supplied by the owner after a real transfer)
-  Verify with: `uv run python scripts/verify_testnet_evidence.py <TRANSACTION_HASH>`
+  Verify with: `uv run python scripts/verify_testnet_evidence.py <TRANSACTION_HASH> --expected-sender "<TODO: throwaway wallet address>" --audit-db "<path>"`
 - **TODO:** Record the date, RPC provider (without credentials), and reviewer for
   that manual validation.
 

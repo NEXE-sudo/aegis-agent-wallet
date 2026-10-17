@@ -116,7 +116,8 @@ These are recommendations, not implemented capabilities:
   required by the FinTechathon submission; do not imply formal compliance.
 - **Evidence (pending owner-run test; not yet verified):**
   Transaction hash: TODO (supplied by the owner after a real transfer)
-  Verify with: `uv run python scripts/verify_testnet_evidence.py <TRANSACTION_HASH>`
+  Verify with: `uv run python scripts/verify_testnet_evidence.py <TRANSACTION_HASH> --expected-sender "<TODO: throwaway wallet address>" --audit-db "<path>"`
+  This check ties the on-chain transfer to the sending wallet and to Aegis's audit record; it does not prove the wallet key was held only by Aegis.
 - **TODO:** Review each residual-risk statement against the exact submission
   commit and update this assessment if code changes before submission.
 

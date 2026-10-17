@@ -9,6 +9,7 @@
 - Add five scripted offline evaluation scenarios and JSON/Markdown evidence; run the evaluation in CI.
 - Add an opt-in, repeated LLM prompt-injection evaluation with per-scenario pass counts and separate reports.
 - Add a read-only Base Sepolia transaction-evidence verifier and a throwaway-wallet manual test runbook; leave real transaction evidence pending an owner-run transfer.
+- Bind testnet evidence to the expected sender and optionally cross-check the submitted transfer against Aegis's read-only audit database.
 - Add technical and security assessments and archive the audit findings with current statuses.
 - Test Python 3.12 in CI in addition to Python 3.11 and 3.14.
 

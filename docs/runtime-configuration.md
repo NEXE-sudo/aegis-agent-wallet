@@ -120,14 +120,21 @@ owner approval.
    TX_HASH=$(printf '%s' "$EXECUTION_JSON" | python -c 'import json,sys; print(json.load(sys.stdin)["execution_reference"])')
    curl -fsS "$API/transactions/$TX_ID/receipt" \
      -H "Authorization: Bearer $AEGIS_APPROVAL_TOKEN"
-   uv run python scripts/verify_testnet_evidence.py "$TX_HASH"
+   uv run python scripts/verify_testnet_evidence.py "$TX_HASH" \
+     --expected-sender "<TODO: throwaway wallet address>" \
+     --audit-db "<path to Aegis workflow SQLite database>"
    ```
 
    The verifier makes read-only RPC calls and confirms chain ID `84532`, a
    successful receipt, and standard ERC-20 `transfer(address,uint256)` calldata.
-   It reports the token contract, decoded recipient and raw amount in token base
-   units, and a Base Sepolia explorer link. It exits unsuccessfully for a wrong
-   chain, missing transaction/receipt, non-transfer calldata, or failed receipt.
+   It checks the transaction sender against the throwaway wallet's public
+   address, then opens the Aegis database strictly read-only and verifies the
+   matching submitted transaction and ordered audit events against the on-chain
+   token contract, recipient, and amount. It reports these fields and a Base
+   Sepolia explorer link. It exits unsuccessfully for a wrong chain, sender
+   mismatch, missing transaction/receipt, non-transfer calldata, failed receipt,
+   or inconsistent/missing audit record. To omit the sender check, explicitly use
+   `--skip-sender-check`; the verifier prints a warning.
 6. Stop the API and unset `AEGIS_TESTNET_PRIVATE_KEY` in its shell. Never use a
    mainnet key or endpoint. Tests use mocked RPC transports only and do not
    submit to a live network.
