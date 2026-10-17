@@ -8,9 +8,11 @@ it is not a production deployment specification or a security certification.
 Aegis is a local-first, testnet-focused wallet-agent prototype. It accepts payment
 proposals from an agent, evaluates them against deterministic policy and heuristic
 risk rules, records workflow state in SQLite, and exposes owner-authenticated
-approval and execution operations. Execution is simulated by default. An explicitly
-configured mode can sign and submit allowlisted ERC-20 transfers on Base Sepolia
-(chain ID `84532`) only.
+approval and execution operations. Execution is simulated by default. Explicitly configured modes can sign and submit
+allowlisted ERC-20 transfers on Base Sepolia (chain ID `84532`) only. The optional
+`base_sepolia_vault` mode sends transfers from a single agent session key to an
+unaudited, testnet-only AegisVault that independently enforces on-chain token
+caps, recipient/approval rules, and pause state.
 
 The agent can propose transactions, retrieve market quotes, and read a limited
 transaction status. It cannot approve, reject, execute, or broadcast a transaction.
@@ -30,8 +32,10 @@ flowchart LR
     Controller --> Risk[Heuristic risk engine]
     Controller --> Store[Workflow store]
     Store --> DB[(SQLite)]
-    Controller --> Executor[Base Sepolia executor]
+    Controller --> Executor[Base Sepolia / vault executor]
     Executor --> RPC[Base Sepolia JSON-RPC]
+    Executor -->|vault mode only| Vault[AegisVault enforcement boundary]
+    Vault --> Token[Allowed ERC-20 token]
     API --> Market[Market-data providers]
 ```
 
@@ -58,9 +62,16 @@ flowchart LR
   Audit rows have SQLite guards against ordinary update and delete operations;
   these are not cryptographic tamper protection against someone controlling the
   database file.
-- **`app/chain/`** contains read-only Base Sepolia inspection and a separately gated
-  executor. In testnet mode, `eth-account` signs locally; the executor sends signed
-  bytes to the configured RPC provider, not the private key.
+- **`app/chain/`** contains read-only Base Sepolia inspection and separately gated
+  standard-token and vault executors. In testnet modes, `eth-account` signs
+  locally; the executor sends signed bytes to the configured RPC provider, not
+  the private key. Vault mode requires the signer to be the configured agent and
+  distinct from `owner()`, checks the deployed code, validates the exact calldata,
+  and simulates the transfer before signing.
+- **`contracts/src/AegisVault.sol`** holds testnet tokens and independently
+  enforces the configured agent, token caps, UTC-day spending bucket, allowed
+  recipients or exact expiring owner approvals, and pause state. It is not
+  upgradeable, audited, or suitable for real funds.
 - **`agent/`** provides the agent-token-only API client, a constrained tool loop for
   an optional OpenAI-compatible LLM, a deterministic offline fallback, and
   `python -m agent.eval`.
@@ -118,6 +129,36 @@ execution reference, and update time, not the full proposal or audit history.
    `pending`, `success`, or `failed` for a submitted testnet transaction. Submission
    or a successful receipt response is not proof of finality.
 
+### On-chain vault flow (`base_sepolia_vault`)
+
+The workflow still requires owner-authenticated execution; the server's
+`AEGIS_TESTNET_PRIVATE_KEY` is the agent session key only and must not be the
+owner key. Before signing, the executor verifies Base Sepolia chain ID, deployed
+vault code, `owner()`/`agent()` identity separation, and the complete
+`transferToken(token, recipient, amount, ref)` call. `ref` is the existing
+proposal fingerprint encoded as `bytes32`. The executor simulates that exact
+call from the agent before obtaining signing approval from the local key; a
+contract revert prevents signing and broadcast. On-chain execution then repeats
+the authoritative caps and recipient/approval checks in the contract, regardless
+of the server's workflow decision.
+
+For transfers requiring an on-chain owner approval,
+`GET /transactions/{transaction_id}/vault-approval` returns exact approval
+arguments, `approveTransfer` calldata, a suggested expiry, and an owner-run
+`cast send` command. This helper never reads an owner key or signs. The
+owner-only `GET /chain/base-sepolia/vault/status` is read-only and reports owner,
+agent, pause state, token policies, current UTC-day spend, recipient flags, and
+each difference from the Aegis demo policy. An `in_sync` result is only a
+point-in-time comparison against one RPC response, not proof of provider honesty.
+
+The contract's daily cap uses `block.timestamp / 1 days`, an epoch-aligned UTC
+day bucket rather than a rolling 24-hour window. The owner can pause the agent
+path or emergency-withdraw even while paused. A compromised agent/server cannot
+change the on-chain policy or withdraw; a compromised owner key can change
+limits and roles, create approvals, unpause, or move vault assets. See
+[on-chain enforcement and known risks](onchain-enforcement.md). The contract is
+unaudited and testnet-only.
+
 The owner can also reject or cancel a pending proposal. Either action releases its
 daily reservation. Idempotency keys on proposals prevent an identical retry from
 creating a second reservation and reject reuse with a different proposal.
@@ -132,6 +173,8 @@ creating a second reservation and reject reuse with a different proposal.
 | `GET /transactions`, `/transactions/{id}`, `/transactions/{id}/audit` | Owner token | Full transaction and audit reads. |
 | `POST /transactions/{id}/approve`, `/reject`, `/cancel`, `/execute` | Owner token | Owner workflow actions; execution is subject to current mode and revalidation. |
 | `GET /chain/base-sepolia/status`, `/chain/base-sepolia/token/{address}` | Owner token | Read-only chain inspection. |
+| `GET /chain/base-sepolia/vault/status` | Owner token | Read-only AegisVault identity, pause, token policy/spend, recipient, and policy-sync inspection. |
+| `GET /transactions/{id}/vault-approval` | Owner token | Prepares exact owner approval calldata and a CLI command; never signs or accesses a key. |
 | `GET /market-data/{asset_class}/{symbol}` | Owner token | Validated market quote read. |
 
 The unauthenticated evaluation endpoints expose a policy oracle. They are intended
@@ -243,16 +286,38 @@ Keep the API bound to loopback. Do not expose it publicly or use real-fund keys.
 
 ### Optional Base Sepolia manual test
 
-Only use a throwaway wallet funded with Base Sepolia faucet assets. Follow the
-[manual test procedure](runtime-configuration.md#manual-base-sepolia-test-transfer)
-for explicit `base_sepolia` configuration, a small owner-reviewed transfer, receipt
-inspection, and key cleanup. No live transfer is claimed by this document.
+Only use throwaway keys funded with Base Sepolia faucet assets. For the standard
+`base_sepolia` mode, follow the [manual test procedure](runtime-configuration.md#manual-base-sepolia-test-transfer)
+for explicit configuration, a small owner-reviewed transfer, receipt inspection,
+and key cleanup. For `base_sepolia_vault`, follow the deployment and owner
+runbook in [on-chain enforcement](onchain-enforcement.md). The contract is
+unaudited and testnet-only. No live deployment or transfer is claimed by this
+document.
 
 - **Evidence (pending owner-run test; not yet verified):**
   Transaction hash: TODO (supplied by the owner after a real transfer)
-  Verify with: `uv run python scripts/verify_testnet_evidence.py <TRANSACTION_HASH> --expected-sender "<TODO: throwaway wallet address>" --audit-db "<path>"`
+  Verify with: `uv run python scripts/verify_testnet_evidence.py "<TRANSACTION_HASH>" --expected-sender "<AGENT_OR_SENDER_ADDRESS>" --audit-db "<AEGIS_DB_PATH>"`
 - **TODO:** Record the date, RPC provider (without credentials), and reviewer for
   that manual validation.
+
+### AegisVault evidence (pending owner-run test; not yet verified)
+
+- Vault address: `TODO: supply the real deployed AegisVault address`
+  - Verify against the deployment receipt:
+    `cast receipt "<DEPLOYMENT_TX_HASH>" --rpc-url "$BASE_SEPOLIA_RPC_URL"`
+- Deployment transaction hash: `TODO: supply the real Base Sepolia deployment hash`
+  - Verify:
+    `cast receipt "<DEPLOYMENT_TX_HASH>" --rpc-url "$BASE_SEPOLIA_RPC_URL"`
+- Executed `transferToken` transaction hash: `TODO: supply the real successful transfer hash`
+  - Verify the vault call, sender, events, and audit reference:
+    `uv run python scripts/verify_testnet_evidence.py "<TRANSFER_TX_HASH>" --vault "<VAULT_ADDRESS>" --expected-sender "<AGENT_ADDRESS>" --audit-db "<AEGIS_DB_PATH>"`
+- Blocked bypass transaction hash: `TODO: supply the real reverted bypass hash`
+  - Verify the call and failed receipt (`status` must be `0x0`):
+    `cast tx "<BLOCKED_BYPASS_TX_HASH>" --rpc-url "$BASE_SEPOLIA_RPC_URL" && cast receipt "<BLOCKED_BYPASS_TX_HASH>" --rpc-url "$BASE_SEPOLIA_RPC_URL"`
+
+Foundry results: **TODO: run forge test**. Python checks do not establish Solidity
+test results. Do not replace any `TODO` with values until a real run produces
+them or the owner supplies them.
 
 ## 6. Known limitations
 
@@ -267,4 +332,9 @@ inspection, and key cleanup. No live transfer is claimed by this document.
 - There is no production key custody, hardware signer, multi-party approval, chain
   reorganization handling, finality tracking, balance reconciliation, or automated
   recovery process.
+- AegisVault is an unaudited testnet prototype. The agent is a single on-chain
+  address; UTC-day caps reset at a bucket boundary and are not rolling limits.
+  A compromised owner key can change policy, create approvals, unpause, rotate
+  roles, or withdraw. Token-specific behavior, such as an issuer blacklist or
+  upgrade, remains outside the vault's control.
 - The project is not a broker, exchange, or investment-advice service.

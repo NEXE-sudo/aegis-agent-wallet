@@ -37,6 +37,15 @@ one-hour expiry and a `cast send` command using the operator-provided
 `OWNER_PRIVATE_KEY` environment variable. The API never obtains that key and
 never signs the approval.
 
+`base_sepolia_vault` is an unaudited, testnet-only integration. It uses one
+agent address and a UTC-day-bucket cap, not a rolling 24-hour limit. The separate
+vault owner key can change token limits, recipients, approvals, and roles, or
+withdraw assets; it must never be configured in or supplied to the Aegis server.
+The on-chain status comparison is a point-in-time read from the configured RPC,
+not a policy migration or an independent provider verification. Read
+[on-chain enforcement](onchain-enforcement.md) for contract trust assumptions,
+operational commands, bypass demonstration, and evidence placeholders.
+
 The owner-only `POST /pause` and `POST /resume` controls persist a pause flag and append-only control log in SQLite. While paused, new proposal attempts are recorded as `blocked` with a clear reason, and owner approval/execution requests fail with HTTP 409. Reads, cancellation, rejection, and receipt lookups continue to work; an existing idempotent replay still resolves to its stored record.
 
 By default, Base Sepolia execution runs a read-only `eth_call` for the proposed transfer from the configured sender, checks the sender's token balance, and checks that its ETH balance covers the gas limit multiplied by the capped gas price. A failed or malformed preflight returns HTTP 409 with a machine-readable code and does not sign, submit, change workflow status, or append an audit event. This refusal follows the existing no-op behavior for rejected workflow actions; audit events are reserved for committed state transitions and security-relevant persisted checks. Setting `AEGIS_PREFLIGHT_ENABLED=false` explicitly skips these checks; it does not change the policy, approval, or gas caps.

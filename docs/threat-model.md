@@ -14,6 +14,7 @@ The prototype aims to:
 - Preserve a useful workflow audit trail while avoiding unnecessary secret-like values in event details.
 - Support an owner-only pause/resume kill switch and a pending-proposal cap to stop or slow harmful workflows during intervention.
 - Default to simulated execution; permit actual signing/submission only in an explicitly configured Base Sepolia testnet mode.
+- In `base_sepolia_vault` mode, use an on-chain vault as the final transfer-policy boundary for one agent key, independently enforcing token caps, recipients, approvals, and pause state.
 
 ## 2. Assets to protect
 
@@ -53,6 +54,26 @@ The Base Sepolia RPC endpoint is external and its responses must be treated as u
 
 The owner token identifies a caller with approval privileges; it does not establish a separate person's identity or prove that an informed human reviewed the proposal. A valid approval is bound to the proposal fingerprint and has a configurable expiry, but approval quality depends on the operator's review process and protection of the owner token.
 
+### On-chain AegisVault (vault mode only)
+
+`base_sepolia_vault` sends `transferToken` calls from the configured agent
+session key to the AegisVault on Base Sepolia (chain ID `84532`). The vault
+independently checks its current agent, pause state, token policy, per-transaction
+and UTC-day caps, recipient allowlist, and an exact, expiring owner approval
+where required. Aegis's server-side policy and database remain useful controls,
+but they are not the last enforcement boundary for vault-held tokens.
+
+The Aegis process must not hold the owner signing key. A compromised server or
+agent key can attempt arbitrary calls as the configured agent, but cannot change
+on-chain settings, create owner approvals, unpause, or withdraw funds. It may
+spend up to the configured caps to an allowlisted recipient, or use an exact
+owner approval if one exists; approvals never raise the caps. A compromised
+owner key can change the policy and recipient allowlist, approve transfers,
+pause/unpause, rotate the agent, transfer ownership, and emergency-withdraw
+vault assets. The contract is unaudited and testnet-only; see
+[on-chain enforcement](onchain-enforcement.md) for the trust model and known
+risks.
+
 ## 4. Main threats and current mitigations
 
 | Threat | Current mitigation | Residual risk |
@@ -64,7 +85,9 @@ The owner token identifies a caller with approval privileges; it does not establ
 | Duplicate or conflicting proposal retries | Idempotency key handling, SQLite write locking, proposal fingerprints, and conflict responses | Idempotency does not provide distributed coordination beyond this local SQLite-backed application. |
 | Spending-accounting overflow or races | SQLite write transactions, bounded persisted integer values, and Python-integer aggregation of reservations | Reservations are local accounting, not on-chain balances, pending transfers, or confirmed receipts. |
 | Duplicate transfer after uncertain RPC outcome | Persist the signed transaction and its hash before broadcast; retry the same signed bytes rather than selecting a new nonce; account for unresolved submissions conservatively | An RPC provider can be unavailable or dishonest. Pending signed bytes in SQLite can be rebroadcast by anyone with database access, and receipt reads do not establish finality or protect against chain reorganizations. |
-| Unauthorized or misdirected testnet transfer | Execution is opt-in, owner-only, policy/spend/risk revalidated, fingerprint-bound, restricted to Base Sepolia and trusted tokens; immediately before signing, the unsigned transaction's chain, token, zero native value, transfer selector, decoded recipient, and amount are checked against the approved proposal. Signing is aborted on any mismatch; gas caps apply. | The process environment and throwaway wallet remain sensitive; a compromised host or owner token can execute a policy-permitted test transfer. The prototype has no hardware-backed custody or independent transaction simulation. |
+| Unauthorized or misdirected testnet transfer | Execution is opt-in, owner-only, policy/spend/risk revalidated, fingerprint-bound, restricted to Base Sepolia and trusted tokens; immediately before signing, the unsigned transaction's chain, token, zero native value, transfer selector, decoded recipient, and amount are checked against the approved proposal. Vault mode also simulates the exact call before signing. | The process environment and throwaway wallet remain sensitive; a compromised host or owner token can execute a policy-permitted test transfer. Simulation uses the configured RPC provider and does not independently establish provider honesty or finality. |
+| Compromised Aegis server or agent key in vault mode | The agent key can call only the vault's agent function; the contract enforces enabled-token, per-transaction and UTC-day caps, recipient allowlisting or exact owner approval, and pause state. The owner key is separate and is never loaded by the Aegis server. | The agent may spend within those limits and use any already-existing exact approval. A compromised owner key can replace policy, approve transfers, change roles, unpause, or withdraw assets. AegisVault and its OpenZeppelin dependencies are unaudited; a malicious/upgradeable token or token blacklist can still prevent or affect transfers. |
+| Vault policy drift or misleading chain evidence | The owner-only status endpoint compares current on-chain limits, threshold, and recipient flags with the Aegis demo policy; the evidence verifier checks vault calldata and matching vault/token receipt events. | A single RPC provider can lie or be unavailable; no RPC quorum, independent finality monitor, or automatic policy synchronization exists. The UTC day-bucket cap is not a rolling 24-hour limit. |
 | Prompt injection or altered payment details | The agent treats invoice text as untrusted and permits a proposal tool call only when its fields match the task's structured `authorized_payment`; the agent token cannot approve or execute | This guard does not prove the structured payment was verified correctly. An LLM may still produce misleading explanations, and test scenarios do not establish general resistance to prompt injection. |
 | Audit data altered or sensitive values exposed | Audit rows are protected against ordinary update/delete operations; idempotency keys are not copied into replay event details; selected RPC failures use sanitized errors | Audit is not cryptographically tamper-evident against database-file control; not every rejected/no-op request creates an audit event. |
 | Malformed or misleading RPC responses | Response-shape/error checks, chain-ID checks, and sanitized request failures | The provider may be unavailable or dishonest; no independent RPC quorum or on-chain verification is implemented. |
@@ -85,7 +108,7 @@ The current prototype assumes:
 
 The project does **not**:
 
-- Support mainnet execution, real-fund transfers, seed phrases, production key custody, or hardware-backed signing. A throwaway private key may be loaded only when `AEGIS_EXECUTION_MODE=base_sepolia` is explicitly selected.
+- Support mainnet execution, real-fund transfers, seed phrases, production key custody, or hardware-backed signing. Throwaway keys may be loaded only for explicitly selected Base Sepolia execution modes; in vault mode the Aegis process holds only the agent session key, never the owner key.
 - Treat an RPC submission response or receipt as proof of finality; automated confirmation/reorganization handling is not implemented.
 - Prove recipient identity, token authenticity, or provider honesty.
 - Provide a production identity system, hardware-backed key custody, multi-party approval, or production secret rotation.
@@ -105,4 +128,4 @@ When adding or changing a feature, ask:
 4. Is approval still bound to the exact proposal and current policy/risk requirements?
 5. Are secrets and caller-supplied opaque values absent from logs, errors, and audit details unless strictly needed?
 6. Are security-relevant state changes tested, and are documented guarantees narrower than or equal to the actual implementation?
-7. Does the default remain simulated, and is any signing/submission explicitly restricted to Base Sepolia (84532), owner-authorized, policy-revalidated, and tested without live network access?
+7. Does the default remain simulated, and is any signing/submission explicitly restricted to Base Sepolia (84532), owner-authorized, policy-revalidated, and tested without live network access? In vault mode, do the Solidity tests cover the independent contract boundary and are their actual results stated without claiming an audit?

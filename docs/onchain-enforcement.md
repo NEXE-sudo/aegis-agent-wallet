@@ -278,3 +278,31 @@ cast send "$VAULT" \
 These commands submit transactions to Base Sepolia and consume testnet ETH.
 Inspect each real transaction result before continuing. Do not treat an
 unconfirmed or failed transaction as completed configuration.
+
+## Submission evidence
+
+No deployment or transfer evidence is claimed yet. Keep each value as `TODO`
+until it is supplied by the operator from a real Base Sepolia run. Do not fill
+these fields with test fixtures or invented values.
+
+- **Vault address:** `TODO: provide the deployed AegisVault address`
+  - Verify deployment receipt and compare its `contractAddress` with this value:
+    `cast receipt "<DEPLOYMENT_TX_HASH>" --rpc-url "$BASE_SEPOLIA_RPC_URL"`
+- **Deployment transaction hash:** `TODO: provide the real Base Sepolia deployment transaction hash`
+  - Verify receipt:
+    `cast receipt "<DEPLOYMENT_TX_HASH>" --rpc-url "$BASE_SEPOLIA_RPC_URL"`
+- **Executed `transferToken` transaction hash:** `TODO: provide the real successful transfer hash`
+  - Verify vault destination, calldata, vault/token events, agent sender, and
+    (when available) the stored proposal fingerprint:
+    `uv run python scripts/verify_testnet_evidence.py "<TRANSFER_TX_HASH>" --vault "<VAULT_ADDRESS>" --expected-sender "<AGENT_ADDRESS>" --audit-db "<AEGIS_DB_PATH>"`
+- **Blocked bypass transaction hash:** `TODO: provide a real reverted bypass hash`
+  - Inspect the transaction and its receipt; the receipt status must be `0x0`,
+    and the transaction's `to` and calldata must identify the intended vault
+    bypass attempt:
+    `cast tx "<BLOCKED_BYPASS_TX_HASH>" --rpc-url "$BASE_SEPOLIA_RPC_URL" && cast receipt "<BLOCKED_BYPASS_TX_HASH>" --rpc-url "$BASE_SEPOLIA_RPC_URL"`
+
+These commands are read-only. A mined failed bypass attempt should have receipt
+status `0x0`; a pending or successful transaction is not evidence of a blocked
+bypass. The standard evidence verifier intentionally requires a successful
+transfer and matching events, so use the receipt inspection command for reverted
+bypass attempts. The contract is unaudited and testnet-only.

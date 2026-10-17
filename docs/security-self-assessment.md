@@ -14,8 +14,10 @@ Aegis is a Python/FastAPI local prototype with a constrained agent package, SQLi
 workflow store, deterministic policy engine, heuristic risk engine, dependency-free
 frontend, external market-data and JSON-RPC providers, and an optional
 OpenAI-compatible LLM endpoint. Simulated execution is the default. Actual signing
-and submission is restricted to explicitly enabled Base Sepolia testnet mode
-(chain ID `84532`).
+and submission is restricted to explicitly enabled Base Sepolia testnet modes
+(chain ID `84532`). The optional `base_sepolia_vault` mode adds an unaudited,
+testnet-only AegisVault contract as an independent policy boundary for vault-held
+tokens.
 
 The assessment assumes the operator controls the local host, environment variables,
 and SQLite file. It does not assume that an RPC provider, market-data provider, or
@@ -49,6 +51,7 @@ No category below should be read as a pass or certification.
 | **ASI08 — Cascading Failures** | Policy limits, SQLite-serialized spend reservations, idempotency handling, explicit errors, sanitized provider failures, and retry of the same persisted signed transaction reduce selected duplicate-spend and uncertain-broadcast cases. Tests exercise workflow and retry behavior with mocked providers. | **Partial.** There is no distributed transaction coordinator, circuit breaker, RPC quorum, automatic receipt/finality or reorganization reconciliation, or production incident recovery. Local reservations are not chain balances. Provider failure and stale state remain operational risks. |
 | **ASI09 — Human-Agent Trust Exploitation** | The agent cannot approve or execute. Owner actions are separate and fingerprint-bound approvals expire. Hard policy blocks cannot be overridden. The UI/API distinguish a proposal from `executed_simulated` and `submitted_onchain`; the latter is not described as finality. | **Partial.** A bearer token is not proof of a human's identity or informed review. Operators can over-trust a risk score, model explanation, quote, token metadata, or RPC response. No multi-person review, comprehension check, or formal approval evidence is provided. |
 | **ASI10 — Rogue Agents** | The agent's capability set is small; its API client uses only the agent token and lacks owner routes. Server-side owner authentication and workflow policy remain required even if the agent misbehaves. The offline mode is deterministic and the optional LLM tool loop rejects non-allowlisted calls. | **Partial.** There is no independent runtime monitor, anomaly detector, per-agent credential revocation service, or fleet-management control. Compromise of the application, agent token, host, or supplied structured payment remains in scope. |
+| **Vault-mode permission boundary** | The server holds only the agent session key. The contract independently enforces its agent role, pause state, per-token caps, recipient allowlist or exact expiring approval, and one UTC-day bucket. Owner-only status and approval-helper routes never sign or read a key. | **Unaudited, testnet-only.** A compromised agent/server can spend within configured caps, send to allowed recipients, or use an already existing exact approval. It cannot change vault policy or withdraw funds without the separately held owner key. A compromised owner key can change policy and roles, approve transfers, pause/unpause, or withdraw. Malicious/upgradeable tokens, token blacklists, RPC/provider failures, chain timestamp boundaries, and a single-agent compromise remain risks. |
 
 ## 3. Cross-cutting controls and limitations
 
@@ -64,6 +67,47 @@ No category below should be read as a pass or certification.
   material, including persisted signed transaction bytes for retry.
 - No mainnet support, production key custody, or real-fund transfer capability is
   implemented.
+- In `base_sepolia_vault`, `AEGIS_TESTNET_PRIVATE_KEY` is the agent session key
+  only. The Aegis server must never hold the vault owner key. Vault policy is a
+  second enforcement layer, not a replacement for Aegis workflow review or a
+  guarantee that the configured token behaves safely.
+
+### Permission tiers in vault mode
+
+| Tier | Authority | Explicit limits |
+| --- | --- | --- |
+| **Agent session key** | Submit `transferToken` calls as the configured single agent. | Cannot set policy, allow recipients, approve, pause/unpause, rotate the agent, transfer ownership, or withdraw. Transfers remain subject to on-chain per-transaction and UTC-day caps and the recipient/approval rules. |
+| **Owner key** | Configure token policies and recipient flags; approve exact transfers; pause/unpause; rotate/revoke the agent; transfer ownership; emergency-withdraw. | This key is not held by the Aegis Python server. If compromised, the attacker can change or bypass the effective limits and move vault assets. |
+| **Vault contract** | Enforce the rules in deployed bytecode for vault-held token transfers. | Unaudited and testnet-only. It cannot prove token authenticity, prevent a token's own blacklist/upgrade behavior, provide rolling-24-hour caps, or protect against owner-key compromise. |
+
+### Contract known-risk list
+
+These limits apply to the contract and operational model described in
+[on-chain enforcement](onchain-enforcement.md):
+
+- The Solidity contract and its dependencies have not been audited, formally
+  verified, or independently tested. Compiler correctness, dependency behavior,
+  deployment configuration, and operational procedures remain risks. It is for
+  Base Sepolia testnet only.
+- There is one rotatable agent. A compromised agent can spend within the
+  configured caps, send to allowlisted recipients, or use an already-existing
+  exact owner approval. Approval does not raise either cap.
+- A compromised owner key can change/remove limits, change recipient flags,
+  approve transfers, pause or unpause, rotate the agent, transfer ownership, and
+  emergency-withdraw assets.
+- The daily cap is keyed to `block.timestamp / 1 days`, a UTC-aligned day bucket
+  rather than a rolling 24-hour window. Chain timestamps are not a trusted
+  wall-clock source.
+- The token remains an independent trust boundary. A malicious or upgradeable
+  token can change behavior; an issuer blacklist or pause can prevent transfers.
+  Fee-on-transfer and other balance deltas are rejected by the agent-transfer
+  checks, but token `balanceOf` behavior is still trusted.
+- Emergency withdrawal is intentionally owner-only and bypasses agent pause and
+  spending policy. Approval references are opaque `bytes32` values: the contract
+  binds the exact reference but does not prove it is an authentic Aegis
+  fingerprint or that an off-chain proposal is authentic.
+- There is no mainnet target, production key custody, monitoring, automated
+  recovery, or on-chain finality/reorganization handling.
 
 ### Data, logs, and audit
 
@@ -86,8 +130,11 @@ malicious dependencies, or attacks against a deployed system. The evaluation doe
 not make a real transfer and does not assess LLM quality.
 
 **TODO:** Attach the exact commit and CI run link used for final submission review.
-**TODO:** Record any independent penetration-test or external review findings; do
-not describe an unperformed review as completed.
+Foundry tests have not been run in the current environment; report
+`TODO: run forge test` until a real `forge test` run is performed. Do not infer
+contract test results from Python test runs.
+**TODO:** Record any independent penetration-test or external review findings;
+do not describe an unperformed review as completed.
 
 ## 4. Prioritized follow-up work
 
@@ -118,6 +165,12 @@ These are recommendations, not implemented capabilities:
   Transaction hash: TODO (supplied by the owner after a real transfer)
   Verify with: `uv run python scripts/verify_testnet_evidence.py <TRANSACTION_HASH> --expected-sender "<TODO: throwaway wallet address>" --audit-db "<path>"`
   This check ties the on-chain transfer to the sending wallet and to Aegis's audit record; it does not prove the wallet key was held only by Aegis.
+- Vault address, deployment transaction hash, successful vault transfer hash,
+  and reverted bypass transaction hash remain `TODO`. Their read-only verification
+  commands are listed in [on-chain enforcement evidence](onchain-enforcement.md#submission-evidence);
+  no live chain values are claimed here.
+- Foundry contract tests: **TODO: run forge test**. Do not report a Solidity
+  test result until `forge test` has actually been run and its output reviewed.
 - **TODO:** Review each residual-risk statement against the exact submission
   commit and update this assessment if code changes before submission.
 
@@ -126,5 +179,6 @@ These are recommendations, not implemented capabilities:
 - [OWASP Top 10 for Agentic Applications 2026](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/)
 - [Aegis threat model](threat-model.md)
 - [Aegis runtime configuration](runtime-configuration.md)
+- [AegisVault design, runbook, and evidence placeholders](onchain-enforcement.md)
 - [Aegis agent guide](agent.md)
 - [Aegis workflow state transitions](workflow-state-transitions.md)
