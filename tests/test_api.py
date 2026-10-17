@@ -252,15 +252,27 @@ def test_simulated_execution_is_terminal_and_cannot_be_approved():
     assert "approval_granted" not in event_types
 
 
-def test_low_risk_transaction_can_be_simulated_once():
-    proposed = propose()
+def test_low_risk_allowlisted_transaction_executes_without_separate_approval():
+    proposed = propose(_payload(amount_base_units=2_500_000))
     assert proposed.status_code == 201
     record = proposed.json()
     assert record["status"] == "ready"
+    assert record["policy_decision"] == "allow"
+    assert record["risk_level"] == "low"
+
     executed = owner_post(f"/transactions/{record['transaction_id']}/execute")
     assert executed.status_code == 200
     assert executed.json()["status"] == "executed_simulated"
     assert executed.json()["execution_reference"].startswith("simulated:")
+    assert executed.json()["approval_fingerprint"] is None
+
+    persisted = main.store.get(record["transaction_id"])
+    assert persisted["status"] == "executed_simulated"
+    assert persisted["approval_fingerprint"] is None
+    assert [
+        event["event_type"] for event in main.store.audit_events(record["transaction_id"])
+    ] == ["proposal_created", "simulated_execution"]
+
     assert owner_post(f"/transactions/{record['transaction_id']}/execute").status_code == 409
 
 
