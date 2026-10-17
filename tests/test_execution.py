@@ -88,13 +88,37 @@ def _mocked_executor(monkeypatch, methods):
     return settings.private_key
 
 
-def _mock_methods(send_raw_transaction, receipt=None, chain_id=BASE_SEPOLIA_CHAIN_ID):
+def _abi_uint(value):
+    return "0x" + value.to_bytes(32, "big").hex()
+
+
+def _mock_methods(
+    send_raw_transaction,
+    receipt=None,
+    chain_id=BASE_SEPOLIA_CHAIN_ID,
+    transfer_result=None,
+    token_balance=10**18,
+    token_balance_result=None,
+    eth_balance=10**18,
+):
+    if transfer_result is None:
+        transfer_result = _abi_uint(1)
     methods = {
         "eth_chainId": hex(chain_id),
         "eth_getTransactionCount": "0x2",
         "eth_gasPrice": "0x3b9aca00",
         "eth_estimateGas": "0xea60",
         "eth_sendRawTransaction": send_raw_transaction,
+        "eth_call": lambda params: (
+            transfer_result
+            if params[0]["data"].startswith("0xa9059cbb")
+            else (
+                token_balance_result
+                if token_balance_result is not None
+                else _abi_uint(token_balance)
+            )
+        ),
+        "eth_getBalance": hex(eth_balance),
     }
     if receipt is not None:
         methods["eth_getTransactionReceipt"] = receipt
@@ -143,6 +167,27 @@ def test_execution_settings_reject_invalid_mode_and_key_without_echoing_key(monk
     assert secret_marker not in str(exc_info.value)
 
 
+def test_preflight_setting_defaults_by_execution_mode_and_rejects_invalid_values(
+    monkeypatch,
+):
+    monkeypatch.delenv("AEGIS_PREFLIGHT_ENABLED", raising=False)
+    base_settings = _test_execution_settings(monkeypatch)
+    assert base_settings.preflight_enabled is True
+
+    monkeypatch.setenv("AEGIS_PREFLIGHT_ENABLED", "false")
+    assert _test_execution_settings(monkeypatch).preflight_enabled is False
+
+    monkeypatch.setenv("AEGIS_EXECUTION_MODE", "simulated")
+    monkeypatch.delenv("AEGIS_PREFLIGHT_ENABLED", raising=False)
+    assert ExecutionSettings.from_environment().preflight_enabled is False
+
+    monkeypatch.setenv("AEGIS_PREFLIGHT_ENABLED", "yes")
+    with pytest.raises(ExecutionConfigurationError, match="AEGIS_PREFLIGHT_ENABLED"):
+        ExecutionSettings.from_environment()
+    with pytest.raises(ExecutionConfigurationError), TestClient(main.app):
+        pass
+
+
 def test_app_startup_rejects_incomplete_base_sepolia_configuration(monkeypatch):
     monkeypatch.setenv("AEGIS_EXECUTION_MODE", "base_sepolia")
     monkeypatch.setenv("BASE_SEPOLIA_RPC_URL", "https://rpc.invalid")
@@ -160,12 +205,25 @@ def test_base_sepolia_executor_signs_only_allowlisted_transfer_with_mocked_rpc(
     def handler(request: httpx.Request) -> httpx.Response:
         payload = json.loads(request.content)
         calls.append(payload)
-        result = {
-            "eth_chainId": hex(BASE_SEPOLIA_CHAIN_ID),
-            "eth_getTransactionCount": "0x2",
-            "eth_gasPrice": "0x3b9aca00",
-            "eth_estimateGas": "0xea60",
-        }[payload["method"]]
+        method = payload["method"]
+        if method == "eth_call":
+            result = (
+                _abi_uint(1)
+                if payload["params"][0]["data"].startswith("0xa9059cbb")
+                else _abi_uint(proposal["amount_base_units"])
+            )
+        elif method == "eth_getBalance":
+            maximum_cost = (
+                (int("0xea60", 16) * 120 + 99) // 100 * int("0x3b9aca00", 16)
+            )
+            result = hex(maximum_cost)
+        else:
+            result = {
+                "eth_chainId": hex(BASE_SEPOLIA_CHAIN_ID),
+                "eth_getTransactionCount": "0x2",
+                "eth_gasPrice": "0x3b9aca00",
+                "eth_estimateGas": "0xea60",
+            }[method]
         return httpx.Response(
             200, json={"jsonrpc": "2.0", "id": 1, "result": result}
         )
@@ -200,6 +258,116 @@ def test_base_sepolia_executor_signs_only_allowlisted_transfer_with_mocked_rpc(
         + proposal["recipient"][2:].rjust(64, "0")
         + proposal["amount_base_units"].to_bytes(32, "big").hex()
     )
+    transfer_call = next(
+        call for call in calls
+        if call["method"] == "eth_call"
+        and call["params"][0]["data"].startswith("0xa9059cbb")
+    )
+    assert transfer_call["params"][0]["from"] == Account.from_key(
+        settings.private_key
+    ).address.lower()
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected_code"),
+    [
+        ("revert", "preflight_call_failed"),
+        ("false", "preflight_call_failed"),
+        ("token", "insufficient_token_balance"),
+        ("eth", "insufficient_eth_balance"),
+        ("malformed", "preflight_rpc_error"),
+    ],
+)
+def test_preflight_failures_never_sign_or_change_workflow_state(
+    isolated_app, monkeypatch, failure, expected_code
+):
+    store, agent_headers, owner_headers = isolated_app
+    sent = []
+    methods = _mock_methods(
+        lambda params: sent.append(params[0]),
+        transfer_result=(
+            RuntimeError("simulated revert")
+            if failure == "revert"
+            else _abi_uint(0) if failure == "false" else None
+        ),
+        token_balance=0 if failure == "token" else 10**18,
+        token_balance_result="0x1" if failure == "malformed" else None,
+        eth_balance=0 if failure == "eth" else 10**18,
+    )
+    _mocked_executor(monkeypatch, methods)
+    signing_calls = []
+
+    def unexpected_sign(*args, **kwargs):
+        signing_calls.append((args, kwargs))
+        raise AssertionError("preflight failure must not call the signer")
+
+    monkeypatch.setattr(Account, "sign_transaction", unexpected_sign)
+    proposal = client.post(
+        "/transactions/propose",
+        headers=agent_headers,
+        json={
+            "agent_id": "devops-01",
+            "chain_id": BASE_SEPOLIA_CHAIN_ID,
+            "token_symbol": "USDC",
+            "token_address": BASE_SEPOLIA_USDC_ADDRESS,
+            "recipient": "0x2222222222222222222222222222222222222222",
+            "amount_base_units": 1_000_000,
+            "token_decimals": 6,
+        },
+    ).json()
+
+    response = client.post(
+        f"/transactions/{proposal['transaction_id']}/execute",
+        headers=owner_headers,
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == expected_code
+    assert not signing_calls
+    assert not sent
+    assert store.get(proposal["transaction_id"])["status"] == "ready"
+    assert [event["event_type"] for event in store.audit_events(
+        proposal["transaction_id"]
+    )] == ["proposal_created"]
+
+
+def test_disabled_preflight_skips_read_checks_and_executes(isolated_app, monkeypatch):
+    _store, agent_headers, owner_headers = isolated_app
+    preflight_calls = []
+    methods = _mock_methods(
+        lambda params: "0x" + keccak(hexstr=params[0]).hex()
+    )
+
+    def called_unexpectedly(params):
+        preflight_calls.append(params)
+        return _abi_uint(1)
+
+    methods["eth_call"] = called_unexpectedly
+    methods["eth_getBalance"] = called_unexpectedly
+    monkeypatch.setenv("AEGIS_PREFLIGHT_ENABLED", "false")
+    _mocked_executor(monkeypatch, methods)
+    proposal = client.post(
+        "/transactions/propose",
+        headers=agent_headers,
+        json={
+            "agent_id": "devops-01",
+            "chain_id": BASE_SEPOLIA_CHAIN_ID,
+            "token_symbol": "USDC",
+            "token_address": BASE_SEPOLIA_USDC_ADDRESS,
+            "recipient": "0x2222222222222222222222222222222222222222",
+            "amount_base_units": 1_000_000,
+            "token_decimals": 6,
+        },
+    ).json()
+
+    response = client.post(
+        f"/transactions/{proposal['transaction_id']}/execute",
+        headers=owner_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "submitted_onchain"
+    assert not preflight_calls
 
 
 def test_execution_rejects_wrong_chain_before_signing_or_broadcasting(

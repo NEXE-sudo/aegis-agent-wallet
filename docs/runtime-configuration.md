@@ -18,6 +18,7 @@ The package declares Python `>=3.11`. CI tests Python 3.11, 3.12, and 3.14; othe
 | `AEGIS_APPROVAL_EXPIRES_SECONDS` | No | `300` | Approval lifetime in seconds. Must parse as an integer greater than zero; invalid values prevent the application from initializing correctly. Expired approvals must be granted again. |
 | `AEGIS_MAX_PENDING_PROPOSALS` | No | `10` | Maximum number of active `ready`, `awaiting_approval`, and `approved` proposals. The value must be a positive integer; invalid values prevent startup. When the cap is reached, new proposals fail with HTTP 429 and no row is created, while idempotent replays still return the stored record. |
 | `AEGIS_EXECUTION_MODE` | No | `simulated` | Either `simulated` or `base_sepolia`. Any other value prevents startup. Base Sepolia execution is never selected automatically. |
+| `AEGIS_PREFLIGHT_ENABLED` | No | `true` in `base_sepolia`; `false` in `simulated` | Runs read-only transfer simulation and sender token/ETH balance checks before signing. Must be exactly `true` or `false` (case-insensitive); invalid values prevent startup. |
 | `AEGIS_TESTNET_PRIVATE_KEY` | Only for `base_sepolia` mode | None | A throwaway Base Sepolia account's private key, loaded only when testnet execution is explicitly enabled. A missing or invalid key prevents startup. Keep it in the process environment; it is never accepted in an API request, returned, or logged. |
 | `BASE_SEPOLIA_RPC_URL` | Only for chain inspection or `base_sepolia` mode | None | HTTP(S) JSON-RPC endpoint for read-only inspection. Testnet execution requires a valid HTTPS URL. Missing or invalid execution configuration prevents startup; RPC failures return sanitized HTTP errors. Never commit a provider URL containing credentials. |
 
@@ -26,6 +27,8 @@ The agent token authenticates proposal creation and the limited `GET /agent/tran
 With the default `simulated` mode, the workflow does not load a private key or send transaction RPC calls. The optional chain inspection routes remain read-only. In `base_sepolia` mode, owner execution revalidates policy, spend, risk, and approvals, then signs and submits only allowlisted ERC-20 transfers on chain ID `84532`. A different chain ID is rejected.
 
 The owner-only `POST /pause` and `POST /resume` controls persist a pause flag and append-only control log in SQLite. While paused, new proposal attempts are recorded as `blocked` with a clear reason, and owner approval/execution requests fail with HTTP 409. Reads, cancellation, rejection, and receipt lookups continue to work; an existing idempotent replay still resolves to its stored record.
+
+By default, Base Sepolia execution runs a read-only `eth_call` for the proposed transfer from the configured sender, checks the sender's token balance, and checks that its ETH balance covers the gas limit multiplied by the capped gas price. A failed or malformed preflight returns HTTP 409 with a machine-readable code and does not sign, submit, change workflow status, or append an audit event. This refusal follows the existing no-op behavior for rejected workflow actions; audit events are reserved for committed state transitions and security-relevant persisted checks. Setting `AEGIS_PREFLIGHT_ENABLED=false` explicitly skips these checks; it does not change the policy, approval, or gas caps.
 
 ## Start locally
 

@@ -54,6 +54,35 @@ def test_chain_id_reads_base_sepolia():
     assert rpc.chain_id() == BASE_SEPOLIA_CHAIN_ID
 
 
+def test_sender_calls_and_balance_reads_are_strictly_validated():
+    calls = []
+
+    def handler(request):
+        payload = json.loads(request.content)
+        calls.append(payload)
+        result = (
+            "0x" + (123).to_bytes(32, "big").hex()
+            if payload["method"] == "eth_call"
+            else "0x2a"
+        )
+        return httpx.Response(
+            200, json={"jsonrpc": "2.0", "id": 1, "result": result}
+        )
+
+    rpc = BaseSepoliaRpc(
+        "https://rpc.invalid",
+        transport=httpx.MockTransport(handler),
+    )
+    sender = "0x2222222222222222222222222222222222222222"
+
+    assert rpc.token_balance(TOKEN, sender) == 123
+    assert rpc.eth_balance(sender) == 42
+    assert calls[0]["params"][0]["from"] == sender
+    assert calls[0]["params"][0]["to"] == TOKEN
+    assert calls[0]["params"][0]["data"] == "0x70a08231" + sender[2:].rjust(64, "0")
+    assert calls[1]["params"] == [sender, "latest"]
+
+
 def test_wrong_chain_rejected_before_token_inspection():
     rpc = BaseSepoliaRpc(
         "https://rpc.invalid",
