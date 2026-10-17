@@ -2,6 +2,7 @@
 
 ## 1.10.3 (unreleased)
 
+- Add a simulation-first Base Sepolia vault bypass demo with opt-in fixed-gas broadcasts for verified reverts.
 - Extend the read-only testnet evidence verifier to validate AegisVault calls, vault/token transfer logs, and the audit-stored proposal reference.
 - Add owner-only vault approval calldata and read-only vault status/policy synchronization endpoints.
 - Add the `base_sepolia_vault` agent-session-key executor with vault identity checks, exact proposal-bound transfer calldata, and mandatory read-only simulation before signing.

@@ -164,6 +164,41 @@ owner approval.
    mainnet key or endpoint. Tests use mocked RPC transports only and do not
    submit to a live network.
 
+## Vault bypass demonstration
+
+The bypass demonstration uses `AEGIS_TESTNET_PRIVATE_KEY` as the agent key only
+and `BASE_SEPOLIA_RPC_URL` as an HTTPS Base Sepolia endpoint. It first verifies
+the chain ID, vault code, and configured agent, then simulates an over-cap
+transfer, an unlisted-recipient transfer, and a disallowed-token transfer. It
+prints the recognized contract revert for each and does not broadcast by
+default:
+
+```bash
+uv run python scripts/vault_bypass_demo.py \
+  --vault "<AEGISVAULT_ADDRESS>" \
+  --token "<ALLOWED_TEST_TOKEN_ADDRESS>" \
+  --unlisted-recipient "<UNLISTED_TEST_RECIPIENT>"
+```
+
+Only if each simulation confirms the expected rejection, the explicit
+`--broadcast` flag submits the same reverting calls with a fixed gas limit so
+that the rejections can be recorded on Base Sepolia:
+
+```bash
+uv run python scripts/vault_bypass_demo.py \
+  --vault "<AEGISVAULT_ADDRESS>" \
+  --token "<ALLOWED_TEST_TOKEN_ADDRESS>" \
+  --unlisted-recipient "<UNLISTED_TEST_RECIPIENT>" \
+  --broadcast
+```
+
+Do not put the agent key on the command line, in shell history, or in a file.
+The script reads it only from the process environment and never prints it. The
+disallowed-token case uses the vault's own address as the token argument so
+that it is known not to be an allowlisted token; it reverts before any token
+contract call. The script refuses to broadcast if a simulation unexpectedly
+succeeds.
+
 ## Workflow cancellation
 
 `POST /transactions/{transaction_id}/cancel` requires the owner token. It cancels a `ready`, `awaiting_approval`, or `approved` proposal, clears any approval, records an audit event, and releases the daily spend reservation. Blocked, already-cancelled, and simulated-executed transactions cannot be cancelled.
