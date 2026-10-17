@@ -11,3 +11,5 @@ build/
 *.egg-info/
 *.sqlite3
 *.db
+contracts/out/
+contracts/cache/
