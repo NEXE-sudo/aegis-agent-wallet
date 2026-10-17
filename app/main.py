@@ -1,14 +1,16 @@
 """Aegis Agent Wallet API with simulated or explicitly gated Base Sepolia execution."""
 import logging
 import os
+import re
 import secrets
 import sqlite3
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from time import perf_counter
+from time import perf_counter, time
 from typing import Literal
 
+from eth_utils import keccak
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
@@ -17,8 +19,10 @@ from app.auth import require_agent, require_owner
 from app.chain.base_sepolia import (
     BASE_SEPOLIA_CHAIN_ID,
     BASE_SEPOLIA_USDC_ADDRESS,
+    BaseSepoliaRpc,
     RpcConfigurationError,
     RpcRequestError,
+    validate_address,
 )
 from app.chain.execution import (
     BaseSepoliaExecutor,
@@ -47,7 +51,7 @@ from app.policy.models import (
 )
 from app.risk.engine import assess_transaction_risk
 from app.risk.models import RiskLevel
-from app.workflow.controller import TransactionController
+from app.workflow.controller import TransactionController, fingerprint_proposal
 from app.workflow.store import OnchainSubmissionError, WorkflowDataError, WorkflowStore
 
 
@@ -300,6 +304,327 @@ def get_policy_hash() -> dict[str, str]:
     return {
         "policy_hash": hash_policy(DEMO_POLICY),
         "format_version": POLICY_HASH_FORMAT_VERSION,
+    }
+
+
+_ZERO_ADDRESS = "0x" + "0" * 40
+_VAULT_APPROVAL_SIGNATURE = "approveTransfer(address,address,uint256,bytes32,uint256)"
+_VAULT_APPROVAL_SELECTOR = "0x" + keccak(text=_VAULT_APPROVAL_SIGNATURE)[:4].hex()
+_SUGGESTED_VAULT_APPROVAL_LIFETIME_SECONDS = 3600
+
+
+def _configured_vault_address() -> str:
+    try:
+        return validate_address(os.environ.get("AEGIS_VAULT_ADDRESS", ""))
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="A valid AEGIS_VAULT_ADDRESS is required for vault operations",
+        ) from exc
+
+
+def _address_word(address: str) -> str:
+    return validate_address(address)[2:].rjust(64, "0")
+
+
+def _decode_vault_words(data: str, word_count: int, function_name: str) -> list[str]:
+    if (
+        not isinstance(data, str)
+        or re.fullmatch(rf"0x[0-9a-fA-F]{{{word_count * 64}}}", data) is None
+    ):
+        raise RpcRequestError(f"AegisVault {function_name}() returned malformed data")
+    return [
+        data[2 + index * 64:2 + (index + 1) * 64].lower()
+        for index in range(word_count)
+    ]
+
+
+def _decode_vault_bool(word: str, function_name: str) -> bool:
+    value = int(word, 16)
+    if value not in (0, 1):
+        raise RpcRequestError(f"AegisVault {function_name}() returned malformed boolean data")
+    return bool(value)
+
+
+def _vault_read(rpc: BaseSepoliaRpc, vault: str, signature: str, arguments: str = "") -> str:
+    selector = "0x" + keccak(text=signature)[:4].hex()
+    return rpc.call(_ZERO_ADDRESS, vault, selector + arguments)
+
+
+@app.get(
+    "/transactions/{transaction_id}/vault-approval",
+    dependencies=[Depends(require_owner)],
+)
+def get_vault_approval(transaction_id: str) -> dict[str, object]:
+    record = store.get(transaction_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    proposal = record["proposal"]
+    try:
+        proposal_model = TransactionProposal(**proposal)
+        token_address = validate_address(proposal_model.token_address)
+        recipient = validate_address(proposal_model.recipient)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "proposal_integrity_mismatch",
+                "message": "Persisted proposal failed integrity verification.",
+            },
+        ) from exc
+    if (
+        proposal_model.chain_id != BASE_SEPOLIA_CHAIN_ID
+        or token_address not in {
+            validate_address(address) for address in DEMO_POLICY.allowed_token_addresses
+        }
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "vault_approval_token_unsupported",
+                "message": "This proposal does not use a token supported by the Aegis vault policy.",
+            },
+        )
+
+    amount = proposal_model.amount_base_units
+    if (
+        type(amount) is not int
+        or amount <= 0
+        or record["status"] not in {"awaiting_approval", "approved"}
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "vault_approval_unavailable",
+                "message": "The proposal is not in a state eligible for on-chain approval.",
+            },
+        )
+
+    allowed_recipients = {
+        validate_address(address) for address in DEMO_POLICY.allowed_recipients
+    }
+    requires_approval = (
+        recipient not in allowed_recipients
+        or amount >= DEMO_POLICY.approval_threshold_base_units
+    )
+    if not requires_approval:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "vault_approval_not_required",
+                "message": "The Aegis policy does not require on-chain approval for this proposal.",
+            },
+        )
+
+    fingerprint = fingerprint_proposal(proposal_model)
+    if (
+        not isinstance(record.get("fingerprint"), str)
+        or record["fingerprint"] != fingerprint
+        or re.fullmatch(r"[0-9a-f]{64}", fingerprint) is None
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "proposal_integrity_mismatch",
+                "message": "Persisted proposal failed integrity verification.",
+            },
+        )
+
+    vault_address = _configured_vault_address()
+    reference = "0x" + fingerprint
+    expiry = int(time()) + _SUGGESTED_VAULT_APPROVAL_LIFETIME_SECONDS
+    calldata = (
+        _VAULT_APPROVAL_SELECTOR
+        + _address_word(token_address)
+        + _address_word(recipient)
+        + amount.to_bytes(32, "big").hex()
+        + fingerprint
+        + expiry.to_bytes(32, "big").hex()
+    )
+    command = (
+        f'cast send "{vault_address}" "{_VAULT_APPROVAL_SIGNATURE}" '
+        f'"{token_address}" "{recipient}" {amount} "{reference}" {expiry} '
+        '--rpc-url "$BASE_SEPOLIA_RPC_URL" --private-key "$OWNER_PRIVATE_KEY"'
+    )
+    return {
+        "vault_address": vault_address,
+        "function_signature": _VAULT_APPROVAL_SIGNATURE,
+        "arguments": {
+            "token": token_address,
+            "to": recipient,
+            "amount": amount,
+            "ref": reference,
+            "expiry": expiry,
+        },
+        "calldata": calldata,
+        "cast_send_command": command,
+    }
+
+
+@app.get(
+    "/chain/base-sepolia/vault/status",
+    dependencies=[Depends(require_owner)],
+)
+def get_vault_status() -> dict[str, object]:
+    vault_address = _configured_vault_address()
+    token_addresses = sorted(
+        validate_address(address) for address in DEMO_POLICY.allowed_token_addresses
+    )
+    expected_recipients = sorted(
+        {
+            validate_address(address)
+            for address in (
+                DEMO_POLICY.allowed_recipients
+                | set(DEMO_POLICY.recipient_token_allowlist)
+            )
+        }
+    )
+
+    try:
+        with BaseSepoliaRpc() as rpc:
+            chain_id = rpc.chain_id()
+            if chain_id != BASE_SEPOLIA_CHAIN_ID:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Configured RPC endpoint is not Base Sepolia (84532)",
+                )
+            code = rpc.get_code(vault_address)
+            if code in {"0x", "0x0"}:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Configured AegisVault address has no contract code",
+                )
+
+            owner_word = _decode_vault_words(
+                _vault_read(rpc, vault_address, "owner()"), 1, "owner"
+            )[0]
+            agent_word = _decode_vault_words(
+                _vault_read(rpc, vault_address, "agent()"), 1, "agent"
+            )[0]
+            paused_word = _decode_vault_words(
+                _vault_read(rpc, vault_address, "paused()"), 1, "paused"
+            )[0]
+            if owner_word[:24] != "0" * 24 or agent_word[:24] != "0" * 24:
+                raise RpcRequestError("AegisVault returned malformed address data")
+
+            tokens: list[dict[str, object]] = []
+            recipients: list[dict[str, object]] = []
+            differences: list[dict[str, object]] = []
+            recipient_token_allowlist = {
+                validate_address(recipient): {
+                    validate_address(token) for token in addresses
+                }
+                for recipient, addresses in DEMO_POLICY.recipient_token_allowlist.items()
+            }
+            allowed_recipients = {
+                validate_address(address) for address in DEMO_POLICY.allowed_recipients
+            }
+            for token_address in token_addresses:
+                policy_data = _vault_read(
+                    rpc,
+                    vault_address,
+                    "tokenPolicy(address)",
+                    _address_word(token_address),
+                )
+                allowed_word, per_tx_word, daily_word, threshold_word = _decode_vault_words(
+                    policy_data, 4, "tokenPolicy"
+                )
+                onchain_policy = {
+                    "allowed": _decode_vault_bool(allowed_word, "tokenPolicy"),
+                    "per_tx_cap_base_units": int(per_tx_word, 16),
+                    "daily_cap_base_units": int(daily_word, 16),
+                    "approval_threshold_base_units": int(threshold_word, 16),
+                }
+                spend_data = _vault_read(
+                    rpc,
+                    vault_address,
+                    "todaySpend(address)",
+                    _address_word(token_address),
+                )
+                spend_word = _decode_vault_words(spend_data, 1, "todaySpend")[0]
+                today_spend = int(spend_word, 16)
+                expected_policy = {
+                    "allowed": True,
+                    "per_tx_cap_base_units": DEMO_POLICY.max_transaction_base_units,
+                    "daily_cap_base_units": DEMO_POLICY.daily_limit_base_units,
+                    "approval_threshold_base_units": DEMO_POLICY.approval_threshold_base_units,
+                }
+                for field_name, expected in expected_policy.items():
+                    actual = onchain_policy[field_name]
+                    if actual != expected:
+                        differences.append({
+                            "field": f"tokens.{token_address}.{field_name}",
+                            "expected": expected,
+                            "actual": actual,
+                        })
+                token_metadata = next(
+                    (
+                        metadata
+                        for address, metadata in DEMO_POLICY.trusted_tokens.items()
+                        if validate_address(address) == token_address
+                    ),
+                    None,
+                )
+                tokens.append({
+                    "address": token_address,
+                    "symbol": token_metadata.symbol if token_metadata else None,
+                    "decimals": token_metadata.decimals if token_metadata else None,
+                    "onchain_policy": onchain_policy,
+                    "today_spend_base_units": today_spend,
+                    "aegis_policy": expected_policy,
+                })
+
+                for recipient in expected_recipients:
+                    recipient_data = _vault_read(
+                        rpc,
+                        vault_address,
+                        "recipients(address)",
+                        _address_word(recipient),
+                    )
+                    recipient_word = _decode_vault_words(
+                        recipient_data, 1, "recipients"
+                    )[0]
+                    onchain_allowed = _decode_vault_bool(
+                        recipient_word, "recipients"
+                    )
+                    token_allowlist = recipient_token_allowlist.get(recipient)
+                    aegis_allowed = (
+                        recipient in allowed_recipients
+                        and (
+                            token_allowlist is None
+                            or token_address in token_allowlist
+                        )
+                    )
+                    if onchain_allowed != aegis_allowed:
+                        differences.append({
+                            "field": f"recipients.{recipient}.{token_address}",
+                            "expected": aegis_allowed,
+                            "actual": onchain_allowed,
+                        })
+                    recipients.append({
+                        "address": recipient,
+                        "token": token_address,
+                        "aegis_allowed": aegis_allowed,
+                        "onchain_allowed": onchain_allowed,
+                    })
+    except HTTPException:
+        raise
+    except RpcConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except (RpcRequestError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail="AegisVault status response is unavailable or malformed") from exc
+
+    return {
+        "vault_address": vault_address,
+        "chain_id": chain_id,
+        "owner": "0x" + owner_word[24:],
+        "agent": "0x" + agent_word[24:],
+        "paused": _decode_vault_bool(paused_word, "paused"),
+        "tokens": tokens,
+        "recipients": recipients,
+        "in_sync": not differences,
+        "differences": differences,
     }
 
 
