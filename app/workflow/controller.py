@@ -7,7 +7,7 @@ import uuid
 from dataclasses import asdict
 from typing import Any
 
-from app.chain.execution import BaseSepoliaExecutor
+from app.chain.execution import BaseSepoliaExecutor, BaseSepoliaVaultExecutor
 from app.policy.canonical import hash_policy
 from app.policy.engine import evaluate_transaction
 from app.policy.models import AgentPolicy, PolicyDecision, TransactionProposal
@@ -77,7 +77,7 @@ class TransactionController:
     def execute(
         self,
         transaction_id: str,
-        onchain_executor: BaseSepoliaExecutor | None = None,
+        onchain_executor: BaseSepoliaExecutor | BaseSepoliaVaultExecutor | None = None,
     ) -> tuple[str, dict[str, Any] | None]:
         if self.store.is_paused():
             return "wallet_paused", self.store.get(transaction_id)
