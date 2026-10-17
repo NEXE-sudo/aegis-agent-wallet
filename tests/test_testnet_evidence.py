@@ -1,9 +1,11 @@
 """Base Sepolia evidence verification uses mocked JSON-RPC only."""
+import hashlib
 import json
 import sqlite3
 
 import httpx
 import pytest
+from eth_utils import keccak
 
 from app.chain.base_sepolia import (
     BASE_SEPOLIA_USDC_ADDRESS,
@@ -17,6 +19,7 @@ OTHER_TRANSACTION_HASH = "0x" + "b" * 64
 SENDER = "0x1111111111111111111111111111111111111111"
 RECIPIENT = "0x2222222222222222222222222222222222222222"
 OTHER_RECIPIENT = "0x3333333333333333333333333333333333333333"
+VAULT = "0x4444444444444444444444444444444444444444"
 AMOUNT_BASE_UNITS = 2_500_000
 TRANSACTION_ID = "txn-test-evidence"
 _USE_DEFAULT_TRANSACTION = object()
@@ -35,6 +38,95 @@ def _transaction(calldata=None, sender=SENDER):
         "to": BASE_SEPOLIA_USDC_ADDRESS,
         "input": calldata,
     }
+
+
+def _word(value):
+    return value.to_bytes(32, "big").hex()
+
+
+def _audit_proposal(recipient=RECIPIENT, amount=AMOUNT_BASE_UNITS):
+    return {
+        "agent_id": "evidence-test-agent",
+        "chain_id": 84532,
+        "token_symbol": "USDC",
+        "token_address": BASE_SEPOLIA_USDC_ADDRESS,
+        "token_decimals": 6,
+        "recipient": recipient,
+        "amount_base_units": amount,
+    }
+
+
+def _fingerprint(proposal):
+    canonical = json.dumps(proposal, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode()).hexdigest()
+
+
+def _address_topic(address):
+    return "0x" + address[2:].lower().rjust(64, "0")
+
+
+def _vault_calldata(
+    *,
+    token=BASE_SEPOLIA_USDC_ADDRESS,
+    recipient=RECIPIENT,
+    amount=AMOUNT_BASE_UNITS,
+    reference=None,
+):
+    reference = reference or "0x" + _fingerprint(_audit_proposal(recipient, amount))
+    return (
+        "0x" + keccak(text="transferToken(address,address,uint256,bytes32)")[:4].hex()
+        + _address_topic(token)[2:]
+        + _address_topic(recipient)[2:]
+        + _word(amount)
+        + reference[2:]
+    )
+
+
+def _vault_logs(
+    *,
+    vault=VAULT,
+    token=BASE_SEPOLIA_USDC_ADDRESS,
+    recipient=RECIPIENT,
+    amount=AMOUNT_BASE_UNITS,
+    reference=None,
+    agent=SENDER,
+):
+    reference = reference or "0x" + _fingerprint(_audit_proposal(recipient, amount))
+    return [
+        {
+            "address": vault,
+            "topics": [
+                "0x" + keccak(
+                    text="TokenTransferred(address,address,uint256,bytes32,address)"
+                ).hex(),
+                _address_topic(token),
+                _address_topic(recipient),
+            ],
+            "data": "0x" + _word(amount) + reference[2:] + _address_topic(agent)[2:],
+            "transactionHash": TRANSACTION_HASH,
+            "logIndex": "0x0",
+        },
+        {
+            "address": token,
+            "topics": [
+                "0x" + keccak(text="Transfer(address,address,uint256)").hex(),
+                _address_topic(vault),
+                _address_topic(recipient),
+            ],
+            "data": "0x" + _word(amount),
+            "transactionHash": TRANSACTION_HASH,
+            "logIndex": "0x1",
+        },
+    ]
+
+
+def _vault_transaction(*, vault=VAULT, calldata=None, sender=SENDER):
+    transaction = _transaction(
+        calldata=_vault_calldata() if calldata is None else calldata,
+        sender=sender,
+    )
+    transaction["to"] = vault
+    return transaction
 
 
 def _rpc(method_results):
@@ -57,6 +149,7 @@ def _results(
     transaction=_USE_DEFAULT_TRANSACTION,
     receipt_status="0x1",
     receipt=True,
+    logs=None,
 ):
     return {
         "eth_chainId": chain_id,
@@ -68,6 +161,7 @@ def _results(
                 "transactionHash": TRANSACTION_HASH,
                 "status": receipt_status,
                 "blockNumber": "0x123",
+                "logs": [] if logs is None else logs,
             }
             if receipt
             else None
@@ -211,16 +305,9 @@ def _create_audit_database(
     missing_event=None,
     approved=False,
     out_of_order=False,
+    fingerprint_override=None,
 ):
-    proposal = {
-        "agent_id": "evidence-test-agent",
-        "chain_id": 84532,
-        "token_symbol": "USDC",
-        "token_address": BASE_SEPOLIA_USDC_ADDRESS,
-        "token_decimals": 6,
-        "recipient": recipient,
-        "amount_base_units": amount,
-    }
+    proposal = _audit_proposal(recipient, amount)
     with sqlite3.connect(path) as connection:
         connection.execute(
             """CREATE TABLE transactions (
@@ -231,7 +318,8 @@ def _create_audit_database(
                 chain_id INTEGER NOT NULL,
                 token_address TEXT NOT NULL,
                 recipient_normalized TEXT NOT NULL,
-                amount_base_units INTEGER NOT NULL
+                amount_base_units INTEGER NOT NULL,
+                fingerprint TEXT NOT NULL
             )"""
         )
         connection.execute(
@@ -246,7 +334,7 @@ def _create_audit_database(
             )"""
         )
         connection.execute(
-            """INSERT INTO transactions VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO transactions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 TRANSACTION_ID,
                 status,
@@ -256,6 +344,7 @@ def _create_audit_database(
                 BASE_SEPOLIA_USDC_ADDRESS,
                 recipient.lower(),
                 amount,
+                fingerprint_override or _fingerprint(proposal),
             ),
         )
         events = [
@@ -336,6 +425,114 @@ def _run_cli_with_audit_db(monkeypatch, database_path):
             str(database_path),
         ]
     )
+
+
+def _run_vault_cli(monkeypatch, *, transaction=None, logs=None, audit_db=None, sender=SENDER):
+    _patch_rpc(
+        monkeypatch,
+        _results(
+            transaction=(
+                _vault_transaction(sender=sender)
+                if transaction is None
+                else transaction
+            ),
+            logs=_vault_logs() if logs is None else logs,
+        ),
+    )
+    args = [
+        TRANSACTION_HASH,
+        "--expected-sender",
+        SENDER,
+        "--vault",
+        VAULT,
+    ]
+    if audit_db is not None:
+        args.extend(["--audit-db", str(audit_db)])
+    return evidence_script.main(args)
+
+
+def test_vault_evidence_verifies_calldata_logs_and_audit_fingerprint(
+    monkeypatch, capsys, tmp_path
+):
+    database_path = tmp_path / "workflow.sqlite3"
+    _create_audit_database(database_path)
+    assert _run_vault_cli(monkeypatch, audit_db=database_path) == 0
+    output = capsys.readouterr().out
+    assert f"AegisVault: {VAULT}" in output
+    assert f"Proposal ref: 0x{_fingerprint(_audit_proposal())}" in output
+    assert f"Audit cross-check: OK (transaction {TRANSACTION_ID})" in output
+
+
+@pytest.mark.parametrize(
+    ("transaction", "logs", "message"),
+    [
+        (
+            _vault_transaction(vault=OTHER_RECIPIENT),
+            _vault_logs(),
+            "destination does not match --vault",
+        ),
+        (
+            _vault_transaction(calldata="0x" + "00" * 132),
+            _vault_logs(),
+            "calldata is not AegisVault transferToken",
+        ),
+        (
+            _vault_transaction(),
+            [],
+            "missing the vault TokenTransferred event",
+        ),
+        (
+            _vault_transaction(),
+            _vault_logs(amount=AMOUNT_BASE_UNITS + 1),
+            "TokenTransferred event does not match transfer calldata",
+        ),
+        (
+            _vault_transaction(),
+            _vault_logs(recipient=OTHER_RECIPIENT),
+            "TokenTransferred event does not match transfer calldata",
+        ),
+        (
+            _vault_transaction(),
+            _vault_logs(reference="0x" + "f" * 64),
+            "TokenTransferred event does not match transfer calldata",
+        ),
+    ],
+    ids=[
+        "wrong-vault",
+        "wrong-function",
+        "missing-event",
+        "amount-mismatch",
+        "recipient-mismatch",
+        "reference-mismatch",
+    ],
+)
+def test_vault_evidence_rejects_mismatched_transaction_or_logs(
+    monkeypatch, capsys, transaction, logs, message
+):
+    assert _run_vault_cli(
+        monkeypatch,
+        transaction=transaction,
+        logs=logs,
+    ) == 1
+    assert message in capsys.readouterr().err
+
+
+def test_vault_audit_cross_check_rejects_reference_mismatch(
+    monkeypatch, capsys, tmp_path
+):
+    database_path = tmp_path / "workflow.sqlite3"
+    _create_audit_database(database_path, fingerprint_override="d" * 64)
+    assert _run_vault_cli(monkeypatch, audit_db=database_path) == 1
+    assert "does not match the stored proposal fingerprint" in capsys.readouterr().err
+
+
+def test_vault_evidence_rejects_wrong_expected_agent_sender(monkeypatch, capsys):
+    assert _run_vault_cli(
+        monkeypatch,
+        transaction=_vault_transaction(sender=OTHER_RECIPIENT),
+        logs=_vault_logs(agent=OTHER_RECIPIENT),
+    ) == 1
+    assert "does not match --expected-sender" in capsys.readouterr().err
 
 
 def test_audit_cross_check_matches_aegis_record_read_only(
@@ -423,3 +620,30 @@ def test_rejects_missing_receipt():
         ValueError, match="receipt is not available"
     ):
         evidence_script.verify_evidence(TRANSACTION_HASH, rpc)
+
+
+def test_rpc_rejects_malformed_receipt_log():
+    with (
+        _rpc(_results(logs=[{"address": "not-an-address", "topics": [], "data": "0x"}])) as rpc,
+        pytest.raises(RpcRequestError, match="malformed receipt log"),
+    ):
+        rpc.transaction_receipt(TRANSACTION_HASH)
+
+
+def test_vault_evidence_requires_matching_erc20_transfer_event():
+    logs = _vault_logs()
+    logs[1]["topics"][2] = _address_topic(OTHER_RECIPIENT)
+    with (
+        _rpc(_results(transaction=_vault_transaction(), logs=logs)) as rpc,
+        pytest.raises(ValueError, match="ERC-20 Transfer event does not match"),
+    ):
+        evidence_script.verify_evidence(TRANSACTION_HASH, rpc, VAULT)
+
+
+def test_vault_evidence_requires_token_transfer_event():
+    logs = _vault_logs()[:1]
+    with (
+        _rpc(_results(transaction=_vault_transaction(), logs=logs)) as rpc,
+        pytest.raises(ValueError, match="missing the matching token Transfer event"),
+    ):
+        evidence_script.verify_evidence(TRANSACTION_HASH, rpc, VAULT)
