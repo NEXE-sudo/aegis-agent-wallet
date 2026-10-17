@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import sqlite3
+import uuid
 from collections.abc import Callable
 from contextlib import closing
 from datetime import UTC, datetime
@@ -20,6 +21,7 @@ AUDIT_EVENT_TYPES = {
     "idempotency_conflict",
     "policy_revalidation_blocked",
     "policy_revalidation_requires_approval",
+    "proposal_blocked",
     "proposal_created",
     "proposal_integrity_mismatch",
     "proposal_replayed",
@@ -42,6 +44,8 @@ AUDIT_STATUSES = {
     "submitting_onchain",
     "submitted_onchain",
 }
+CONTROL_EVENT_TYPES = {"pause", "resume"}
+PAUSE_STATE_ID = 1
 
 
 class OnchainSubmissionError(RuntimeError):
@@ -88,7 +92,22 @@ class WorkflowStore:
         self.db_path = str(Path(raw_path).expanduser()) if raw_path != ":memory:" else raw_path
         if self.db_path != ":memory:":
             Path(self.db_path).resolve().parent.mkdir(parents=True, exist_ok=True)
+        self.max_pending_proposals = self._parse_max_pending_proposals(
+            os.environ.get("AEGIS_MAX_PENDING_PROPOSALS", "10")
+        )
         self._init_db()
+
+    @staticmethod
+    def _parse_max_pending_proposals(raw_value: str | None) -> int:
+        if raw_value is None:
+            return 10
+        try:
+            max_pending = int(str(raw_value).strip())
+        except (TypeError, ValueError) as exc:
+            raise ValueError("AEGIS_MAX_PENDING_PROPOSALS must be a positive integer") from exc
+        if max_pending <= 0:
+            raise ValueError("AEGIS_MAX_PENDING_PROPOSALS must be a positive integer")
+        return max_pending
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.db_path, timeout=10, isolation_level=None)
@@ -410,6 +429,64 @@ class WorkflowStore:
                     SELECT RAISE(ABORT, 'audit events are append-only');
                 END
             """)
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS pause_state (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    is_paused INTEGER NOT NULL DEFAULT 0 CHECK (is_paused IN (0, 1)),
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_by TEXT NOT NULL DEFAULT 'system'
+                )
+            """)
+            db.execute(
+                "INSERT OR IGNORE INTO pause_state (id, is_paused, updated_by) VALUES (1, 0, 'system')"
+            )
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS control_events (
+                    event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    action TEXT NOT NULL,
+                    actor_role TEXT NOT NULL,
+                    reason TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            db.execute("DROP TRIGGER IF EXISTS control_events_validation_guard")
+            db.execute("""
+                CREATE TRIGGER IF NOT EXISTS control_events_validation_guard
+                BEFORE INSERT ON control_events
+                WHEN NEW.action NOT IN ('pause', 'resume')
+                OR NEW.actor_role NOT IN ('agent', 'owner', 'system')
+                BEGIN
+                    SELECT RAISE(ABORT, 'invalid control event metadata');
+                END
+            """)
+            db.execute("""
+                CREATE INDEX IF NOT EXISTS idx_control_events_action
+                ON control_events(action, event_id)
+            """)
+            db.execute("""
+                CREATE TRIGGER IF NOT EXISTS control_events_no_update
+                BEFORE UPDATE ON control_events
+                BEGIN
+                    SELECT RAISE(ABORT, 'control events are append-only');
+                END
+            """)
+            db.execute("""
+                CREATE TRIGGER IF NOT EXISTS control_events_no_delete
+                BEFORE DELETE ON control_events
+                BEGIN
+                    SELECT RAISE(ABORT, 'control events are append-only');
+                END
+            """)
+            db.execute("""
+                CREATE TRIGGER IF NOT EXISTS control_events_no_replace
+                BEFORE INSERT ON control_events
+                WHEN EXISTS (
+                    SELECT 1 FROM control_events WHERE event_id = NEW.event_id
+                )
+                BEGIN
+                    SELECT RAISE(ABORT, 'control events are append-only');
+                END
+            """)
 
     @staticmethod
     def _append_audit(
@@ -632,12 +709,49 @@ class WorkflowStore:
             args.append(exclude_transaction_id)
         return WorkflowStore._sum_amount_rows(db.execute(query, args))
 
+    def is_paused(self) -> bool:
+        with closing(self._connect()) as db:
+            row = db.execute("SELECT is_paused FROM pause_state WHERE id = ?", (PAUSE_STATE_ID,)).fetchone()
+        return bool(row["is_paused"]) if row else False
+
+    def pending_proposals_count(self) -> int:
+        with closing(self._connect()) as db:
+            row = db.execute(
+                "SELECT COUNT(*) AS count FROM transactions WHERE status IN (?, ?, ?)",
+                ("ready", "awaiting_approval", "approved"),
+            ).fetchone()
+        return int(row["count"]) if row else 0
+
+    def set_pause_state(self, paused: bool, reason: str | None = None, actor_role: str = "owner") -> dict[str, object]:
+        action = "pause" if paused else "resume"
+        normalized_reason = reason.strip() if isinstance(reason, str) and reason.strip() else None
+        with closing(self._connect()) as db:
+            db.execute("BEGIN IMMEDIATE")
+            db.execute(
+                "INSERT OR REPLACE INTO pause_state (id, is_paused, updated_at, updated_by) VALUES (?, ?, CURRENT_TIMESTAMP, ?)",
+                (PAUSE_STATE_ID, 1 if paused else 0, actor_role),
+            )
+            db.execute(
+                "INSERT INTO control_events (action, actor_role, reason) VALUES (?, ?, ?)",
+                (action, actor_role, normalized_reason),
+            )
+            db.execute("COMMIT")
+        return {"paused": paused, "reason": normalized_reason, "action": action}
+
+    def control_events(self) -> list[dict[str, Any]]:
+        with closing(self._connect()) as db:
+            rows = db.execute(
+                "SELECT event_id, action, actor_role, reason, created_at FROM control_events ORDER BY event_id"
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def create_evaluated(
         self, proposal: dict[str, Any], idempotency_key: str | None,
         build_record: Callable[[int, int], dict[str, Any]],
         actor_role: str = "agent",
-    ) -> tuple[str, dict[str, Any]]:
+    ) -> tuple[str, dict[str, Any] | None]:
         """Serializes spend check + reservation so concurrent proposals cannot overspend."""
+        fingerprint = _proposal_fingerprint(proposal)
         with closing(self._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
             if idempotency_key:
@@ -673,6 +787,53 @@ class WorkflowStore:
                     )
                     db.execute("COMMIT")
                     return "replayed", record
+
+            if self.is_paused():
+                record = {
+                    "transaction_id": str(uuid.uuid4()),
+                    "fingerprint": fingerprint,
+                    "proposal": proposal,
+                    "policy_decision": "block",
+                    "policy_reasons": ["Owner pause switch is active; proposal blocked for safety."],
+                    "risk_score": 0,
+                    "risk_level": "low",
+                    "risk_reasons": [],
+                    "status": "blocked",
+                }
+                db.execute(
+                    """INSERT INTO transactions (
+                        transaction_id, fingerprint, proposal_json, policy_decision,
+                        policy_reasons_json, risk_score, risk_level, risk_reasons_json, status,
+                        idempotency_key, chain_id, token_address, amount_base_units,
+                        recipient_normalized, created_day
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, date('now'))""",
+                    (
+                        record["transaction_id"], record["fingerprint"],
+                        json.dumps(record["proposal"], sort_keys=True),
+                        record["policy_decision"], json.dumps(record["policy_reasons"]),
+                        record["risk_score"], record["risk_level"], json.dumps(record["risk_reasons"]),
+                        record["status"], idempotency_key, int(proposal["chain_id"]),
+                        str(proposal["token_address"]).strip().lower(), int(proposal["amount_base_units"]),
+                        str(proposal["recipient"]).strip().lower(),
+                    ),
+                )
+                self._append_audit(
+                    db, record["transaction_id"], "proposal_created", actor_role,
+                    None, record["status"], record["fingerprint"],
+                    {
+                        "policy_decision": record["policy_decision"],
+                        "risk_level": record["risk_level"],
+                        "idempotency_key_present": bool(idempotency_key),
+                        "pause_reason": "owner_pause",
+                    },
+                )
+                db.execute("COMMIT")
+                return "created", self.get(record["transaction_id"]) or record
+
+            pending_count = self.pending_proposals_count()
+            if pending_count >= self.max_pending_proposals:
+                db.execute("ROLLBACK")
+                return "pending_cap_exceeded", None
 
             # Idempotency replays validate the prior record first so proposal
             # tampering remains a conflict (409); new reservations fail closed.

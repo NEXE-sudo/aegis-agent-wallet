@@ -40,6 +40,8 @@ The agent-only `GET /agent/transactions/{transaction_id}` endpoint exposes statu
 execution reference, and update time without returning proposal fields or audit data.
 It does not change workflow state.
 
+When the owner has paused the wallet, new proposals are persisted as `blocked` with a clear reason instead of entering `ready`/`awaiting_approval`. Owner approval and execution requests return `wallet_paused` (HTTP 409) while reads, cancellation, rejection, and receipt access remain available. The pause state is persisted in SQLite and logged in the append-only control log.
+
 ## States
 
 - `ready`: proposal passed initial policy checks and does not currently require approval.
@@ -57,6 +59,7 @@ It does not change workflow state.
 | Operation / condition | From | To | Audit event |
 | --- | --- | --- | --- |
 | Proposal is hard-blocked by policy | none | `blocked` | `proposal_created` |
+| Wallet is paused by owner control | none | `blocked` | `proposal_created` |
 | Proposal requires approval or starts high-risk | none | `awaiting_approval` | `proposal_created` |
 | Proposal is allowed without approval | none | `ready` | `proposal_created` |
 | Valid owner approval | `awaiting_approval` | `approved` | `approval_granted` |

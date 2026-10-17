@@ -120,6 +120,10 @@ class ApprovalRequest(BaseModel):
     confirmation: Literal["APPROVE"]
 
 
+class PauseRequest(BaseModel):
+    reason: str | None = Field(default=None, max_length=256)
+
+
 class TransactionResponse(BaseModel):
     transaction_id: str
     fingerprint: str
@@ -312,6 +316,11 @@ def propose_transaction(
     outcome, record = controller.propose(proposal, idempotency_key)
     if outcome == "idempotency_conflict":
         raise HTTPException(status_code=409, detail="Idempotency-Key was already used for a different proposal")
+    if outcome == "pending_cap_exceeded":
+        raise HTTPException(
+            status_code=429,
+            detail={"code": "pending_proposal_limit_exceeded", "message": "Pending proposal limit exceeded"},
+        )
     if outcome == "replayed":
         response.status_code = 200
     return _record_response(record)
@@ -361,6 +370,11 @@ def get_agent_transaction_status(
 @app.post("/transactions/{transaction_id}/approve", response_model=TransactionResponse,
           dependencies=[Depends(require_owner)])
 def approve_transaction(transaction_id: str, request: ApprovalRequest) -> TransactionResponse:
+    if store.is_paused():
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "wallet_paused", "message": "Wallet is paused; approvals are disabled"},
+        )
     outcome, record = controller.approve(transaction_id, request.transaction_fingerprint)
     if outcome == "not_found":
         raise HTTPException(status_code=404, detail="Transaction not found")
@@ -370,6 +384,11 @@ def approve_transaction(transaction_id: str, request: ApprovalRequest) -> Transa
         raise HTTPException(status_code=409, detail="Persisted proposal failed integrity verification")
     if outcome == "blocked":
         raise HTTPException(status_code=409, detail="Blocked transactions cannot be approved")
+    if outcome == "wallet_paused":
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "wallet_paused", "message": "Wallet is paused; approvals are disabled"},
+        )
     if outcome == "already_executed":
         raise HTTPException(status_code=409, detail="Transaction has already been executed")
     if outcome == "approval_not_required":
@@ -387,6 +406,11 @@ def approve_transaction(transaction_id: str, request: ApprovalRequest) -> Transa
 @app.post("/transactions/{transaction_id}/execute", response_model=TransactionResponse,
           dependencies=[Depends(require_owner)])
 def execute_transaction(transaction_id: str) -> TransactionResponse:
+    if store.is_paused():
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "wallet_paused", "message": "Wallet is paused; execution is disabled"},
+        )
     executor = None
     if execution_settings.mode == "base_sepolia":
         try:
@@ -403,6 +427,11 @@ def execute_transaction(transaction_id: str) -> TransactionResponse:
         raise HTTPException(status_code=403, detail="Policy-blocked transactions cannot execute")
     if outcome == "proposal_integrity_mismatch":
         raise HTTPException(status_code=409, detail="Persisted proposal failed integrity verification")
+    if outcome == "wallet_paused":
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "wallet_paused", "message": "Wallet is paused; execution is disabled"},
+        )
     if outcome == "approval_required":
         raise HTTPException(status_code=409, detail="Human approval is required before execution")
     if outcome == "already_executed":
@@ -503,6 +532,18 @@ def get_market_quote(asset_class: str, symbol: str) -> MarketDataResponse:
 )
 def get_agent_market_quote(asset_class: str, symbol: str) -> MarketDataResponse:
     return _market_quote(asset_class, symbol)
+
+
+@app.post("/pause", dependencies=[Depends(require_owner)])
+def pause_transactions(request: PauseRequest | None = None) -> dict[str, object]:
+    reason = request.reason.strip() if request and request.reason else None
+    return store.set_pause_state(True, reason, actor_role="owner")
+
+
+@app.post("/resume", dependencies=[Depends(require_owner)])
+def resume_transactions(request: PauseRequest | None = None) -> dict[str, object]:
+    reason = request.reason.strip() if request and request.reason else None
+    return store.set_pause_state(False, reason, actor_role="owner")
 
 
 # Read-only chain inspection; this router exposes no signing or submission methods.

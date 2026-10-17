@@ -203,6 +203,31 @@ def test_workflow_requires_distinct_authentication():
     assert owner_post(f"/transactions/{record['transaction_id']}/execute").status_code == 200
 
 
+def test_agent_token_cannot_pause_or_resume_and_pause_blocks_execution():
+    paused = client.post("/pause", headers=AGENT_HEADERS, json={"reason": "agent override"})
+    assert paused.status_code == 401
+
+    resumed = client.post("/resume", headers=AGENT_HEADERS, json={"reason": "agent override"})
+    assert resumed.status_code == 401
+
+    owner_pause = owner_post("/pause", json={"reason": "maintenance"})
+    assert owner_pause.status_code == 200
+    assert owner_pause.json()["paused"] is True
+
+    payload = _payload()
+    proposal = client.post("/transactions/propose", headers=AGENT_HEADERS, json=payload)
+    assert proposal.status_code == 201
+    assert proposal.json()["status"] == "blocked"
+
+    execution = owner_post(f"/transactions/{proposal.json()['transaction_id']}/execute")
+    assert execution.status_code == 409
+    assert execution.json()["detail"]["code"] == "wallet_paused"
+
+    owner_resume = owner_post("/resume", json={"reason": "recovered"})
+    assert owner_resume.status_code == 200
+    assert owner_resume.json()["paused"] is False
+
+
 @pytest.mark.parametrize(
     ("method", "path"),
     [

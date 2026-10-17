@@ -59,13 +59,21 @@ class TransactionController:
         return self.store.create_evaluated(asdict(proposal), idempotency_key, build_record)
 
     def approve(self, transaction_id: str, fingerprint: str) -> tuple[str, dict[str, Any] | None]:
-        return self.store.approve(transaction_id, fingerprint, approval_expires_seconds=self.policy.approval_expires_seconds)
+        if self.store.is_paused():
+            return "wallet_paused", self.store.get(transaction_id)
+        return self.store.approve(
+            transaction_id,
+            fingerprint,
+            approval_expires_seconds=self.policy.approval_expires_seconds,
+        )
 
     def execute(
         self,
         transaction_id: str,
         onchain_executor: BaseSepoliaExecutor | None = None,
     ) -> tuple[str, dict[str, Any] | None]:
+        if self.store.is_paused():
+            return "wallet_paused", self.store.get(transaction_id)
         if onchain_executor is None:
             return self.store.execute_simulated(transaction_id, self.policy)
 

@@ -12,6 +12,7 @@ The prototype aims to:
 - Revalidate policy, daily spend, and risk before execution.
 - Account for local daily spending reservations and handle idempotent retries consistently.
 - Preserve a useful workflow audit trail while avoiding unnecessary secret-like values in event details.
+- Support an owner-only pause/resume kill switch and a pending-proposal cap to stop or slow harmful workflows during intervention.
 - Default to simulated execution; permit actual signing/submission only in an explicitly configured Base Sepolia testnet mode.
 
 ## 2. Assets to protect

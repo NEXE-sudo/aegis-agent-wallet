@@ -219,3 +219,54 @@ def test_sqlite_guards_accept_rejected_and_reject_unknown_status_and_audit_type(
                    VALUES (?, 'unknown-event', 'owner', 'ready', 'rejected')""",
                 (record["transaction_id"],),
             )
+
+
+def test_pause_blocks_new_proposals_and_disables_approve_execute(tmp_path):
+    from app.main import DEMO_POLICY
+
+    store, controller = _workflow(tmp_path, DEMO_POLICY)
+    store.set_pause_state(True, "maintenance window", actor_role="owner")
+
+    outcome, blocked = controller.propose(_proposal())
+    assert outcome == "created"
+    assert blocked["status"] == "blocked"
+    assert any("pause" in reason.lower() for reason in blocked["policy_reasons"])
+
+    assert controller.approve(blocked["transaction_id"], blocked["fingerprint"])[0] == "wallet_paused"
+    assert controller.execute(blocked["transaction_id"])[0] == "wallet_paused"
+
+    store.set_pause_state(False, "traffic restored", actor_role="owner")
+    outcome, record = controller.propose(_proposal())
+    assert outcome == "created"
+    assert record["status"] == "ready"
+
+
+def test_pause_control_log_is_append_only_and_pending_cap_releases_with_rejection(tmp_path, monkeypatch):
+    from app.main import DEMO_POLICY
+
+    monkeypatch.setenv("AEGIS_MAX_PENDING_PROPOSALS", "1")
+    store = WorkflowStore(tmp_path / "pause-cap.sqlite3")
+    controller = TransactionController(DEMO_POLICY, store)
+
+    store.set_pause_state(True, "maintenance", actor_role="owner")
+    with store._connect() as db:
+        with pytest.raises(sqlite3.IntegrityError, match="control events are append-only"):
+            db.execute("UPDATE control_events SET reason = 'tampered' WHERE event_id = 1")
+        with pytest.raises(sqlite3.IntegrityError, match="control events are append-only"):
+            db.execute("DELETE FROM control_events WHERE event_id = 1")
+
+    store.set_pause_state(False, "clear", actor_role="owner")
+    first = controller.propose(_proposal())[1]
+    assert first["status"] == "ready"
+
+    second = controller.propose(_proposal(recipient="0x4444444444444444444444444444444444444444"))
+    assert second[0] == "pending_cap_exceeded"
+    assert second[1] is None
+
+    controller.reject(first["transaction_id"])
+    third = controller.propose(_proposal(recipient="0x4444444444444444444444444444444444444444"))
+    assert third[0] == "created"
+    assert third[1]["status"] == "awaiting_approval"
+
+    events = store.control_events()
+    assert [event["action"] for event in events] == ["pause", "resume"]

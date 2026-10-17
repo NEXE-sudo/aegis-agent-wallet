@@ -2,6 +2,7 @@
 
 ## 1.10.3 (unreleased)
 
+- Add an owner-only pause/resume kill switch and a pending proposal cap; while the wallet is paused, new proposals are blocked and approve/execute requests fail with a clear 409 code, while reads, reject/cancel, and receipts still work.
 - Add opt-in, locally signed ERC-20 execution on Base Sepolia only (chain ID 84532); simulated execution remains the default.
 - Require explicit testnet key and HTTPS RPC configuration, revalidate workflow policy and risk before signing, and persist pending signed transactions for safe retry.
 - Add owner-only testnet receipt status reads and mode-aware frontend feedback; document the testnet boundary and manual faucet test.
