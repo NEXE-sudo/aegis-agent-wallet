@@ -1,6 +1,22 @@
 # Aegis Agent Wallet: Audit Findings
 
-- **Repo:** NEXE-sudo/aegis-agent-wallet, `main` (version 1.10.2)
+## Current status of original findings
+
+| # | Status | Evidence |
+| --- | --- | --- |
+| 1 | Resolved | Same-day Stooq dates are clamped to the current time in `app/market_data.py`; regression tests cover today's session date. |
+| 2 | Resolved | Owner-only reject and cancel endpoints release reservations (`app/main.py`, `app/workflow/store.py`); see fix commit `c70ed29`. |
+| 3 | Resolved | Public standalone evaluation routes are an accepted demo design choice documented in `docs/threat-model.md`, with explicit public-route tests. |
+| 4 | Resolved | Token inspection uses `erc20_metadata_readable`, caps decoded metadata, and warns that readability does not establish authenticity (`app/chain/base_sepolia.py`). |
+| 5 | Resolved | SQLite operations use `contextlib.closing` around connections throughout `app/workflow/store.py`. |
+| 6 | Resolved | Confirmed as an intentional conservative rule, not a defect: changed risk while HIGH requires fresh approval, as described in `docs/workflow-state-transitions.md` and tested in `tests/test_api.py`. |
+| 7 | Resolved | The served frontend has nonce-based CSP and response security headers in `app/main.py`. |
+| 8 | Partially resolved | The redundant replay-time `build_record(0, 0)` check and repeated recipient normalization are absent, but approval-expiry validation remains duplicated in `WorkflowStore.approve` and `_execute_with_validation` (`app/workflow/store.py`). |
+| 9 | Partially resolved | Version metadata and frontend label now say 1.10.3, and 1.10.2 notes exist; `CHANGELOG.md` still labels 1.10.2 unreleased, and release-formatting concerns remain. |
+
+- The findings and baseline results below are retained from the original audit
+  snapshot; the table above records their disposition against the current source.
+- **Original audit snapshot:** NEXE-sudo/aegis-agent-wallet, `main` (version 1.10.2)
 - **Date:** 2026-10-16
 - **Scope:** shallow clone of `main` (single commit). Git history was not audited.
 - **Method:** `ruff check`, pytest, `pip-audit`, `uv lock --check`, manual read of backend, frontend, docs and CI, plus two runtime probes (Stooq mock, reservation lock-up).
