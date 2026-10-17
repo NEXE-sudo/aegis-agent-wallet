@@ -61,25 +61,76 @@ Both chain routes require the owner/approval bearer token and are read-only. A r
 
 ## Manual Base Sepolia test transfer
 
-Use this only with a throwaway wallet funded by Base Sepolia faucets. The workflow's configured token is Base Sepolia USDC; fund the wallet with test USDC for the transfer and test ETH for gas. The demo's policy limits still apply, and a recipient outside the configured allowlist requires owner approval.
+Use only a throwaway wallet and Base Sepolia faucet assets. The workflow's
+configured token is Base Sepolia USDC. The demo's policy limits still apply, and
+an unknown recipient or a proposal at the 50 USDC approval threshold requires
+owner approval.
 
-1. Configure distinct API agent and owner tokens as described above. Set the HTTPS RPC endpoint and select testnet mode:
+1. Create a throwaway EVM wallet using a wallet tool you trust. Keep its private
+   key private; note only its public address. Fund it with Base Sepolia test ETH
+   for gas and test USDC from a Base Sepolia faucet.
+2. Set distinct `AEGIS_AGENT_TOKEN` and `AEGIS_APPROVAL_TOKEN` values in both
+   local shells (API and client). In the API process environment, also set
+   `AEGIS_EXECUTION_MODE="base_sepolia"`, an HTTPS `BASE_SEPOLIA_RPC_URL`, and
+   `AEGIS_TESTNET_PRIVATE_KEY` from your local environment/secret manager. Do
+   not paste the key into chat, source files, request bodies, shell history,
+   screenshots, or logs. Do not enable shell tracing. Startup must fail if the
+   key, RPC URL, or execution mode is invalid; it does not fall back to
+   simulation.
+3. Start the API on loopback using the documented `uvicorn` command. In another
+   local shell, make the proposal as the agent. This example proposes 2.5 USDC
+   to the demo allowlisted recipient; use a test amount and recipient covered by
+   the active policy:
 
    ```bash
-   export AEGIS_EXECUTION_MODE="base_sepolia"
-   export BASE_SEPOLIA_RPC_URL="https://YOUR_BASE_SEPOLIA_RPC_PROVIDER_URL"
-   read -r -s -p "Throwaway Base Sepolia private key: " AEGIS_TESTNET_PRIVATE_KEY
-   printf '\n'
-   export AEGIS_TESTNET_PRIVATE_KEY
+   API="http://127.0.0.1:8000"
+   PROPOSAL_JSON=$(curl -fsS -X POST "$API/transactions/propose" \
+     -H "Authorization: Bearer $AEGIS_AGENT_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"agent_id":"devops-01","chain_id":84532,"token_symbol":"USDC","token_address":"0x036cbd53842c5426634e7929541ec2318f3dcf7e","recipient":"0x2222222222222222222222222222222222222222","amount_base_units":2500000,"token_decimals":6}')
+   TX_ID=$(printf '%s' "$PROPOSAL_JSON" | python -c 'import json,sys; print(json.load(sys.stdin)["transaction_id"])')
+   FINGERPRINT=$(printf '%s' "$PROPOSAL_JSON" | python -c 'import json,sys; print(json.load(sys.stdin)["fingerprint"])')
+   STATUS=$(printf '%s' "$PROPOSAL_JSON" | python -c 'import json,sys; print(json.load(sys.stdin)["status"])')
    ```
 
-2. Start the API on loopback using the documented `uvicorn` command. Startup must fail if the key, RPC URL, or execution mode is invalid; it does not fall back to simulation.
-3. In the frontend, create a small USDC proposal to a recipient you control, review it, and approve it with the owner token if required. Confirm the API reports `base_sepolia` before executing.
-4. Execute as owner. Confirm the response status is `submitted_onchain`, then read the hash from `execution_reference` or the owner-only audit event `onchain_transaction_submitted`.
-5. Read the receipt with `GET /transactions/{transaction_id}/receipt` using the owner token. It reports `pending`, `success`, or `failed`; poll while pending. A successful RPC submission is not proof of confirmation or finality.
-6. Stop the API and remove the key from the shell with `unset AEGIS_TESTNET_PRIVATE_KEY`. Never put the key in source, a request body, shell history, screenshots, or logs.
+4. If the returned status is `awaiting_approval`, approve the exact proposal
+   fingerprint as owner. Then execute as owner. This is safe to run for a
+   `ready` proposal too; it simply skips the approval step:
 
-Tests use mocked RPC transports only and never submit to a live network. Do not use a mainnet key or mainnet RPC endpoint.
+   ```bash
+   if [ "$STATUS" = "awaiting_approval" ]; then
+     curl -fsS -X POST "$API/transactions/$TX_ID/approve" \
+       -H "Authorization: Bearer $AEGIS_APPROVAL_TOKEN" \
+       -H "Content-Type: application/json" \
+       -d "{\"transaction_fingerprint\":\"$FINGERPRINT\",\"confirmation\":\"APPROVE\"}"
+   fi
+   EXECUTION_JSON=$(curl -fsS -X POST "$API/transactions/$TX_ID/execute" \
+     -H "Authorization: Bearer $AEGIS_APPROVAL_TOKEN")
+   printf '%s\n' "$EXECUTION_JSON"
+   ```
+
+   Confirm the response status is `submitted_onchain`. Read the transaction
+   hash from `execution_reference` or the owner-only
+   `onchain_transaction_submitted` audit event. A `ready` response is not an
+   executed transfer.
+5. Read the owner-only receipt and verify its returned hash/status. Poll if it
+   reports `pending`; a successful RPC submission is not proof of finality:
+
+   ```bash
+   TX_HASH=$(printf '%s' "$EXECUTION_JSON" | python -c 'import json,sys; print(json.load(sys.stdin)["execution_reference"])')
+   curl -fsS "$API/transactions/$TX_ID/receipt" \
+     -H "Authorization: Bearer $AEGIS_APPROVAL_TOKEN"
+   uv run python scripts/verify_testnet_evidence.py "$TX_HASH"
+   ```
+
+   The verifier makes read-only RPC calls and confirms chain ID `84532`, a
+   successful receipt, and standard ERC-20 `transfer(address,uint256)` calldata.
+   It reports the token contract, decoded recipient and raw amount in token base
+   units, and a Base Sepolia explorer link. It exits unsuccessfully for a wrong
+   chain, missing transaction/receipt, non-transfer calldata, or failed receipt.
+6. Stop the API and unset `AEGIS_TESTNET_PRIVATE_KEY` in its shell. Never use a
+   mainnet key or endpoint. Tests use mocked RPC transports only and do not
+   submit to a live network.
 
 ## Workflow cancellation
 

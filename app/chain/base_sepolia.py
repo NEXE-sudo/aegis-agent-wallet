@@ -130,6 +130,35 @@ class BaseSepoliaRpc:
             raise RpcRequestError("RPC returned an invalid transaction hash")
         return result.lower()
 
+    def transaction_by_hash(self, transaction_hash: str) -> dict[str, str] | None:
+        if not isinstance(transaction_hash, str) or not _TRANSACTION_HASH_RE.fullmatch(
+            transaction_hash
+        ):
+            raise ValueError("Transaction hash must be 32-byte hexadecimal data")
+        result = self._rpc("eth_getTransactionByHash", [transaction_hash])
+        if result is None:
+            return None
+        if not isinstance(result, dict):
+            raise RpcRequestError("RPC returned a malformed transaction")
+        returned_hash = result.get("hash")
+        recipient = result.get("to")
+        calldata = result.get("input")
+        if (
+            not isinstance(returned_hash, str)
+            or not _TRANSACTION_HASH_RE.fullmatch(returned_hash)
+            or returned_hash.lower() != transaction_hash.lower()
+            or not isinstance(recipient, str)
+            or not _ADDRESS_RE.fullmatch(recipient)
+            or not isinstance(calldata, str)
+            or not _DATA_RE.fullmatch(calldata)
+        ):
+            raise RpcRequestError("RPC returned a malformed transaction")
+        return {
+            "transaction_hash": returned_hash.lower(),
+            "to": recipient.lower(),
+            "input": calldata.lower(),
+        }
+
     def transaction_receipt(self, transaction_hash: str) -> dict[str, int | str | None]:
         if not isinstance(transaction_hash, str) or not _TRANSACTION_HASH_RE.fullmatch(
             transaction_hash

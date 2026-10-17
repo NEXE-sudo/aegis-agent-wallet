@@ -7,9 +7,12 @@
 - Add owner-only testnet receipt status reads and mode-aware frontend feedback; document the testnet boundary and manual faucet test.
 - Add an agent package with an agent-token-only proposal, market-quote, and status tool set, plus configurable OpenAI-compatible LLM and deterministic offline fallback.
 - Add five scripted offline evaluation scenarios and JSON/Markdown evidence; run the evaluation in CI.
+- Add an opt-in, repeated LLM prompt-injection evaluation with per-scenario pass counts and separate reports.
+- Add a read-only Base Sepolia transaction-evidence verifier and a throwaway-wallet manual test runbook; leave real transaction evidence pending an owner-run transfer.
+- Add technical and security assessments and archive the audit findings with current statuses.
 - Test Python 3.12 in CI in addition to Python 3.11 and 3.14.
 
-## 1.10.2 (unreleased)
+## 1.10.2
 
 - Add an owner-authenticated cancellation action for pending proposals; cancellation clears approval state, appends an audit event, and releases the daily reservation.
 - Add an owner-authenticated rejection action for pending proposals; rejection is audited, idempotent, and releases the daily reservation.

@@ -1,4 +1,4 @@
-# Aegis Agent Wallet v1.10.2 — Corrective Patch Release (Draft)
+# Aegis Agent Wallet v1.10.2 — Corrective Patch Release
 
 **Release scope:** simulation-only AI-agent wallet workflow prototype.
 
@@ -16,7 +16,11 @@
 
 ## Verification
 
-Focused tests for the changes above passed. The complete test suite and exact-commit fresh-checkout release gate must pass before publishing or tagging this draft.
+The repository contains annotated tag `v1.10.2` at commit
+`1a3095e0fcd95b2dfb200aeef29c1bb395a88593`, whose package version is `1.10.2`.
+The historical verification entries in the release checklist refer to their
+recorded commit SHAs; they should not be interpreted as verification of this tag
+unless the SHA matches.
 
 ## Safety boundary
 
@@ -24,4 +28,5 @@ This release does **not** load private keys, sign transactions, or submit transa
 
 ---
 
-**Draft status:** Do not publish or tag until the complete release checklist passes against the exact final commit.
+**Repository status:** Tagged as `v1.10.2`. This repository evidence does not
+establish whether a corresponding GitHub Release was published.

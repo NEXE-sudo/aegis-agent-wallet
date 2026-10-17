@@ -1,8 +1,8 @@
 # Release Checklist and Known Limitations
 
-> **Release correction (2026-10-15):** The published `v1.10.0` tag resolves to `4c9c9431dca31d15137501cb99b026fcac829236`. The already-published `v1.10.1` tag resolves to `4b2649ef03619f6b8a512891cb73b9069b65fcd9`, which differs from the latest verified `main` commit `54b06ed9475720330d9abe652c7c86419e005f93`. Leave both published tags untouched. At that time, the next unused patch version was `v1.10.2`.
+> **Release correction (2026-10-15):** The `v1.10.0` tag resolves to `4c9c9431dca31d15137501cb99b026fcac829236`, `v1.10.1` resolves to `4b2649ef03619f6b8a512891cb73b9069b65fcd9`, and the annotated `v1.10.2` tag resolves to `1a3095e0fcd95b2dfb200aeef29c1bb395a88593`. The repository therefore treats 1.10.2 as released; leave those tags untouched.
 >
-> **Current candidate (2026-10-16):** The testnet execution and agent-evaluation changes are versioned as `1.10.3`. This remains a release candidate: rerun the complete fresh-checkout gate against the exact final commit and do not tag or publish until it passes.
+> **Current candidate (2026-10-17):** The testnet execution, agent-evaluation, and documentation changes are versioned as `1.10.3`. This remains unreleased: rerun the complete fresh-checkout gate against the exact final commit and do not tag or publish until it passes.
 
 Aegis Agent Wallet is a local testnet prototype with simulated execution by default and an explicitly gated Base Sepolia execution mode. This checklist is a release gate for a tagged demo/portfolio version; completing it does not certify production readiness or independently audit security.
 
@@ -31,6 +31,10 @@ Record the resolved commit SHA and the actual output/result of each command in t
 
 ## Release gate
 
+- [x] Verify the 1.10.3 version string is consistent in `pyproject.toml`, `app/main.py`, the editable package entry in `uv.lock`, and the frontend label; `tests/test_api.py::test_api_version_matches_package_version` checks project, lockfile, API, and frontend agreement.
+- [x] Run the full test suite in the 1.10.3 candidate working tree based on source commit `26a871f658ac6bfdc6543c6b4525c1817230ac1a`: `python -m pytest -q` (**456 passed**, one existing Starlette/httpx deprecation warning; 2026-10-17).
+- [x] Run `ruff check .` in the 1.10.3 candidate working tree based on source commit `26a871f658ac6bfdc6543c6b4525c1817230ac1a` (passed; 2026-10-17).
+- [ ] Rerun the complete fresh-checkout release gate, including browser tests and dependency audit, against the exact final 1.10.3 commit before tagging.
 - [x] Start from a fresh checkout of the final intended release commit. Verified in a separate clone at `59ac35e28237a988dbdde7a9f33a76857f0d2c83` on 2026-10-15.
 - [x] Re-run fresh-checkout verification after PR #170 was merged, against exact commit `ab1384011afc7ea3b1507d9c9547fb21d1ad9019` (2026-10-15): `uv sync --locked --extra dev`; `uv run --locked playwright install chromium`; `uv run --locked python -m pytest -q` (**395 passed**, one existing Starlette/httpx deprecation warning); `pip-audit --skip-editable` (**No known vulnerabilities found**, editable project distribution skipped); and `uv run --locked ruff check .` all passed. The printed `git rev-parse HEAD` matched the intended SHA. Repeat the complete release gate on the final post-documentation commit before tagging.
 - [x] Final post-documentation gate passed on `54b06ed9475720330d9abe652c7c86419e005f93` (2026-10-15): locked sync and Chromium installation passed; `uv run --locked python -m pytest -q` reported **395 passed** with one existing Starlette/httpx deprecation warning; `pip-audit --skip-editable` reported **No known vulnerabilities found** (editable project distribution skipped); `uv run --locked ruff check .` passed; and `git rev-parse HEAD` matched the exact SHA. This verifies that commit only; rerun after the `v1.10.2` version-bump PR is merged.

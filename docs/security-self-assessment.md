@@ -39,7 +39,7 @@ No category below should be read as a pass or certification.
 
 | ID and risk | Current implementation evidence | Residual risk and assessment |
 | --- | --- | --- |
-| **ASI01 — Agent Goal Hijack** | The agent prompt treats free-form invoice content as untrusted. Every proposal tool call is checked against the task's structured `authorized_payment` before the API request. The offline prompt-injection evaluation checks that an injected invoice cannot replace the structured recipient. The agent cannot approve or execute. | **Partial.** This check only compares a tool call with structured task data; it does not prove that data's origin or correctness, prevent all prompt injection, or validate the LLM's explanations. The scenarios are narrow deterministic tests, not a general adversarial evaluation. |
+| **ASI01 — Agent Goal Hijack** | The agent prompt treats free-form invoice content as untrusted. Every proposal tool call is checked against the task's structured `authorized_payment` before the API request. The offline evaluation is deterministic. An opt-in LLM evaluation runs five invoice-text injection scenarios repeatedly and records model-specific per-scenario pass counts in separate generated reports. The agent cannot approve or execute. | **Partial.** The LLM scenarios are narrow and the default run count is small; results depend on the selected model/provider and vary between runs. Payment-field validation rejects mismatched proposal parameters but does not prove the structured payment's origin or correctness, prevent every prompt injection, or validate LLM explanations. The evaluation is not a general adversarial assessment. |
 | **ASI02 — Tool Misuse & Exploitation** | The agent exposes only proposal, market-quote, and limited-status tools. Tool names, argument fields, and payment fields are validated; unsupported calls are rejected. API-side policy and execution revalidation add independent checks. | **Partial.** A valid proposal can reserve budget and create workflow records. The system has no general-purpose tool sandbox or comprehensive abuse/rate-limit controls. Unauthenticated evaluation endpoints provide a policy oracle. |
 | **ASI03 — Identity & Privilege Abuse** | Separate static agent and owner bearer tokens gate workflow actions. Missing/blank or identical workflow tokens fail closed; comparisons are constant-time. Owner-only routes cover approval, rejection, cancellation, execution, full reads, and audit access. The agent package does not load or send the owner token. | **Partial.** Tokens are development credentials without user identity, scoped credential issuance, rotation/revocation, MFA, session management, or production secret storage. A stolen owner token has owner authority. |
 | **ASI04 — Agentic Supply Chain Vulnerabilities** | Python dependencies are declared and locked; CI installs with `uv --locked`, runs tests and Ruff, and performs a dependency audit. The optional model endpoint and model name are configured explicitly by environment variables. | **Partial / not independently verified.** A lockfile and CI audit do not establish that every dependency, build action, model, provider, or transitive service is trustworthy. Model provenance, provider security, deployment artifact signing, and a full supply-chain review are not documented as implemented. |
@@ -114,9 +114,9 @@ These are recommendations, not implemented capabilities:
   approval date.
 - **TODO:** Confirm whether any external security review or regulatory mapping is
   required by the FinTechathon submission; do not imply formal compliance.
-- **TODO:** Add a Base Sepolia transaction hash only after a real throwaway-wallet
-  test is performed and independently checked. No such transaction is asserted by
-  this draft.
+- **Evidence (pending owner-run test; not yet verified):**
+  Transaction hash: TODO (supplied by the owner after a real transfer)
+  Verify with: `uv run python scripts/verify_testnet_evidence.py <TRANSACTION_HASH>`
 - **TODO:** Review each residual-risk statement against the exact submission
   commit and update this assessment if code changes before submission.
 
