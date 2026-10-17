@@ -152,6 +152,14 @@ owner approval.
    mismatch, missing transaction/receipt, non-transfer calldata, failed receipt,
    or inconsistent/missing audit record. To omit the sender check, explicitly use
    `--skip-sender-check`; the verifier prints a warning.
+
+   For a vault-mode transfer, add `--vault "<AegisVault address>"`. The verifier
+   then requires the transaction destination and `transferToken` calldata to
+   match the vault, checks the vault `TokenTransferred` and ERC-20 `Transfer`
+   receipt logs against the token, recipient, amount, and proposal reference,
+   and, when `--audit-db` is supplied, compares that reference with the stored
+   and independently recomputed proposal fingerprint. Keep
+   `--expected-sender` set to the public agent address.
 6. Stop the API and unset `AEGIS_TESTNET_PRIVATE_KEY` in its shell. Never use a
    mainnet key or endpoint. Tests use mocked RPC transports only and do not
    submit to a live network.

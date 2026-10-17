@@ -2,11 +2,15 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import re
 import sqlite3
 import sys
 from pathlib import Path
 from typing import Any
+
+from eth_utils import keccak
 
 from app.chain.base_sepolia import (
     BASE_SEPOLIA_CHAIN_ID,
@@ -18,6 +22,13 @@ from app.chain.base_sepolia import (
 
 TRANSFER_SELECTOR = "a9059cbb"
 TRANSFER_CALLDATA_LENGTH = 10 + 64 + 64
+VAULT_TRANSFER_SIGNATURE = "transferToken(address,address,uint256,bytes32)"
+VAULT_TRANSFER_SELECTOR = "0x" + keccak(text=VAULT_TRANSFER_SIGNATURE)[:4].hex()
+VAULT_TRANSFERRED_TOPIC = "0x" + keccak(
+    text="TokenTransferred(address,address,uint256,bytes32,address)"
+).hex()
+ERC20_TRANSFER_TOPIC = "0x" + keccak(text="Transfer(address,address,uint256)").hex()
+_BYTES32_RE = re.compile(r"^0x[0-9a-fA-F]{64}$")
 
 
 class AuditVerificationError(ValueError):
@@ -25,8 +36,10 @@ class AuditVerificationError(ValueError):
 
 
 def verify_evidence(
-    transaction_hash: str, rpc: BaseSepoliaRpc
-) -> dict[str, int | str]:
+    transaction_hash: str,
+    rpc: BaseSepoliaRpc,
+    vault_address: str | None = None,
+) -> dict[str, Any]:
     chain_id = rpc.chain_id()
     if chain_id != BASE_SEPOLIA_CHAIN_ID:
         raise ValueError(
@@ -37,6 +50,9 @@ def verify_evidence(
     transaction = rpc.transaction_by_hash(transaction_hash)
     if transaction is None:
         raise ValueError("Transaction was not found on Base Sepolia")
+    normalized_vault = validate_address(vault_address) if vault_address else None
+    if normalized_vault is not None and validate_address(transaction["to"]) != normalized_vault:
+        raise ValueError("Transaction destination does not match --vault")
 
     receipt = rpc.transaction_receipt(transaction_hash)
     if receipt["status"] == "pending":
@@ -46,41 +62,137 @@ def verify_evidence(
         raise RpcRequestError("RPC returned a receipt without a block number")
 
     calldata = transaction["input"]
-    if (
-        len(calldata) != TRANSFER_CALLDATA_LENGTH
-        or calldata[:10] != f"0x{TRANSFER_SELECTOR}"
-    ):
-        raise ValueError("Transaction calldata is not an ERC-20 transfer(address,uint256)")
+    if normalized_vault is None:
+        if (
+            len(calldata) != TRANSFER_CALLDATA_LENGTH
+            or calldata[:10] != f"0x{TRANSFER_SELECTOR}"
+        ):
+            raise ValueError("Transaction calldata is not an ERC-20 transfer(address,uint256)")
+        recipient_word = calldata[10:74]
+        if recipient_word[:24] != "0" * 24:
+            raise ValueError("ERC-20 transfer recipient is not a valid ABI-encoded address")
+        token_contract = validate_address(transaction["to"])
+        recipient = validate_address(f"0x{recipient_word[24:]}")
+        amount_base_units = int(calldata[74:138], 16)
+    else:
+        if len(calldata) != 2 + 8 + 4 * 64 or calldata[:10] != VAULT_TRANSFER_SELECTOR:
+            raise ValueError(
+                "Transaction calldata is not AegisVault transferToken(address,address,uint256,bytes32)"
+            )
+        token_word, recipient_word = calldata[10:74], calldata[74:138]
+        if token_word[:24] != "0" * 24 or recipient_word[:24] != "0" * 24:
+            raise ValueError("Vault transfer contains an invalid ABI-encoded address")
+        token_contract = validate_address("0x" + token_word[24:])
+        recipient = validate_address("0x" + recipient_word[24:])
+        amount_base_units = int(calldata[138:202], 16)
+        reference = "0x" + calldata[202:266].lower()
+        _verify_vault_receipt_logs(
+            receipt["logs"],
+            vault=normalized_vault,
+            token=token_contract,
+            recipient=recipient,
+            amount=amount_base_units,
+            reference=reference,
+            agent=validate_address(transaction["from"]),
+        )
 
-    recipient_word = calldata[10:74]
-    if recipient_word[:24] != "0" * 24:
-        raise ValueError("ERC-20 transfer recipient is not a valid ABI-encoded address")
-    recipient = validate_address(f"0x{recipient_word[24:]}")
-    amount_base_units = int(calldata[74:138], 16)
-
-    return {
+    evidence: dict[str, Any] = {
         "chain_id": chain_id,
         "receipt_status": str(receipt["status"]),
         "block_number": block_number,
-        "token_contract": validate_address(transaction["to"]),
+        "token_contract": token_contract,
         "sender": validate_address(transaction["from"]),
         "recipient": recipient,
         "amount_base_units": amount_base_units,
         "transaction_hash": transaction_hash.lower(),
         "explorer_url": f"https://sepolia.basescan.org/tx/{transaction_hash.lower()}",
     }
+    if normalized_vault is not None:
+        evidence["vault_address"] = normalized_vault
+        evidence["proposal_reference"] = reference
+    return evidence
+
+
+def _decode_indexed_address(topic: str) -> str:
+    if not _BYTES32_RE.fullmatch(topic) or topic[2:26] != "0" * 24:
+        raise ValueError("Vault receipt contains a malformed indexed address")
+    return validate_address("0x" + topic[-40:])
+
+
+def _verify_vault_receipt_logs(
+    logs: list[dict[str, Any]],
+    *,
+    vault: str,
+    token: str,
+    recipient: str,
+    amount: int,
+    reference: str,
+    agent: str,
+) -> None:
+    vault_transfer_seen = False
+    token_transfer_seen = False
+    for log in logs:
+        topics = log["topics"]
+        if (
+            log["address"] == vault
+            and topics
+            and topics[0] == VAULT_TRANSFERRED_TOPIC
+        ):
+            if len(topics) != 3 or len(log["data"]) != 2 + 3 * 64:
+                raise ValueError("AegisVault TokenTransferred event is malformed")
+            event_token = _decode_indexed_address(topics[1])
+            event_recipient = _decode_indexed_address(topics[2])
+            data = bytes.fromhex(log["data"][2:])
+            event_amount = int.from_bytes(data[:32], "big")
+            event_reference = "0x" + data[32:64].hex()
+            if data[64:76] != b"\x00" * 12:
+                raise ValueError("AegisVault TokenTransferred event has a malformed agent address")
+            event_agent = validate_address("0x" + data[76:96].hex())
+            if (
+                event_token != token
+                or event_recipient != recipient
+                or event_amount != amount
+                or event_reference != reference
+                or event_agent != agent
+            ):
+                raise ValueError("AegisVault TokenTransferred event does not match transfer calldata")
+            vault_transfer_seen = True
+        if (
+            log["address"] == token
+            and topics
+            and topics[0] == ERC20_TRANSFER_TOPIC
+        ):
+            if len(topics) != 3 or len(log["data"]) != 2 + 64:
+                raise ValueError("ERC-20 Transfer event is malformed")
+            event_sender = _decode_indexed_address(topics[1])
+            event_recipient = _decode_indexed_address(topics[2])
+            event_amount = int.from_bytes(bytes.fromhex(log["data"][2:]), "big")
+            if (
+                event_sender != vault
+                or event_recipient != recipient
+                or event_amount != amount
+            ):
+                raise ValueError("ERC-20 Transfer event does not match vault transfer calldata")
+            token_transfer_seen = True
+    if not vault_transfer_seen:
+        raise ValueError("Receipt is missing the vault TokenTransferred event")
+    if not token_transfer_seen:
+        raise ValueError("Receipt is missing the matching token Transfer event")
 
 
 def verify_audit_record(database_path: str | Path, evidence: dict[str, Any]) -> str:
     """Cross-check chain evidence against an Aegis database without opening it for writes."""
     database_uri = f"{Path(database_path).expanduser().resolve().as_uri()}?mode=ro"
+    has_vault_reference = "proposal_reference" in evidence
     try:
         connection = sqlite3.connect(database_uri, uri=True)
         connection.row_factory = sqlite3.Row
         try:
+            fingerprint_column = ", fingerprint" if has_vault_reference else ""
             matching_transactions = connection.execute(
-                """SELECT transaction_id, status, execution_reference, proposal_json,
+                f"""SELECT transaction_id, status, execution_reference, proposal_json,
                           chain_id, token_address, recipient_normalized, amount_base_units
+                          {fingerprint_column}
                    FROM transactions
                    WHERE lower(execution_reference) = ?""",
                 (evidence["transaction_hash"],),
@@ -99,6 +211,24 @@ def verify_audit_record(database_path: str | Path, evidence: dict[str, Any]) -> 
                 raise ValueError("Aegis transaction proposal is malformed") from exc
             if not isinstance(proposal, dict):
                 raise AuditVerificationError("Aegis transaction proposal is malformed")
+            if has_vault_reference:
+                stored_fingerprint = transaction["fingerprint"]
+                canonical_proposal = json.dumps(
+                    proposal, sort_keys=True, separators=(",", ":")
+                )
+                independently_computed_fingerprint = hashlib.sha256(
+                    canonical_proposal.encode("utf-8")
+                ).hexdigest()
+                reference = evidence["proposal_reference"]
+                if (
+                    not isinstance(stored_fingerprint, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", stored_fingerprint) is None
+                    or stored_fingerprint != reference[2:].lower()
+                    or stored_fingerprint != independently_computed_fingerprint
+                ):
+                    raise ValueError(
+                        "Vault transfer ref does not match the stored proposal fingerprint"
+                    )
 
             proposal_token = proposal.get("token_address")
             proposal_recipient = proposal.get("recipient")
@@ -210,6 +340,10 @@ def main(argv: list[str] | None = None) -> int:
         help="skip sender matching (prints a warning and weakens the evidence)",
     )
     parser.add_argument("--audit-db", help="optional read-only Aegis SQLite database path")
+    parser.add_argument(
+        "--vault",
+        help="verify an AegisVault transferToken call and its vault/token receipt events",
+    )
     args = parser.parse_args(argv)
 
     if args.expected_sender is not None:
@@ -219,10 +353,17 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(f"--expected-sender: {exc}")
     else:
         expected_sender = None
+    if args.vault is not None:
+        try:
+            vault_address = validate_address(args.vault)
+        except ValueError as exc:
+            parser.error(f"--vault: {exc}")
+    else:
+        vault_address = None
 
     try:
         with BaseSepoliaRpc() as rpc:
-            evidence = verify_evidence(args.transaction_hash, rpc)
+            evidence = verify_evidence(args.transaction_hash, rpc, vault_address)
         if expected_sender is not None and evidence["sender"] != expected_sender:
             raise ValueError("Transaction sender does not match --expected-sender")
         transaction_id = (
@@ -245,6 +386,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Receipt status: {evidence['receipt_status']}")
     print(f"Block number: {evidence['block_number']}")
     print(f"Token contract: {evidence['token_contract']}")
+    if vault_address is not None:
+        print(f"AegisVault: {vault_address}")
+        print(f"Proposal ref: {evidence['proposal_reference']}")
     print(f"Recipient: {evidence['recipient']}")
     print(f"Amount (base units): {evidence['amount_base_units']}")
     print(f"Base Sepolia explorer: {evidence['explorer_url']}")
