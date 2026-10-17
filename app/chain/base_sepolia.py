@@ -22,7 +22,9 @@ class RpcConfigurationError(RuntimeError):
 
 
 class RpcRequestError(RuntimeError):
-    pass
+    def __init__(self, message: str, revert_data: str | None = None) -> None:
+        super().__init__(message)
+        self.revert_data = revert_data
 
 
 def validate_address(address: str) -> str:
@@ -94,7 +96,18 @@ class BaseSepoliaRpc:
         ):
             raise RpcRequestError("RPC response has an invalid JSON-RPC envelope")
         if "error" in payload:
-            raise RpcRequestError(f"RPC method {method} returned an error")
+            error = payload["error"]
+            revert_data = None
+            if method == "eth_call" and isinstance(error, dict):
+                data = error.get("data")
+                if isinstance(data, dict):
+                    data = data.get("data")
+                if isinstance(data, str) and _DATA_RE.fullmatch(data):
+                    revert_data = data.lower()
+            raise RpcRequestError(
+                f"RPC method {method} returned an error",
+                revert_data=revert_data,
+            )
         if "result" not in payload:
             raise RpcRequestError("RPC response did not include a result")
         return payload["result"]
