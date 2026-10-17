@@ -29,8 +29,8 @@ stateDiagram-v2
 
     ready --> executed_simulated: Simulation succeeds
     approved --> executed_simulated: Simulation succeeds
-    ready --> submitting_onchain: Base Sepolia transaction signed after revalidation
-    approved --> submitting_onchain: Base Sepolia transaction signed after revalidation
+    ready --> submitting_onchain: Base Sepolia transaction checked against proposal and signed
+    approved --> submitting_onchain: Base Sepolia transaction checked against proposal and signed
     submitting_onchain --> submitted_onchain: RPC accepts signed transaction
 ```
 
@@ -70,7 +70,7 @@ When the owner has paused the wallet, new proposals are persisted as `blocked` w
 | Execution-time risk requires fresh approval | `ready` or `approved` | `awaiting_approval` | `risk_escalation_requires_approval` |
 | Execution-time policy introduces a new approval requirement | `ready` or `approved` | `awaiting_approval` | `policy_revalidation_requires_approval` |
 | Successful simulated execution | `ready` or `approved` | `executed_simulated` | `simulated_execution` |
-| Testnet execution signs after full revalidation | `ready` or `approved` | `submitting_onchain` | `onchain_transaction_signed` (includes transaction hash) |
+| Testnet execution passes policy/risk revalidation and unsigned-transaction invariant checks before signing | `ready` or `approved` | `submitting_onchain` | `onchain_transaction_signed` (includes transaction hash) |
 | Base Sepolia RPC accepts the signed transaction | `submitting_onchain` | `submitted_onchain` | `onchain_transaction_submitted` (includes transaction hash) |
 
 For the policy-revalidation approval case, an already-approved transaction may proceed when the same approval requirement was present at proposal time and the approval remains valid. A newly introduced approval requirement invalidates that path. Risk escalation from an approved transaction requires fresh approval when the recalculated risk changed.
@@ -97,6 +97,11 @@ These outcomes must not change the stored status:
 | Execute an `approved` transaction whose approval fingerprint does not match | `approval_mismatch` | Remains `approved` |
 
 A missing transaction returns `not_found` and does not create a transaction state or audit event. A persisted proposal integrity mismatch is rejected without changing status and is audited as `proposal_integrity_mismatch`.
+
+Immediately before signing, the executor verifies chain ID `84532`, the
+approved token contract, zero native value, the ERC-20 `transfer` selector, and
+the calldata recipient and amount against the persisted proposal. A mismatch
+returns HTTP 409 and leaves the transaction status and audit history unchanged.
 
 ## Existing SQLite databases
 

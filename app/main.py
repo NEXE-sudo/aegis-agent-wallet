@@ -25,6 +25,7 @@ from app.chain.execution import (
     ExecutionConfigurationError,
     ExecutionSettings,
     PreflightError,
+    UnsignedTransactionInvariantError,
 )
 from app.chain.router import router as base_sepolia_router
 from app.market_data import (
@@ -420,7 +421,7 @@ def execute_transaction(transaction_id: str) -> TransactionResponse:
             raise HTTPException(status_code=503, detail="Base Sepolia execution is not configured") from exc
     try:
         outcome, record = controller.execute(transaction_id, executor)
-    except PreflightError as exc:
+    except (PreflightError, UnsignedTransactionInvariantError) as exc:
         raise HTTPException(
             status_code=409,
             detail={"code": exc.code, "message": str(exc)},
