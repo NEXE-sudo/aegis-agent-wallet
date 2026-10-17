@@ -101,4 +101,180 @@ forge install foundry-rs/forge-std@v1.17.0
 forge test
 ```
 
-No deployment script or key-using command is part of Task 1.
+## Owner deployment and operation runbook
+
+This is an operational guide for **Base Sepolia only** (chain ID `84532`).
+The contract and procedure are unaudited and testnet-only. Never use a mainnet
+RPC, account, token address, or deployment target.
+
+Install Foundry if it is not already available. From the repository root, fetch
+the exact pinned libraries and run the local test suite:
+
+```bash
+cd contracts
+forge install OpenZeppelin/openzeppelin-contracts@v5.7.0
+forge install foundry-rs/forge-std@v1.17.0
+forge test
+```
+
+Use two separate throwaway Base Sepolia accounts and keep their keys only in
+Foundry keystores. The **owner account** is the only account used for deployment
+and owner operations. The **agent account** is configured below and is the only
+key the Aegis server may later hold. Fund both accounts with Base Sepolia ETH for
+their respective transactions. Never paste keys into commands, chat, source,
+or logs.
+
+From `contracts/`, set local shell values. Replace the placeholders with values
+you obtained yourself; do not commit this shell state:
+
+```bash
+export BASE_SEPOLIA_RPC_URL="<BASE_SEPOLIA_RPC_URL>"
+export OWNER_ADDRESS="<OWNER_ADDRESS>"
+export OWNER_KEYSTORE_ACCOUNT="<FOUNDRY_OWNER_ACCOUNT_NAME>"
+export AGENT_ADDRESS="<AGENT_ADDRESS>"
+export VAULT="<DEPLOYED_VAULT_ADDRESS>"
+export USDC="0x036cbd53842c5426634e7929541ec2318f3dcf7e"
+```
+
+The owner address must belong to `OWNER_KEYSTORE_ACCOUNT`, which holds the
+owner's signing key in Foundry's keystore. The deploy script accepts only the
+public owner address in `AEGIS_VAULT_OWNER_ADDRESS`; the key is selected by
+Foundry at invocation time and is never read or logged by the script. The script
+refuses any chain other than Base Sepolia.
+
+### Deploy
+
+```bash
+AEGIS_VAULT_OWNER_ADDRESS="$OWNER_ADDRESS" forge script script/Deploy.s.sol:Deploy \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL" \
+  --account "$OWNER_KEYSTORE_ACCOUNT" \
+  --broadcast
+```
+
+Take the deployed vault address and deployment transaction hash from Foundry's
+real output and set `VAULT` to that address. Do not copy example or invented
+deployment results into evidence.
+
+### Configure the vault
+
+Confirm the RPC is connected to Base Sepolia before sending transactions:
+
+```bash
+cast chain-id --rpc-url "$BASE_SEPOLIA_RPC_URL"
+```
+
+Set the Aegis demo USDC policy. Values are in USDC base units (six decimals):
+50 USDC per transfer, 150 USDC per UTC day, and approval required at or above
+50 USDC:
+
+```bash
+cast send "$VAULT" \
+  "setAgent(address)" "$AGENT_ADDRESS" \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL" --chain 84532 \
+  --account "$OWNER_KEYSTORE_ACCOUNT"
+
+cast send "$VAULT" \
+  "setTokenPolicy(address,bool,uint256,uint256,uint256)" \
+  "$USDC" true 50000000 150000000 50000000 \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL" --chain 84532 \
+  --account "$OWNER_KEYSTORE_ACCOUNT"
+
+cast send "$VAULT" \
+  "setRecipient(address,bool)" "0x2222222222222222222222222222222222222222" true \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL" --chain 84532 \
+  --account "$OWNER_KEYSTORE_ACCOUNT"
+
+cast send "$VAULT" \
+  "setRecipient(address,bool)" "0x3333333333333333333333333333333333333333" true \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL" --chain 84532 \
+  --account "$OWNER_KEYSTORE_ACCOUNT"
+```
+
+The two addresses above are the checked-in demo policy recipients, not verified
+real-world identities. Only allow recipients you intentionally control or have
+independently checked.
+
+### Deposit test USDC and read state back
+
+The owner account must already hold test USDC. This transfers tokens from the
+keystore's selected owner account into the vault; it does not use the agent key:
+
+```bash
+cast send "$USDC" \
+  "transfer(address,uint256)" "$VAULT" <AMOUNT_BASE_UNITS> \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL" --chain 84532 \
+  --account "$OWNER_KEYSTORE_ACCOUNT"
+```
+
+Read the deployment and configuration back without signing:
+
+```bash
+cast call "$VAULT" "owner()(address)" --rpc-url "$BASE_SEPOLIA_RPC_URL"
+cast call "$VAULT" "agent()(address)" --rpc-url "$BASE_SEPOLIA_RPC_URL"
+cast call "$VAULT" \
+  "tokenPolicy(address)(bool,uint256,uint256,uint256)" "$USDC" \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL"
+cast call "$VAULT" \
+  "recipients(address)(bool)" "0x2222222222222222222222222222222222222222" \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL"
+cast call "$VAULT" \
+  "todaySpend(address)(uint256)" "$USDC" \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL"
+cast call "$USDC" "balanceOf(address)(uint256)" "$VAULT" \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL"
+```
+
+### Approve one exact transfer
+
+Replace the three placeholders with the transaction proposal's actual token,
+recipient, and amount. `REF` must be the exact 32-byte proposal fingerprint
+encoded as hex. The expiry below is one hour after the local Unix time; ensure
+the chain timestamp has not passed it when the transfer is submitted:
+
+```bash
+export PROPOSAL_TOKEN="<TOKEN_ADDRESS>"
+export PROPOSAL_RECIPIENT="<RECIPIENT_ADDRESS>"
+export PROPOSAL_AMOUNT="<AMOUNT_BASE_UNITS>"
+export PROPOSAL_REF="<0X_PLUS_64_HEX_DIGITS>"
+EXPIRY=$(($(date +%s) + 3600))
+
+cast send "$VAULT" \
+  "approveTransfer(address,address,uint256,bytes32,uint256)" \
+  "$PROPOSAL_TOKEN" "$PROPOSAL_RECIPIENT" "$PROPOSAL_AMOUNT" "$PROPOSAL_REF" "$EXPIRY" \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL" --chain 84532 \
+  --account "$OWNER_KEYSTORE_ACCOUNT"
+
+cast call "$VAULT" \
+  "approvalExpiry(address,address,uint256,bytes32)(uint256)" \
+  "$PROPOSAL_TOKEN" "$PROPOSAL_RECIPIENT" "$PROPOSAL_AMOUNT" "$PROPOSAL_REF" \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL"
+```
+
+### Pause, resume, revoke, or recover
+
+Every state-changing command below requires the owner keystore account:
+
+```bash
+cast send "$VAULT" "pause()" \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL" --chain 84532 \
+  --account "$OWNER_KEYSTORE_ACCOUNT"
+
+cast call "$VAULT" "paused()(bool)" --rpc-url "$BASE_SEPOLIA_RPC_URL"
+
+cast send "$VAULT" "unpause()" \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL" --chain 84532 \
+  --account "$OWNER_KEYSTORE_ACCOUNT"
+
+cast send "$VAULT" "revokeAgent()" \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL" --chain 84532 \
+  --account "$OWNER_KEYSTORE_ACCOUNT"
+
+cast send "$VAULT" \
+  "emergencyWithdraw(address,address,uint256)" "$USDC" "<RECOVERY_ADDRESS>" "<AMOUNT_BASE_UNITS>" \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL" --chain 84532 \
+  --account "$OWNER_KEYSTORE_ACCOUNT"
+```
+
+These commands submit transactions to Base Sepolia and consume testnet ETH.
+Inspect each real transaction result before continuing. Do not treat an
+unconfirmed or failed transaction as completed configuration.
