@@ -27,11 +27,20 @@ class ExecutionConfigurationError(ValueError):
     """Raised when execution-mode configuration is missing or invalid."""
 
 
+class PreflightError(RuntimeError):
+    """Raised when a transfer fails the read-only execution preflight."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
 @dataclass(frozen=True)
 class ExecutionSettings:
     mode: ExecutionMode
     rpc_url: str | None = field(default=None, repr=False)
     private_key: str | None = field(default=None, repr=False)
+    preflight_enabled: bool = True
 
     @classmethod
     def from_environment(cls) -> ExecutionSettings:
@@ -40,8 +49,17 @@ class ExecutionSettings:
             raise ExecutionConfigurationError(
                 "AEGIS_EXECUTION_MODE must be 'simulated' or 'base_sepolia'"
             )
+        preflight_value = os.environ.get("AEGIS_PREFLIGHT_ENABLED")
+        if preflight_value is None:
+            preflight_enabled = mode == "base_sepolia"
+        elif preflight_value.lower() in {"true", "false"}:
+            preflight_enabled = preflight_value.lower() == "true"
+        else:
+            raise ExecutionConfigurationError(
+                "AEGIS_PREFLIGHT_ENABLED must be 'true' or 'false'"
+            )
         if mode == "simulated":
-            return cls(mode="simulated")
+            return cls(mode="simulated", preflight_enabled=preflight_enabled)
 
         private_key = os.environ.get("AEGIS_TESTNET_PRIVATE_KEY", "")
         rpc_url = os.environ.get("BASE_SEPOLIA_RPC_URL", "")
@@ -75,7 +93,12 @@ class ExecutionSettings:
             raise ExecutionConfigurationError(
                 "AEGIS_TESTNET_PRIVATE_KEY is invalid"
             ) from exc
-        return cls(mode="base_sepolia", rpc_url=rpc_url, private_key=private_key)
+        return cls(
+            mode="base_sepolia",
+            rpc_url=rpc_url,
+            private_key=private_key,
+            preflight_enabled=preflight_enabled,
+        )
 
 
 @dataclass(frozen=True)
@@ -99,6 +122,7 @@ class BaseSepoliaExecutor:
         self._private_key = settings.private_key
         self._policy = policy
         self._rpc_factory = rpc_factory
+        self._preflight_enabled = settings.preflight_enabled
 
     def prepare(self, proposal: dict) -> SignedTransfer:
         try:
@@ -156,6 +180,42 @@ class BaseSepoliaExecutor:
             if not 0 < gas_limit <= _MAX_GAS_LIMIT:
                 raise RpcRequestError("RPC gas estimate exceeds the configured execution safety limit")
             transaction["gas"] = gas_limit
+            if self._preflight_enabled:
+                try:
+                    simulation_result = rpc.call(
+                        account.address, token_address, transfer_data
+                    )
+                except RpcRequestError as exc:
+                    raise PreflightError(
+                        "preflight_call_failed",
+                        "Transfer simulation reverted or returned invalid data.",
+                    ) from exc
+                if simulation_result and (
+                    len(simulation_result) != 66
+                    or int(simulation_result, 16) != 1
+                ):
+                    raise PreflightError(
+                        "preflight_call_failed",
+                        "Transfer simulation did not confirm a successful transfer.",
+                    )
+                try:
+                    token_balance = rpc.token_balance(token_address, account.address)
+                    eth_balance = rpc.eth_balance(account.address)
+                except RpcRequestError as exc:
+                    raise PreflightError(
+                        "preflight_rpc_error",
+                        "A balance preflight response was invalid or unavailable.",
+                    ) from exc
+                if token_balance < amount:
+                    raise PreflightError(
+                        "insufficient_token_balance",
+                        "Sender token balance is below the proposed transfer amount.",
+                    )
+                if eth_balance < gas_limit * gas_price:
+                    raise PreflightError(
+                        "insufficient_eth_balance",
+                        "Sender ETH balance is below the maximum transaction gas cost.",
+                    )
 
         signed = Account.sign_transaction(transaction, self._private_key)
         raw_transaction = "0x" + bytes(signed.raw_transaction).hex()

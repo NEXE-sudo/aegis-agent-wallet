@@ -212,6 +212,41 @@ class BaseSepoliaRpc:
     def _call(self, address: str, selector: str) -> str:
         return self._rpc("eth_call", [{"to": validate_address(address), "data": selector}, "latest"])
 
+    def call(self, sender: str, address: str, data: str) -> str:
+        if not isinstance(data, str) or not _DATA_RE.fullmatch(data):
+            raise ValueError("Call data must be hexadecimal data")
+        result = self._rpc(
+            "eth_call",
+            [
+                {
+                    "from": validate_address(sender),
+                    "to": validate_address(address),
+                    "data": data.lower(),
+                },
+                "latest",
+            ],
+        )
+        if not isinstance(result, str) or not _DATA_RE.fullmatch(result):
+            raise RpcRequestError("RPC returned malformed eth_call data")
+        return result.lower()
+
+    def eth_balance(self, address: str) -> int:
+        return self._parse_quantity(
+            self._rpc("eth_getBalance", [validate_address(address), "latest"]),
+            "ETH balance",
+        )
+
+    def token_balance(self, token_address: str, owner_address: str) -> int:
+        owner = validate_address(owner_address)
+        result = self.call(
+            owner,
+            token_address,
+            "0x70a08231" + owner[2:].rjust(64, "0"),
+        )
+        if not re.fullmatch(r"0x[0-9a-fA-F]{64}", result):
+            raise RpcRequestError("RPC returned malformed ERC-20 balanceOf data")
+        return int(result, 16)
+
     def verify_token(self, address: str) -> dict[str, Any]:
         normalized = validate_address(address)
         chain_id = self.chain_id()
