@@ -35,6 +35,14 @@ reports every difference from the Aegis demo policy. The owner-only
 one-hour expiry and a `cast send` command using the operator-provided
 `OWNER_PRIVATE_KEY` environment variable. The API never obtains that key and
 never signs the approval.
+`base_sepolia_vault` is an unaudited, testnet-only integration. It uses one
+agent address and a UTC-day-bucket cap, not a rolling 24-hour limit. The separate
+vault owner key can change token limits, recipients, approvals, and roles, or
+withdraw assets; it must never be configured in or supplied to the Aegis server.
+The on-chain status comparison is a point-in-time read from the configured RPC,
+not a policy migration or an independent provider verification. Read
+[on-chain enforcement](onchain-enforcement.md) for contract trust assumptions,
+operational commands, bypass demonstration, and evidence placeholders.
 
 The owner-only `POST /pause` and `POST /resume` controls persist a pause flag and append-only control log in SQLite. While paused, new proposal attempts are recorded as `blocked` with a clear reason, and owner approval/execution requests fail with HTTP 409. Reads, cancellation, rejection, and receipt lookups continue to work; an existing idempotent replay still resolves to its stored record.
 

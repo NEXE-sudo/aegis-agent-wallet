@@ -4,6 +4,7 @@
 
 - Add a Base Sepolia-only AegisVault deployment script and owner operations runbook using Foundry keystore signing without repository-held keys.
 - Add an unaudited, testnet-only AegisVault contract with owner-managed token caps, exact transfer approvals, recipient allowlisting, pause controls, and Foundry unit/fuzz/invariant tests.
+- Document vault-mode architecture, permission tiers, trust boundaries, known risks, and `TODO`-only testnet evidence with read-only verification commands.
 - Add a simulation-first Base Sepolia vault bypass demo with opt-in fixed-gas broadcasts for verified reverts.
 - Extend the read-only testnet evidence verifier to validate AegisVault calls, vault/token transfer logs, and the audit-stored proposal reference.
 - Add owner-only vault approval calldata and read-only vault status/policy synchronization endpoints.
