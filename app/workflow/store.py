@@ -749,6 +749,7 @@ class WorkflowStore:
         self, proposal: dict[str, Any], idempotency_key: str | None,
         build_record: Callable[[int, int], dict[str, Any]],
         actor_role: str = "agent",
+        policy_hash: str | None = None,
     ) -> tuple[str, dict[str, Any] | None]:
         """Serializes spend check + reservation so concurrent proposals cannot overspend."""
         fingerprint = _proposal_fingerprint(proposal)
@@ -767,6 +768,7 @@ class WorkflowStore:
                             {
                                 "operation": "idempotency_replay",
                                 "reason": "persisted proposal does not match fingerprint",
+                                **({"policy_hash": policy_hash} if policy_hash else {}),
                             },
                         )
                         db.execute("COMMIT")
@@ -776,14 +778,20 @@ class WorkflowStore:
                         self._append_audit(
                             db, record["transaction_id"], "idempotency_conflict", actor_role,
                             record["status"], record["status"], record["fingerprint"],
-                            {"reason": "key reused with a different proposal"},
+                            {
+                                "reason": "key reused with a different proposal",
+                                **({"policy_hash": policy_hash} if policy_hash else {}),
+                            },
                         )
                         db.execute("COMMIT")
                         return "idempotency_conflict", record
                     self._append_audit(
                         db, record["transaction_id"], "proposal_replayed", actor_role,
                         record["status"], record["status"], record["fingerprint"],
-                        {"idempotency_key_present": True},
+                        {
+                            "idempotency_key_present": True,
+                            **({"policy_hash": policy_hash} if policy_hash else {}),
+                        },
                     )
                     db.execute("COMMIT")
                     return "replayed", record
@@ -872,6 +880,11 @@ class WorkflowStore:
                     "policy_decision": record["policy_decision"],
                     "risk_level": record["risk_level"],
                     "idempotency_key_present": bool(idempotency_key),
+                    **(
+                        {"policy_hash": record.get("policy_hash", policy_hash)}
+                        if record.get("policy_hash", policy_hash)
+                        else {}
+                    ),
                 },
             )
             db.execute("COMMIT")
@@ -902,7 +915,15 @@ class WorkflowStore:
             self._append_audit(
                 db, record["transaction_id"], "proposal_created", actor_role,
                 None, record["status"], record["fingerprint"],
-                {"policy_decision": record["policy_decision"], "risk_level": record["risk_level"]},
+                {
+                    "policy_decision": record["policy_decision"],
+                    "risk_level": record["risk_level"],
+                    **(
+                        {"policy_hash": record["policy_hash"]}
+                        if record.get("policy_hash")
+                        else {}
+                    ),
+                },
             )
             db.execute("COMMIT")
 
@@ -1067,9 +1088,18 @@ class WorkflowStore:
         return "rejected", self.get(transaction_id)
 
     def execute_simulated(
-        self, transaction_id: str, policy: Any, actor_role: str = "owner"
+        self,
+        transaction_id: str,
+        policy: Any,
+        actor_role: str = "owner",
+        policy_hash: str | None = None,
     ) -> tuple[str, dict[str, Any] | None]:
-        return self._execute_with_validation(transaction_id, policy, actor_role)
+        return self._execute_with_validation(
+            transaction_id,
+            policy,
+            actor_role,
+            policy_hash=policy_hash,
+        )
 
     def execute_onchain(
         self,
@@ -1078,7 +1108,11 @@ class WorkflowStore:
         prepare: Callable[[dict[str, Any]], tuple[str, str]],
         broadcast: Callable[[str], str],
         actor_role: str = "owner",
+        policy_hash: str | None = None,
     ) -> tuple[str, dict[str, Any] | None]:
+        from app.policy.canonical import hash_policy as compute_policy_hash
+
+        active_policy_hash = policy_hash or compute_policy_hash(policy)
         pending = self._pending_submission(transaction_id)
         if pending is not None:
             status, raw_transaction, transaction_hash, record = pending
@@ -1086,12 +1120,21 @@ class WorkflowStore:
                 return "not_found", None
             if status == "submitting_onchain":
                 return self._broadcast_pending(
-                    transaction_id, raw_transaction, transaction_hash, broadcast
+                    transaction_id,
+                    raw_transaction,
+                    transaction_hash,
+                    broadcast,
+                    active_policy_hash,
                 )
             if status == "submitted_onchain":
                 return "already_submitted", record
         return self._execute_with_validation(
-            transaction_id, policy, actor_role, prepare, broadcast
+            transaction_id,
+            policy,
+            actor_role,
+            prepare,
+            broadcast,
+            active_policy_hash,
         )
 
     def _pending_submission(
@@ -1124,6 +1167,7 @@ class WorkflowStore:
         raw_transaction: str,
         transaction_hash: str,
         broadcast: Callable[[str], str],
+        policy_hash: str | None = None,
     ) -> tuple[str, dict[str, Any] | None]:
         returned_hash = broadcast(raw_transaction)
         if returned_hash.lower() != transaction_hash.lower():
@@ -1160,7 +1204,10 @@ class WorkflowStore:
             self._append_audit(
                 db, transaction_id, "onchain_transaction_submitted", "owner",
                 "submitting_onchain", "submitted_onchain", row["fingerprint"],
-                {"transaction_hash": transaction_hash},
+                {
+                    "transaction_hash": transaction_hash,
+                    **({"policy_hash": policy_hash} if policy_hash else {}),
+                },
             )
             db.execute("COMMIT")
         return "submitted", self.get(transaction_id)
@@ -1172,12 +1219,16 @@ class WorkflowStore:
         actor_role: str = "owner",
         prepare_onchain: Callable[[dict[str, Any]], tuple[str, str]] | None = None,
         broadcast_onchain: Callable[[str], str] | None = None,
+        policy_hash: str | None = None,
     ) -> tuple[str, dict[str, Any] | None]:
         """Revalidates policy and spend inside the same write lock as execution."""
+        from app.policy.canonical import hash_policy as compute_policy_hash
         from app.policy.engine import evaluate_transaction
         from app.policy.models import PolicyDecision, TransactionProposal
         from app.risk.engine import assess_transaction_risk
         from app.risk.models import RiskLevel
+
+        active_policy_hash = policy_hash or compute_policy_hash(policy)
 
         with closing(self._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
@@ -1190,7 +1241,11 @@ class WorkflowStore:
                 self._append_audit(
                     db, transaction_id, "proposal_integrity_mismatch", actor_role,
                     record["status"], record["status"], record["fingerprint"],
-                    {"operation": "execute", "reason": "persisted proposal does not match fingerprint"},
+                    {
+                        "operation": "execute",
+                        "reason": "persisted proposal does not match fingerprint",
+                        "policy_hash": active_policy_hash,
+                    },
                 )
                 db.execute("COMMIT")
                 return "proposal_integrity_mismatch", record
@@ -1230,6 +1285,7 @@ class WorkflowStore:
                             "approved_at": approved_at,
                             "expired_at": now.isoformat(),
                             "approval_expires_seconds": int(policy.approval_expires_seconds),
+                            "policy_hash": active_policy_hash,
                         },
                     )
                     db.execute("COMMIT")
@@ -1254,7 +1310,10 @@ class WorkflowStore:
                 self._append_audit(
                     db, transaction_id, "policy_revalidation_blocked", actor_role,
                     record["status"], "blocked", record["fingerprint"],
-                    {"policy_reasons": result.reasons},
+                    {
+                        "policy_reasons": result.reasons,
+                        "policy_hash": active_policy_hash,
+                    },
                 )
                 db.execute("COMMIT")
                 return "blocked", self.get(transaction_id)
@@ -1282,7 +1341,8 @@ class WorkflowStore:
                     db, transaction_id, "risk_escalation_requires_approval", actor_role,
                     record["status"], "awaiting_approval", record["fingerprint"],
                     {"risk_score": risk_result.score, "risk_level": risk_result.level.value,
-                     "risk_reasons": risk_result.reasons},
+                     "risk_reasons": risk_result.reasons,
+                     "policy_hash": active_policy_hash},
                 )
                 db.execute("COMMIT")
                 return "approval_required", self.get(transaction_id)
@@ -1300,7 +1360,10 @@ class WorkflowStore:
                     self._append_audit(
                         db, transaction_id, "policy_revalidation_requires_approval", actor_role,
                         record["status"], "awaiting_approval", record["fingerprint"],
-                        {"policy_reasons": result.reasons},
+                        {
+                            "policy_reasons": result.reasons,
+                            "policy_hash": active_policy_hash,
+                        },
                     )
                     db.execute("COMMIT")
                     return "approval_required", self.get(transaction_id)
@@ -1330,7 +1393,10 @@ class WorkflowStore:
                 self._append_audit(
                     db, transaction_id, "onchain_transaction_signed", actor_role,
                     record["status"], "submitting_onchain", record["fingerprint"],
-                    {"transaction_hash": transaction_hash},
+                    {
+                        "transaction_hash": transaction_hash,
+                        "policy_hash": active_policy_hash,
+                    },
                 )
                 db.execute("COMMIT")
                 pending = (raw_transaction, transaction_hash)
@@ -1346,13 +1412,20 @@ class WorkflowStore:
                 self._append_audit(
                     db, transaction_id, "simulated_execution", actor_role,
                     record["status"], "executed_simulated", record["fingerprint"],
-                    {"execution_reference": reference},
+                    {
+                        "execution_reference": reference,
+                        "policy_hash": active_policy_hash,
+                    },
                 )
                 db.execute("COMMIT")
                 pending = None
         if pending is not None and broadcast_onchain is not None:
             return self._broadcast_pending(
-                transaction_id, pending[0], pending[1], broadcast_onchain
+                transaction_id,
+                pending[0],
+                pending[1],
+                broadcast_onchain,
+                active_policy_hash,
             )
         return "executed", self.get(transaction_id)
 

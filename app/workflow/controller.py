@@ -8,6 +8,7 @@ from dataclasses import asdict
 from typing import Any
 
 from app.chain.execution import BaseSepoliaExecutor
+from app.policy.canonical import hash_policy
 from app.policy.engine import evaluate_transaction
 from app.policy.models import AgentPolicy, PolicyDecision, TransactionProposal
 from app.risk.engine import assess_transaction_risk
@@ -54,9 +55,15 @@ class TransactionController:
                 "risk_level": risk_result.level.value,
                 "risk_reasons": risk_result.reasons,
                 "status": status,
+                "policy_hash": hash_policy(self.policy),
             }
 
-        return self.store.create_evaluated(asdict(proposal), idempotency_key, build_record)
+        return self.store.create_evaluated(
+            asdict(proposal),
+            idempotency_key,
+            build_record,
+            policy_hash=hash_policy(self.policy),
+        )
 
     def approve(self, transaction_id: str, fingerprint: str) -> tuple[str, dict[str, Any] | None]:
         if self.store.is_paused():
@@ -75,7 +82,11 @@ class TransactionController:
         if self.store.is_paused():
             return "wallet_paused", self.store.get(transaction_id)
         if onchain_executor is None:
-            return self.store.execute_simulated(transaction_id, self.policy)
+            return self.store.execute_simulated(
+                transaction_id,
+                self.policy,
+                policy_hash=hash_policy(self.policy),
+            )
 
         def prepare(proposal: dict[str, Any]) -> tuple[str, str]:
             signed = onchain_executor.prepare(proposal)
@@ -86,6 +97,7 @@ class TransactionController:
             self.policy,
             prepare,
             onchain_executor.broadcast,
+            policy_hash=hash_policy(self.policy),
         )
 
     def cancel(self, transaction_id: str) -> tuple[str, dict[str, Any] | None]:
