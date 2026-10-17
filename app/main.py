@@ -31,6 +31,7 @@ from app.market_data import (
     MarketDataError,
     UnsupportedMarketSymbol,
 )
+from app.policy.canonical import POLICY_HASH_FORMAT_VERSION, hash_policy
 from app.policy.engine import evaluate_transaction
 from app.policy.models import (
     MAX_SQLITE_INTEGER,
@@ -283,6 +284,14 @@ def evaluate(request: EvaluationRequest) -> EvaluationResponse:
         amount_base_units=request.amount_base_units,
         projected_daily_spend_base_units=request.daily_spent_base_units + request.amount_base_units,
     )
+
+
+@app.get("/policy/hash", dependencies=[Depends(require_owner)])
+def get_policy_hash() -> dict[str, str]:
+    return {
+        "policy_hash": hash_policy(DEMO_POLICY),
+        "format_version": POLICY_HASH_FORMAT_VERSION,
+    }
 
 
 @app.post("/risk/assess", response_model=RiskResponse)

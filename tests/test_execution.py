@@ -20,6 +20,7 @@ from app.chain.execution import (
     ExecutionConfigurationError,
     ExecutionSettings,
 )
+from app.policy.canonical import hash_policy
 from app.workflow.controller import TransactionController
 from app.workflow.store import WorkflowStore
 
@@ -290,7 +291,12 @@ def test_onchain_execution_is_audited_and_receipt_is_owner_readable(
         "onchain_transaction_signed",
         "onchain_transaction_submitted",
     ]
-    assert events[-1]["details"] == {"transaction_hash": transaction_hash}
+    policy_digest = hash_policy(main.DEMO_POLICY)
+    assert events[1]["details"]["policy_hash"] == policy_digest
+    assert events[-1]["details"] == {
+        "transaction_hash": transaction_hash,
+        "policy_hash": policy_digest,
+    }
     assert private_key.removeprefix("0x") not in json.dumps(events)
 
     forbidden = client.get(

@@ -46,7 +46,9 @@ flowchart LR
   `hmac.compare_digest`.
 - **`app/policy/`** evaluates allowed chain, token, trusted token metadata, recipient,
   transaction amount, daily spend, and recipient-specific limits. Hard blocks
-  cannot be overridden by owner approval.
+  cannot be overridden by owner approval. It also serializes the complete active
+  policy in canonical `aegis-policy-v1` JSON and exposes its SHA-256 digest to
+  owners for future contract-limit comparisons.
 - **`app/risk/`** calculates a deterministic, explainable heuristic score. It is
   not a fraud detector and is distinct from policy enforcement.
 - **`app/workflow/controller.py`** coordinates proposal evaluation, approval, and
@@ -126,6 +128,7 @@ creating a second reservation and reject reuse with a different proposal.
 | --- | --- | --- |
 | `GET /health` | No bearer token | Process status and selected execution mode; not a database or RPC readiness check. |
 | `POST /policy/evaluate`, `POST /risk/assess` | No bearer token | Demo evaluation using caller-supplied spend; does not create workflow state and is not execution authorization. |
+| `GET /policy/hash` | Owner token | SHA-256 digest of the active policy and canonical format version. |
 | `GET /transactions`, `/transactions/{id}`, `/transactions/{id}/audit` | Owner token | Full transaction and audit reads. |
 | `POST /transactions/{id}/approve`, `/reject`, `/cancel`, `/execute` | Owner token | Owner workflow actions; execution is subject to current mode and revalidation. |
 | `GET /chain/base-sepolia/status`, `/chain/base-sepolia/token/{address}` | Owner token | Read-only chain inspection. |
@@ -133,6 +136,21 @@ creating a second reservation and reject reuse with a different proposal.
 
 The unauthenticated evaluation endpoints expose a policy oracle. They are intended
 for controlled local demonstration and should not be exposed to untrusted callers.
+
+### Canonical policy hash (`aegis-policy-v1`)
+
+The policy hash is SHA-256 over the UTF-8 bytes of a compact JSON object containing
+every active `AgentPolicy` field, including trusted-token metadata, recipient
+allowlists, recipient-specific limits, enablement, and approval expiry. Object keys
+are sorted lexicographically and JSON uses no insignificant whitespace with ASCII
+escaping. Address values and address-map keys are lower-cased; all sets and nested
+allowlists are sorted before serialization. Every integer is serialized as a
+base-10 string (no sign or leading zeroes); booleans remain JSON booleans and text
+remains JSON strings. The object shape is the `AgentPolicy` field names with
+trusted-token values shaped as `chain_id`, `decimals`, and `symbol`. The owner-only
+`GET /policy/hash` returns `policy_hash` and `format_version` (`aegis-policy-v1`).
+Proposal-creation and execution-related audit-event details also carry the active
+hash. No policy-hash database column is added.
 
 ## 4. Safety model and trust boundaries
 

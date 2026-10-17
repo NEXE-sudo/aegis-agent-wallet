@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 import app.workflow.store as store_module
 from app import main
 from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
+from app.policy.canonical import hash_policy
 from app.policy.models import TransactionProposal
 from app.workflow.controller import TransactionController, fingerprint_proposal
 from app.workflow.store import WorkflowStore
@@ -1617,7 +1618,10 @@ def test_idempotency_key_is_not_exposed_in_audit_event():
     ).json()
     replay_event = next(event for event in events if event["event_type"] == "proposal_replayed")
 
-    assert replay_event["details"] == {"idempotency_key_present": True}
+    assert replay_event["details"] == {
+        "idempotency_key_present": True,
+        "policy_hash": hash_policy(main.DEMO_POLICY),
+    }
     assert idempotency_key not in json.dumps(events)
 
 
