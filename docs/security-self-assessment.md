@@ -114,9 +114,9 @@ These are recommendations, not implemented capabilities:
   approval date.
 - **TODO:** Confirm whether any external security review or regulatory mapping is
   required by the FinTechathon submission; do not imply formal compliance.
-- **TODO:** Add a Base Sepolia transaction hash only after a real throwaway-wallet
-  test is performed and independently checked. No such transaction is asserted by
-  this draft.
+- **Evidence (pending owner-run test; not yet verified):**
+  Transaction hash: TODO (supplied by the owner after a real transfer)
+  Verify with: `uv run python scripts/verify_testnet_evidence.py <TRANSACTION_HASH>`
 - **TODO:** Review each residual-risk statement against the exact submission
   commit and update this assessment if code changes before submission.
 

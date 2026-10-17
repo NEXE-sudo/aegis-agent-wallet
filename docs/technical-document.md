@@ -230,9 +230,9 @@ Only use a throwaway wallet funded with Base Sepolia faucet assets. Follow the
 for explicit `base_sepolia` configuration, a small owner-reviewed transfer, receipt
 inspection, and key cleanup. No live transfer is claimed by this document.
 
-- **TODO:** After performing and independently checking a test transfer, record its
-  Base Sepolia transaction hash and the observed receipt result here:
-  `TODO — no testnet transaction hash has been supplied or verified.`
+- **Evidence (pending owner-run test; not yet verified):**
+  Transaction hash: TODO (supplied by the owner after a real transfer)
+  Verify with: `uv run python scripts/verify_testnet_evidence.py <TRANSACTION_HASH>`
 - **TODO:** Record the date, RPC provider (without credentials), and reviewer for
   that manual validation.
 
