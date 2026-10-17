@@ -19,13 +19,22 @@ The package declares Python `>=3.11`. CI tests Python 3.11, 3.12, and 3.14; othe
 | `AEGIS_MAX_PENDING_PROPOSALS` | No | `10` | Maximum number of active `ready`, `awaiting_approval`, and `approved` proposals. The value must be a positive integer; invalid values prevent startup. When the cap is reached, new proposals fail with HTTP 429 and no row is created, while idempotent replays still return the stored record. |
 | `AEGIS_EXECUTION_MODE` | No | `simulated` | One of `simulated`, `base_sepolia`, or `base_sepolia_vault`. Any other value prevents startup. Testnet execution is never selected automatically. |
 | `AEGIS_PREFLIGHT_ENABLED` | No | `true` in `base_sepolia` and `base_sepolia_vault`; `false` in `simulated` | In `base_sepolia`, controls read-only ERC-20 transfer simulation and sender token/ETH balance checks. In `base_sepolia_vault`, the vault transfer simulation is mandatory and cannot be disabled by this flag. Must be exactly `true` or `false` (case-insensitive); invalid values prevent startup. |
-| `AEGIS_VAULT_ADDRESS` | Only for `base_sepolia_vault` mode | None | Validated EVM address of the deployed Base Sepolia AegisVault. The vault must contain contract code and report the configured key as its agent, while the signer must differ from the vault owner. Missing or invalid values prevent startup. |
+| `AEGIS_VAULT_ADDRESS` | For `base_sepolia_vault` mode and the owner-only vault helper/status routes | None | Validated EVM address of the deployed Base Sepolia AegisVault. Vault execution requires contract code and the configured key to be its agent, with a signer distinct from the vault owner. The read-only status and approval-helper routes use only this public address; they do not read a private key or sign. |
 | `AEGIS_TESTNET_PRIVATE_KEY` | Only for `base_sepolia` or `base_sepolia_vault` mode | None | A throwaway Base Sepolia key, loaded only when testnet execution is explicitly enabled. In `base_sepolia_vault` mode this is the **agent session key only**, never the owner key. A missing or invalid key prevents startup. Keep it in the process environment; it is never accepted in an API request, returned, or logged. |
 | `BASE_SEPOLIA_RPC_URL` | Only for chain inspection or either Base Sepolia execution mode | None | HTTP(S) JSON-RPC endpoint for read-only inspection. Testnet execution requires a valid HTTPS URL. Missing or invalid execution configuration prevents startup; RPC failures return sanitized HTTP errors. Never commit a provider URL containing credentials. |
 
 The agent token authenticates proposal creation and the limited `GET /agent/transactions/{transaction_id}` and `GET /agent/market-data/{asset_class}/{symbol}` reads. The owner token remains required for full transaction records, approvals, rejection, execution, audit events, and owner market-data or chain-inspection operations. See the [agent guide](agent.md) for LLM configuration and the evaluation harness.
 
 With the default `simulated` mode, the workflow does not load a private key or send transaction RPC calls. The optional chain inspection routes remain read-only. In `base_sepolia` mode, owner execution revalidates policy, spend, risk, and approvals, then signs and submits only allowlisted ERC-20 transfers on chain ID `84532`. In `base_sepolia_vault` mode, the server key is an agent session key only: the executor verifies the vault code, reads `owner()` and `agent()`, refuses owner/agent key overlap or an unconfigured signer, simulates the vault call, and only then signs `transferToken` on chain ID `84532`. Neither testnet mode has a silent fallback; an invalid chain ID is rejected.
+When `AEGIS_VAULT_ADDRESS` and `BASE_SEPOLIA_RPC_URL` are configured, the
+owner-only `GET /chain/base-sepolia/vault/status` reads the vault owner, agent,
+pause state, token policies, today's spend, and allowlisted-recipient flags, then
+reports every difference from the Aegis demo policy. The owner-only
+`GET /transactions/{transaction_id}/vault-approval` prepares exact
+`approveTransfer` calldata for eligible proposals; it supplies a suggested
+one-hour expiry and a `cast send` command using the operator-provided
+`OWNER_PRIVATE_KEY` environment variable. The API never obtains that key and
+never signs the approval.
 
 The owner-only `POST /pause` and `POST /resume` controls persist a pause flag and append-only control log in SQLite. While paused, new proposal attempts are recorded as `blocked` with a clear reason, and owner approval/execution requests fail with HTTP 409. Reads, cancellation, rejection, and receipt lookups continue to work; an existing idempotent replay still resolves to its stored record.
 

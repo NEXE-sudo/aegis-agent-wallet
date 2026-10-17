@@ -4,6 +4,7 @@
 
 - Add a Base Sepolia-only AegisVault deployment script and owner operations runbook using Foundry keystore signing without repository-held keys.
 - Add an unaudited, testnet-only AegisVault contract with owner-managed token caps, exact transfer approvals, recipient allowlisting, pause controls, and Foundry unit/fuzz/invariant tests.
+- Add owner-only vault approval calldata and read-only vault status/policy synchronization endpoints.
 - Add the `base_sepolia_vault` agent-session-key executor with vault identity checks, exact proposal-bound transfer calldata, and mandatory read-only simulation before signing.
 - Add an owner-only pause/resume kill switch and a pending proposal cap; while the wallet is paused, new proposals are blocked and approve/execute requests fail with a clear 409 code, while reads, reject/cancel, and receipts still work.
 - Add opt-in, locally signed ERC-20 execution on Base Sepolia only (chain ID 84532); simulated execution remains the default.
