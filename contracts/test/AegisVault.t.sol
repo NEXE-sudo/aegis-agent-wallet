@@ -261,22 +261,22 @@ contract AegisVaultTest is Test {
         uint256 expiry = block.timestamp + 1 days;
         _approve(UNLISTED, 10, REF, expiry);
 
-        vm.expectRevert(AegisVault.TransferApprovalRequired.selector);
+        vm.expectPartialRevert(AegisVault.TransferApprovalRequired.selector);
         vm.prank(AGENT);
         vault.transferToken(address(token), UNLISTED, 10, bytes32("wrong-ref"));
 
-        vm.expectRevert(AegisVault.TransferApprovalRequired.selector);
+        vm.expectPartialRevert(AegisVault.TransferApprovalRequired.selector);
         vm.prank(AGENT);
         vault.transferToken(address(token), UNLISTED, 11, REF);
 
-        vm.expectRevert(AegisVault.TransferApprovalRequired.selector);
+        vm.expectPartialRevert(AegisVault.TransferApprovalRequired.selector);
         vm.prank(AGENT);
         vault.transferToken(address(token), address(0xD00D), 10, REF);
 
         MockToken other = new MockToken();
         vault.setTokenPolicy(address(other), true, 100, 200, 0);
         other.mint(address(vault), 100);
-        vm.expectRevert(AegisVault.TransferApprovalRequired.selector);
+        vm.expectPartialRevert(AegisVault.TransferApprovalRequired.selector);
         vm.prank(AGENT);
         vault.transferToken(address(other), UNLISTED, 10, REF);
     }
@@ -285,7 +285,7 @@ contract AegisVaultTest is Test {
         _approve(UNLISTED, 10, REF, block.timestamp + 1 days);
         vault.revokeApproval(address(token), UNLISTED, 10, REF);
 
-        vm.expectRevert(AegisVault.TransferApprovalRequired.selector);
+        vm.expectPartialRevert(AegisVault.TransferApprovalRequired.selector);
         vm.prank(AGENT);
         vault.transferToken(address(token), UNLISTED, 10, REF);
     }
@@ -355,11 +355,11 @@ contract AegisVaultTest is Test {
         uint256 actualPriorSpend = vault.todaySpend(address(token));
 
         if (amount > 100) {
-            vm.expectRevert(AegisVault.PerTransactionCapExceeded.selector);
+            vm.expectPartialRevert(AegisVault.PerTransactionCapExceeded.selector);
             vm.prank(AGENT);
             vault.transferToken(address(token), RECIPIENT, amount, REF);
         } else if (actualPriorSpend + amount > 200) {
-            vm.expectRevert(AegisVault.DailyCapExceeded.selector);
+            vm.expectPartialRevert(AegisVault.DailyCapExceeded.selector);
             vm.prank(AGENT);
             vault.transferToken(address(token), RECIPIENT, amount, REF);
         } else {
@@ -369,9 +369,16 @@ contract AegisVaultTest is Test {
     }
 }
 
+contract AgentActor {
+    function callTarget(address target, bytes calldata data) external returns (bool success) {
+        (success,) = target.call(data);
+    }
+}
+
 contract VaultHandler {
     AegisVault public immutable vault;
     MockToken public immutable token;
+    AgentActor public immutable actor;
     address public constant ALLOWED_RECIPIENT = address(0xB0B);
     uint256 public unauthorizedSuccessfulTransfers;
     uint256 private _sequence;
@@ -379,7 +386,8 @@ contract VaultHandler {
     constructor() {
         vault = new AegisVault(address(this));
         token = new MockToken();
-        vault.setAgent(address(this));
+        actor = new AgentActor();
+        vault.setAgent(address(actor));
         vault.setTokenPolicy(address(token), true, 100, 200, 80);
         vault.setRecipient(ALLOWED_RECIPIENT, true);
         token.mint(address(vault), 1_000_000);
@@ -397,7 +405,8 @@ contract VaultHandler {
             vault.approveTransfer(address(token), to, amount, ref, block.timestamp + 1 days);
         }
 
-        (bool success,) = address(vault).call(
+        bool success = actor.callTarget(
+            address(vault),
             abi.encodeCall(AegisVault.transferToken, (address(token), to, amount, ref))
         );
         if (success && needsApproval && !grantApproval) {
