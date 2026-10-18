@@ -2,51 +2,39 @@
 
 ## 1.10.3 (unreleased)
 
-- Add a Base Sepolia-only AegisVault deployment script and owner operations runbook using Foundry keystore signing without repository-held keys.
-- Add an unaudited, testnet-only AegisVault contract with owner-managed token caps, exact transfer approvals, recipient allowlisting, pause controls, and Foundry unit/fuzz/invariant tests.
-- Document vault-mode architecture, permission tiers, trust boundaries, known risks, and `TODO`-only testnet evidence with read-only verification commands.
-- Add a simulation-first Base Sepolia vault bypass demo with opt-in fixed-gas broadcasts for verified reverts.
-- Extend the read-only testnet evidence verifier to validate AegisVault calls, vault/token transfer logs, and the audit-stored proposal reference.
-- Add owner-only vault approval calldata and read-only vault status/policy synchronization endpoints.
-- Add the `base_sepolia_vault` agent-session-key executor with vault identity checks, exact proposal-bound transfer calldata, and mandatory read-only simulation before signing.
-- Add an owner-only pause/resume kill switch and a pending proposal cap; while the wallet is paused, new proposals are blocked and approve/execute requests fail with a clear 409 code, while reads, reject/cancel, and receipts still work.
-- Add opt-in, locally signed ERC-20 execution on Base Sepolia only (chain ID 84532); simulated execution remains the default.
-- Verify the complete unsigned transfer against its approved proposal immediately before signing.
-- Expose an owner-only canonical SHA-256 hash of the active policy and include it in proposal and execution audit details.
-- Require explicit testnet key and HTTPS RPC configuration, revalidate workflow policy and risk before signing, and persist pending signed transactions for safe retry.
-- Add owner-only testnet receipt status reads and mode-aware frontend feedback; document the testnet boundary and manual faucet test.
-- Add an agent package with an agent-token-only proposal, market-quote, and status tool set, plus configurable OpenAI-compatible LLM and deterministic offline fallback.
-- Add five scripted offline evaluation scenarios and JSON/Markdown evidence; run the evaluation in CI.
-- Add an opt-in, repeated LLM prompt-injection evaluation with per-scenario pass counts and separate reports.
-- Add a read-only Base Sepolia transaction-evidence verifier and a throwaway-wallet manual test runbook; leave real transaction evidence pending an owner-run transfer.
-- Bind testnet evidence to the expected sender and optionally cross-check the submitted transfer against Aegis's read-only audit database.
-- Add opt-out Base Sepolia pre-sign transfer simulation and sender token/ETH balance checks with safe HTTP 409 refusals.
-- Add technical and security assessments and archive the audit findings with current statuses.
+- Add an unaudited, testnet-only AegisVault with owner-managed token caps, exact transfer approvals, recipient allowlisting and pause controls, plus Foundry unit/fuzz/invariant tests; provide a Base Sepolia deployment script and owner runbook using Foundry keystore signing without repository-held keys.
+- Add the `base_sepolia_vault` agent-session-key executor with vault identity checks, exact proposal-bound transfer calldata, mandatory read-only simulation before signing, owner-only approval calldata and read-only vault status/policy synchronization endpoints.
+- Extend read-only transaction-evidence verification to check the expected sender, vault call, transfer logs and audit-stored proposal reference; add a throwaway-wallet runbook and simulation-first bypass demo with opt-in fixed-gas broadcasts for verified reverts. Real transfer evidence remains pending an owner-run transfer.
+- Add opt-in, locally signed ERC-20 execution on Base Sepolia only (chain ID 84532), with explicit testnet-key and HTTPS RPC configuration, policy/spend/risk/approval revalidation, complete pre-sign transfer checks, pending signed-transaction retry, owner-only receipt status and mode-aware frontend feedback. Simulation remains the default; no mainnet execution is supported.
+- Add opt-out pre-sign transfer simulation and sender token/ETH balance checks with safe HTTP 409 refusals; expose an owner-only canonical SHA-256 policy hash in proposal and execution audit details.
+- Add an owner-only pause/resume kill switch and pending-proposal cap; while paused, new proposals are blocked and approve/execute requests fail with a clear 409 code, while reads, reject/cancel and receipts remain available.
+- Add an agent-token-only proposal, market-quote and status tool set with a configurable OpenAI-compatible LLM and deterministic offline fallback; add five scripted offline evaluation scenarios with JSON/Markdown evidence in CI and an opt-in repeated LLM prompt-injection evaluation with per-scenario pass counts and separate reports.
+- Add technical and security assessments, vault architecture, permission tiers, trust boundaries and known risks; keep testnet evidence as `TODO` placeholders with read-only verification commands and document the manual faucet test.
 - Test Python 3.12 in CI in addition to Python 3.11 and 3.14.
 
 ## 1.10.2
 
-- Add an owner-authenticated cancellation action for pending proposals; cancellation clears approval state, appends an audit event, and releases the daily reservation.
-- Add an owner-authenticated rejection action for pending proposals; rejection is audited, idempotent, and releases the daily reservation.
-- Correct same-day Stooq equity quote timestamps so today's session date is not rejected as a future quote.
-- Replace the misleading token `verified` field with `erc20_metadata_readable` and reject token metadata strings longer than 256 bytes.
+- Add owner-authenticated proposal cancellation and rejection, releasing reserved daily budget and recording audit events.
+- Correct same-day Stooq equity quote timestamps; clarify readable ERC-20 metadata is not token verification and cap metadata strings at 256 bytes.
 - Explicitly close SQLite connections, consolidate approval-expiry checks, and remove redundant idempotency and normalization work.
-- Add nonce-based Content Security Policy and standard browser security headers to the served frontend.
-- Document the unauthenticated evaluation endpoints' policy-oracle exposure.
-- Test the declared Python minimum (3.11) and a newer supported runtime (3.14) in CI.
+- Add nonce-based Content Security Policy and standard browser security headers; document the policy-oracle exposure of unauthenticated evaluation endpoints.
+- Test the declared Python minimum (3.11) and newer supported runtime (3.14) in CI.
 
 ## 1.10.1
 
-- Add a dependency-free local frontend control centre for proposals, approvals, simulation, workflow search, audit inspection, and connection settings.
-- Add read-only crypto and equity market-data quotes with fixed HTTPS providers, response validation, stale-data indicators, and sanitized failures.
-- Add locked dependency, test, lint, and dependency-audit workflows and document the simulation-only security boundary.
+- Version the newer implementation as a corrective patch without changing the existing published `v1.10.0` tag.
+- Add a dependency-free local frontend control centre for proposals, approvals, simulation, workflow search, audit inspection and connection settings.
+- Add read-only crypto and equity market-data quotes using fixed HTTPS providers, response validation, stale-data indicators and sanitized failures.
+- Add locked dependency, test, lint and dependency-audit workflows; document the simulation-only security boundary and prototype limitations.
 
 ## 1.10.0
 
-- Detect expired approvals when an approval retry is attempted, clear stale approval state, and record an expiry audit event.
-- Return an explicit conflict response requiring a fresh approval instead of reporting that an expired approval is still active.
-- Add regression coverage for reapproval after expiry.
-
+- Add deterministic policy evaluation, explainable heuristic risk scoring, persisted workflow state, idempotency protection, daily-spend reservations, and an append-only audit trail.
+- Require fingerprint-bound owner approval with expiry; clear stale approval state on retry and return an explicit conflict requiring fresh approval, with regression coverage.
+- Add read-only Base Sepolia contract/token inspection and read-only crypto/equity market quotes with fixed HTTPS providers, validation, stale-data indicators, and sanitized failures.
+- Add a dependency-free local frontend control centre and a reproducible demo walkthrough.
+- Add locked dependency, test, lint, and dependency-audit workflows with documented local verification and threat-model guidance.
+- Keep this release simulation-only: it does not load private keys, sign transactions, or submit transactions; risk scoring is heuristic and bearer-token authentication is for local development.
 
 ## 1.9.0
 

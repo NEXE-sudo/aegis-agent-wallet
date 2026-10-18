@@ -108,3 +108,18 @@ Run `python examples/propose_transaction.py` with `AEGIS_AGENT_TOKEN` set in you
 Follow the step-by-step [reproducible demo scenario](docs/demo-scenario.md) to exercise an allowed proposal, human approval, a hard block, idempotency replay/conflict, and audit retrieval with expected outcomes.
 
 This remains a local prototype. Use only simulated mode or a throwaway Base Sepolia wallet funded by faucets; never use mainnet keys or real funds.
+
+## Documentation
+
+- [Technical document](docs/technical-document.md) — architecture, scope, and on-chain flow.
+- [Security self-assessment](docs/security-self-assessment.md) — implementation-based security assessment and residual risks.
+- [AegisVault on-chain enforcement](docs/onchain-enforcement.md) — vault design, runbook, and evidence placeholders.
+- [Threat model](docs/threat-model.md) — security goals, assets, trust boundaries, and threats.
+- [Runtime configuration](docs/runtime-configuration.md) — environment variables, local binding, and operational troubleshooting.
+- [Agent and evaluation guide](docs/agent.md) — agent tools, trusted payment inputs, and evaluation.
+- [Workflow state transitions](docs/workflow-state-transitions.md) — workflow statuses and state changes.
+- [Reproducible demo scenario](docs/demo-scenario.md) — API walkthrough and expected outcomes.
+- [Python client walkthrough](docs/python-client.md) — authenticated proposal-only API client.
+- [Frontend guide](docs/frontend.md) — frontend functionality, validation, and safety limitations.
+- [Market-data guide](docs/market-data.md) — read-only market-data endpoint and providers.
+- [Version 1.10.3 release notes](docs/release-notes-v1.10.3.md) — testnet and agent-evaluation release notes (unreleased).

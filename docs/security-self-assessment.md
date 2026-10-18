@@ -109,6 +109,11 @@ These limits apply to the contract and operational model described in
 - There is no mainnet target, production key custody, monitoring, automated
   recovery, or on-chain finality/reorganization handling.
 
+### Additional residual findings from the 2026-10-16 review
+
+- The review marked approval-expiry logic as partially resolved; it noted that validation remained duplicated between `WorkflowStore.approve` and `_execute_with_validation`.
+- The review marked release hygiene as partially resolved, citing changelog/release-note inconsistencies and formatting concerns in its 2026-10-16 snapshot.
+
 ### Data, logs, and audit
 
 - Request logs use route metadata and status rather than raw URLs, headers, or
