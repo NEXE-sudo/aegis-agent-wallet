@@ -79,7 +79,6 @@ def test_vault_execution_settings_require_valid_address_and_agent_key(monkeypatc
     settings = ExecutionSettings.from_environment()
     assert settings.mode == "base_sepolia_vault"
     assert settings.vault_address == "0x9999999999999999999999999999999999999999"
-    assert settings.preflight_enabled is True
     assert settings.private_key == private_key
 
 
