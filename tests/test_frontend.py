@@ -261,6 +261,7 @@ const notify = () => {};
 const renderAll = () => {};
 const refreshAuditSummary = async () => {};
 const refreshMarketSnapshot = async () => {};
+const refreshSpendingSummary = async () => {};
 const setApiState = () => {};
 const event = {preventDefault() {}, currentTarget: form};
 (async () => {
