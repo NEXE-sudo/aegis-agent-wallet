@@ -8,14 +8,14 @@ it is not a production deployment specification or a security certification.
 Aegis is a local-first, testnet-focused wallet-agent prototype. It accepts payment
 proposals from an agent, evaluates them against deterministic policy and heuristic
 risk rules, records workflow state in SQLite, and exposes owner-authenticated
-approval and execution operations. Execution is simulated by default. Explicitly configured modes can sign and submit
-allowlisted ERC-20 transfers on Base Sepolia (chain ID `84532`) only. The optional
-`base_sepolia_vault` mode sends transfers from a single agent session key to an
-unaudited, testnet-only AegisVault that independently enforces on-chain token
-caps, recipient/approval rules, and pause state.
+approval and execution operations. Execution is simulated by default. The only mode that can sign and submit an
+actual ERC-20 transfer is `base_sepolia_vault`, which sends proposal-bound calls
+from a separate agent session key to an unaudited, testnet-only AegisVault on Base
+Sepolia (chain ID `84532`). Direct EOA token transfers are disabled. The vault
+independently enforces on-chain token caps, recipient/approval rules, and pause state.
 
 The agent can propose transactions, retrieve market quotes, and read a limited
-transaction status. It cannot approve, reject, execute, or broadcast a transaction.
+transaction status. It cannot approve or reject a transaction. It can request execution only for eligible proposals through the vault-only agent endpoint; owner approval requirements remain enforced.
 No mainnet execution, exchange or broker order routing, or production key custody is
 provided.
 
@@ -62,12 +62,11 @@ flowchart LR
   Audit rows have SQLite guards against ordinary update and delete operations;
   these are not cryptographic tamper protection against someone controlling the
   database file.
-- **`app/chain/`** contains read-only Base Sepolia inspection and separately gated
-  standard-token and vault executors. In testnet modes, `eth-account` signs
-  locally; the executor sends signed bytes to the configured RPC provider, not
-  the private key. Vault mode requires the signer to be the configured agent and
-  distinct from `owner()`, checks the deployed code, validates the exact calldata,
-  and simulates the transfer before signing.
+- **`app/chain/`** contains read-only Base Sepolia inspection and the vault executor.
+  In vault mode, `eth-account` signs locally; the executor sends signed bytes to
+  the configured RPC provider, not the private key. It requires the signer to be
+  the configured agent and distinct from `owner()`, checks deployed code, validates
+  exact calldata, and simulates the transfer before signing.
 - **`contracts/src/AegisVault.sol`** holds testnet tokens and independently
   enforces the configured agent, token caps, UTC-day spending bucket, allowed
   recipients or exact expiring owner approvals, and pause state. It is not
@@ -121,19 +120,19 @@ execution reference, and update time, not the full proposal or audit history.
    execution. A hard policy block cannot be approved through.
 4. In default `simulated` mode, the workflow records simulated execution without
    signing or sending a transaction.
-5. In `base_sepolia` mode, the executor validates the allowlisted token and chain,
-   estimates gas, applies configured gas caps, signs locally, and records the
-   signed transaction before broadcast. An uncertain submission retries the same
-   signed bytes rather than choosing a new nonce.
+5. In `base_sepolia_vault` mode, the executor validates the deployed vault, signer
+   identity, exact proposal-bound calldata, and simulated call before signing.
+   The contract re-enforces its policy when the call is submitted; an uncertain
+   submission retries the same signed bytes rather than choosing a new nonce.
 6. `GET /transactions/{transaction_id}/receipt` is owner-only and reports
    `pending`, `success`, or `failed` for a submitted testnet transaction. Submission
    or a successful receipt response is not proof of finality.
 
 ### On-chain vault flow (`base_sepolia_vault`)
 
-The workflow still requires owner-authenticated execution; the server's
-`AEGIS_TESTNET_PRIVATE_KEY` is the agent session key only and must not be the
-owner key. Before signing, the executor verifies Base Sepolia chain ID, deployed
+Owner-authenticated execution remains available, and eligible proposals may also be
+submitted through the agent-only endpoint. The server's `AEGIS_TESTNET_PRIVATE_KEY`
+is the agent session key only and must not be the owner key. Before signing, the executor verifies Base Sepolia chain ID, deployed
 vault code, `owner()`/`agent()` identity separation, and the complete
 `transferToken(token, recipient, amount, ref)` call. `ref` is the existing
 proposal fingerprint encoded as `bytes32`. The executor simulates that exact
@@ -287,12 +286,10 @@ Keep the API bound to loopback. Do not expose it publicly or use real-fund keys.
 
 ### Optional Base Sepolia manual test
 
-Only use throwaway keys funded with Base Sepolia faucet assets. For the standard
-`base_sepolia` mode, follow the [manual test procedure](runtime-configuration.md#manual-base-sepolia-test-transfer)
-for explicit configuration, a small owner-reviewed transfer, receipt inspection,
-and key cleanup. For `base_sepolia_vault`, follow the deployment and owner
-runbook in [on-chain enforcement](onchain-enforcement.md). The contract is
-unaudited and testnet-only. No live deployment or transfer is claimed by this
+Only use throwaway keys funded with Base Sepolia faucet assets. Follow the
+[manual test procedure](runtime-configuration.md#manual-base-sepolia-test-transfer)
+and deployment/owner runbook in [on-chain enforcement](onchain-enforcement.md).
+Direct EOA execution is disabled. The contract is unaudited and testnet-only. No live deployment or transfer is claimed by this
 document.
 
 - **Evidence (pending owner-run test; not yet verified):**
