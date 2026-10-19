@@ -32,7 +32,7 @@ Keep both tokens private. The agent token and owner/approval token must be diffe
 
 For requests, send `Authorization: Bearer <AEGIS_AGENT_TOKEN>` to `POST /transactions/propose`. Use `Authorization: Bearer <AEGIS_APPROVAL_TOKEN>` for transaction retrieval, approval, and simulated execution. `/health`, `/policy/evaluate`, and `/risk/assess` are demo endpoints; the latter two accept caller-provided spend only for isolated evaluation and do not create transactions.
 
-Agent-token calls include proposal creation plus the limited agent status and market-quote reads. Full transaction records, approval, rejection, execution, and audit operations remain owner-only. The agent itself only proposes; it never acts as owner. See the [agent guide](docs/agent.md) for task structure, LLM configuration, and offline evaluation.
+Agent-token calls include proposal creation, limited transaction-status and market-quote reads, and a vault-only execution endpoint for eligible proposals. The agent cannot approve, reject, pause, change policy, or use the owner token; proposals requiring approval remain blocked until the owner approves them. The autonomous execution endpoint is available only in `base_sepolia_vault` mode and relies on the vault's on-chain enforcement. See the [agent guide](docs/agent.md) for task structure, LLM configuration, and offline evaluation.
 
 ## Local frontend control centre
 
