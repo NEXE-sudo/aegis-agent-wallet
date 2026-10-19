@@ -116,7 +116,7 @@ The project does **not**:
 - Reconcile balances, mempool state, transaction receipts, chain reorganizations, or finality.
 - Claim that heuristic risk scoring is a validated fraud detector or that passing tests proves production security.
 
-Any move beyond the explicitly gated Base Sepolia testnet mode—including mainnet support or production key custody—requires a separate scope decision and dedicated design/security review.
+Any move beyond the explicitly gated Base Sepolia vault-only testnet mode—including mainnet support or production key custody—requires a separate scope decision and dedicated design/security review.
 
 ## 7. Review checklist for future changes
 
