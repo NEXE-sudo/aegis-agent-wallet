@@ -19,7 +19,7 @@ from app.chain.base_sepolia import (
     RpcRequestError,
     validate_address,
 )
-from app.policy.models import MAX_SQLITE_INTEGER, AgentPolicy
+from app.policy.models import MAX_SQLITE_INTEGER
 
 ExecutionMode = Literal["simulated", "base_sepolia_vault"]
 _MAX_GAS_PRICE_WEI = 100_000_000_000
