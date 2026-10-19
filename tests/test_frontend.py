@@ -418,3 +418,16 @@ const window = {confirm: () => true};
 })().catch((error) => { console.error(error); process.exitCode = 1; });
 """,
     )
+
+
+def test_frontend_exposes_owner_authenticated_read_only_network_status():
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert 'id="chain-status"' in response.text
+    assert 'id="refresh-chain-status"' in response.text
+    assert "api('/chain/base-sepolia/status'" in response.text
+    refresh = _script_function(response.text, "refreshChainStatus")
+    assert "sessionVersion !== state.sessionVersion || requestId !== state.chainStatusRequestId" in refresh
+    assert "status.chain_id === 84532" in _script_function(response.text, "renderChainStatus")
+    assert "does not verify vault deployment" in response.text
