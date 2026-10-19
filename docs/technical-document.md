@@ -172,6 +172,7 @@ creating a second reservation and reject reuse with a different proposal.
 | `GET /policy/hash` | Owner token | SHA-256 digest of the active policy and canonical format version. |
 | `GET /transactions`, `/transactions/{id}`, `/transactions/{id}/audit` | Owner token | Full transaction and audit reads. |
 | `POST /transactions/{id}/approve`, `/reject`, `/cancel`, `/execute` | Owner token | Owner workflow actions; execution is subject to current mode and revalidation. |
+| `POST /agent/transactions/{id}/execute` | Agent token | Executes only ready or approved proposals, only in `base_sepolia_vault` mode, through the same policy and on-chain checks as owner execution. |
 | `GET /chain/base-sepolia/status`, `/chain/base-sepolia/token/{address}` | Owner token | Read-only chain inspection. |
 | `GET /chain/base-sepolia/vault/status` | Owner token | Read-only AegisVault identity, pause, token policy/spend, recipient, and policy-sync inspection. |
 | `GET /transactions/{id}/vault-approval` | Owner token | Prepares exact owner approval calldata and a CLI command; never signs or accesses a key. |

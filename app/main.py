@@ -800,6 +800,37 @@ def execute_transaction(transaction_id: str) -> TransactionResponse:
     return _record_response(record or {})
 
 
+@app.post(
+    "/agent/transactions/{transaction_id}/execute",
+    response_model=TransactionResponse,
+    dependencies=[Depends(require_agent)],
+)
+def execute_agent_transaction(transaction_id: str) -> TransactionResponse:
+    """Execute an eligible agent proposal through the on-chain vault only."""
+    if execution_settings.mode != "base_sepolia_vault":
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "agent_execution_requires_vault",
+                "message": "Agent execution is available only through the Base Sepolia vault.",
+            },
+        )
+    record = store.get(transaction_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    if record["status"] not in {"ready", "approved"}:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "transaction_not_agent_executable",
+                "message": "Only ready or approved transactions can be submitted by the agent.",
+            },
+        )
+    # Reuse the owner route's execution path so policy, risk, approval, pause,
+    # proposal-integrity, simulation, and receipt-state checks stay centralised.
+    return execute_transaction(transaction_id)
+
+
 @app.get(
     "/transactions/{transaction_id}/receipt",
     response_model=TransactionReceiptResponse,

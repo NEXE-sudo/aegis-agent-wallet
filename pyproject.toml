@@ -19,6 +19,7 @@ addopts = "-ra"
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+exclude = ["contracts/lib/**"]
 
 [tool.setuptools.packages.find]
 include = ["app*", "agent*"]
