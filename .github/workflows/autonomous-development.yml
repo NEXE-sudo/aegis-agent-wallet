@@ -120,14 +120,15 @@ jobs:
           GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
         run: |
           set -euo pipefail
-          gh run view "$FAILED_RUN_ID" --repo "$REPO" --log-failed > "$RUNNER_TEMP/failed-ci.log" || true
+          gh run view "$FAILED_RUN_ID" --repo "$REPO" --log-failed > "$GITHUB_WORKSPACE/.autonomous-ci-failure.log" || true
 
-      - name: Install project dependencies
+      - name: Set up Copilot CLI runtime
         if: steps.select.outputs.skip != 'true'
-        run: |
-          python -m pip install "uv==0.13.0"
-          uv sync --locked --extra dev
-          uv run --locked playwright install --with-deps chromium
+        uses: actions/setup-node@v7
+
+      - name: Install Copilot CLI
+        if: steps.select.outputs.skip != 'true'
+        run: npm install -g @github/copilot
 
       - name: Run Copilot on one task or same-branch repair
         if: steps.select.outputs.skip != 'true'
@@ -140,19 +141,17 @@ jobs:
           set -euo pipefail
           if [[ "$TASK_MODE" == "repair" ]]; then
             PROMPT="$(cat <<'PROMPT'
-          Repair the failing checks for the current open autonomous task pull request on this same branch. Read /tmp/failed-ci.log and the repository handoff first. Make the smallest correction, add or adjust regression tests, and update docs/chatbot-handoff.md in this same PR. Do not start a new feature, change workflow/security configuration, dependency manifests or lockfiles, contracts, secrets, or execution scope. Run uv run --locked ruff check . and uv run --locked python -m pytest -q. Do not commit, push, create PRs, or merge; the workflow handles Git operations. A maximum of one CI repair is allowed for a task PR.
+          Repair the failing checks for the current open autonomous task pull request on this same branch. Read .autonomous-ci-failure.log and docs/chatbot-handoff.md first. Make the smallest correction, add or adjust regression tests, and update docs/chatbot-handoff.md in this same PR. Do not start a new feature, change workflow/security configuration, dependency manifests or lockfiles, contracts, secrets, or execution scope. Do not run tests yourself; the workflow's Python checks run after you push. Do not commit, push, create PRs, or merge; the workflow handles Git operations. A maximum of one CI repair is allowed for a task PR.
           PROMPT
           )"
-            cp "$RUNNER_TEMP/failed-ci.log" /tmp/failed-ci.log
           else
             PROMPT="$(cat <<'PROMPT'
-          Implement exactly one small, coherent, unfinished task from docs/chatbot-handoff.md. Inspect existing routes, service boundaries, frontend data flow and tests before deciding; prefer the next explicitly listed roadmap item and avoid duplicate endpoints. Preserve the testnet-only Aegis Agent Wallet scope: simulated execution by default, actual ERC-20 only through the unaudited AegisVault on Base Sepolia chain ID 84532, owner approval and policy enforcement intact, no mainnet/production claims, no secrets/private keys. Do not change .github/**, pyproject.toml, uv.lock, contracts/**, security configuration, or deployment settings. Add focused regression tests, update docs/chatbot-handoff.md, and run uv run --locked ruff check . plus uv run --locked python -m pytest -q. Do not commit, push, create PRs, or merge; the workflow handles Git operations. Do not take on more than one task. In docs/chatbot-handoff.md include the exact phrase "PR details will be recorded by automation." in the current-task bullet so the workflow can replace it with the created PR number and URL. Write .autonomous-task-result.json containing valid JSON with string fields title, description, and summary; title must be plain English without a conventional prefix, description must be one sentence, and summary must be a concise task label. Do not include secrets in this file.
+          Implement exactly one small, coherent, unfinished task from docs/chatbot-handoff.md. Inspect existing routes, service boundaries, frontend data flow and tests before deciding; prefer the next explicitly listed roadmap item and avoid duplicate endpoints. Preserve the testnet-only Aegis Agent Wallet scope: simulated execution by default, actual ERC-20 only through the unaudited AegisVault on Base Sepolia chain ID 84532, owner approval and policy enforcement intact, no mainnet/production claims, no secrets/private keys. Do not change .github/**, pyproject.toml, uv.lock, contracts/**, security configuration, or deployment settings. Add focused regression tests and update docs/chatbot-handoff.md. Do not run tests yourself; the workflow's Python checks run after the PR is opened. Do not commit, push, create PRs, or merge; the workflow handles Git operations. Do not take on more than one task. In docs/chatbot-handoff.md include the exact phrase "PR details will be recorded by automation." in the current-task bullet so the workflow can replace it with the created PR number and URL. Write .autonomous-task-result.json containing valid JSON with string fields title, description, and summary; title must be plain English without a conventional prefix, description must be one sentence, and summary must be a concise task label. Do not include secrets in this file.
           PROMPT
           )"
           fi
           copilot --autopilot --no-ask-user --max-autopilot-continues 3 --max-ai-credits 100 -p "$PROMPT" \
             --allow-tool='shell(git:*)' \
-            --allow-tool='shell(uv:*)' \
             --allow-tool=read \
             --allow-tool=write
 
@@ -163,6 +162,7 @@ jobs:
           TASK_MODE: ${{ steps.select.outputs.mode }}
         run: |
           set -euo pipefail
+          rm -f .autonomous-ci-failure.log
           CHANGED="$(git status --short)"
           CHANGED_FILES="$( { git diff --name-only; git diff --cached --name-only; git ls-files --others --exclude-standard; } | sort -u )"
           if [[ -z "$CHANGED" ]]; then
