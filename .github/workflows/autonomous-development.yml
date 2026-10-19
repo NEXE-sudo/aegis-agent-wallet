@@ -182,8 +182,6 @@ jobs:
               exit 1
             fi
           fi
-          rm -f .autonomous-task-result.json
-
       - name: Publish the task branch and open or update its PR
         if: steps.select.outputs.skip != 'true'
         id: publish
@@ -200,6 +198,7 @@ jobs:
             TITLE="$(jq -r '.title' .autonomous-task-result.json)"
             DESCRIPTION="$(jq -r '.description' .autonomous-task-result.json)"
             SUMMARY="$(jq -r '.summary' .autonomous-task-result.json)"
+            rm -f .autonomous-task-result.json
             git add -A
             git commit -m "$SUMMARY"
             git push --set-upstream origin "$TASK_BRANCH"
