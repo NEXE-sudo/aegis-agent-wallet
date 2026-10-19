@@ -13,6 +13,7 @@ permissions:
   contents: read
   pull-requests: read
   actions: read
+  copilot-requests: write
 
 concurrency:
   group: autonomous-development-${{ github.repository }}
@@ -41,14 +42,9 @@ jobs:
       - name: Check required credentials
         shell: bash
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           AUTOMATION_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
         run: |
           set -euo pipefail
-          if [[ -z "$COPILOT_GITHUB_TOKEN" ]]; then
-            echo "::error::Add the COPILOT_GITHUB_TOKEN Actions secret; see docs/autonomous-development.md."
-            exit 1
-          fi
           if [[ -z "$AUTOMATION_TOKEN" ]]; then
             echo "::error::Add the AUTOMATION_TOKEN Actions secret; see docs/autonomous-development.md."
             exit 1
@@ -134,7 +130,7 @@ jobs:
         if: steps.select.outputs.skip != 'true'
         shell: bash
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           TASK_MODE: ${{ steps.select.outputs.mode }}
           TASK_BRANCH: ${{ steps.select.outputs.branch }}
         run: |

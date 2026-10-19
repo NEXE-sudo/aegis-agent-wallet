@@ -93,7 +93,7 @@ Last updated: 20 October 2026
 - PR #187 (network status on Overview): squash-merged as `f220ee98fc75ee03910feee39b8c5f2220b7634c`; CI passed on Python 3.11/3.12/3.14, and the user confirmed Ruff and pytest passed on updated `main` and deleted the branch. The panel reports only the configured RPC's chain ID; it does not prove vault deployment, token authenticity, or transaction finality.
 - PR #188 (configured vault status on Overview): squash-merged as `7f829059c4400f1300a338c6b32692f7acce8118`; GitHub Actions passed on Python 3.11/3.12/3.14, the user confirmed post-merge Ruff and pytest passed on updated `main`, and the branch was deleted. The panel reports vault roles, pause state, and policy differences from the configured RPC; this is not an independent contract audit.
 - The user has completed post-merge verification for PR #188 and deleted its branch. The next product slice is transaction receipt/history visibility, after inspecting existing endpoint support.
-- The autonomous development setup is being proposed in its own PR. It must use GitHub cloud execution, one focused task at a time, bounded Copilot credit/continuation/time limits, one same-branch CI repair, required checks before squash auto-merge, and the safety rules in docs/autonomous-development.md. Never update `main` directly.
+- PR #189 set up the bounded autonomous development workflow and was squash-merged as `bd0b33c81635bf74d004c00ccaba3f4ac70d1eb7`; the user confirmed post-merge checks and deleted its branch. The workflow's initial Copilot authentication uses `COPILOT_GITHUB_TOKEN`, but the user's token UI exposes only read-only Copilot Requests. A follow-up PR is switching Copilot CLI to the built-in Actions `GITHUB_TOKEN` with `copilot-requests: write`; eligibility for this personal-account repository is not yet verified. Keep the loop disabled until that is tested. Never update `main` directly.
 - Keep every future handoff update inside the feature PR that motivates it. Never update `main` directly.
 
 ## Standard accounting and safety semantics
@@ -107,7 +107,7 @@ Last updated: 20 October 2026
 
 ## Autonomous development workflow
 
-- PR #189 (Set up bounded autonomous development) is open on branch agent/autonomous-development-workflow. It adds the GitHub Actions/Copilot CLI workflow, repository instructions, and setup documentation; configure the repository secrets described in docs/autonomous-development.md before enabling the loop. Wait for all CI checks and the user's branch validation before merging.
+- PR #189 (Set up bounded autonomous development) is merged as `bd0b33c81635bf74d004c00ccaba3f4ac70d1eb7`. Follow-up PR `agent/copilot-actions-token` switches Copilot CLI authentication to built-in `GITHUB_TOKEN` plus `copilot-requests: write`; this is unverified on the user's personal account and must not be treated as ready until tested.
 - The loop starts from Actions → Autonomous development → Run workflow, then continues after an autonomous task PR is merged. It creates no more than one task PR at a time and has a rolling cap of three autonomous task PR merges per 24 hours.
 - Each Copilot run is capped at 100 AI credits, three autopilot continuations, and 60 minutes. One failed CI run may be repaired on the same branch; after a second failure the PR remains open for human intervention.
 - Generated PR descriptions remain one sentence; a hidden marker identifies autonomous task PRs for continuation. Required branch protections and review rules remain authoritative.
