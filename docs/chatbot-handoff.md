@@ -17,7 +17,8 @@ Last updated: 20 October 2026
 - PR #181 added owner-authenticated read-only `GET /policy/config` for active policy settings and allowlists.
 - PR #181 was squash-merged as `71b611700b0a3b113d9fa102789572c54c7ab77a`; the user confirmed checks passed on the PR and updated `main`, and the branch was deleted.
 - PR #182 added owner-authenticated `GET /spending/summary` for UTC-day local workflow spend and remaining budget per allowed token; it is merged, the user confirmed checks passed on updated `main`, and the branch was deleted.
-- Current work is PR #183, Phase 2: the Overview dashboard surfaces the API's daily spending summary with exact token-unit formatting, per-token limits and remaining budget, stale-session protection, and clear local-accounting semantics. Branch: `agent/dashboard-spending-visibility`.
+- PR #183 added the Overview dashboard's owner-authenticated daily spending summary with exact token-unit formatting, per-token limits and remaining budget, stale-session protection, and clear local-accounting semantics; it was squash-merged as `62bdf6d9b72b01d322929294bfcd4f33be346918`, all three CI jobs passed, and the user confirmed checks passed on updated `main` and deleted the branch.
+- Current work is PR #184, Phase 2: expose the existing owner-authenticated `GET /policy/config` response in Settings as a read-only view of active chain/token/recipient allowlists, spending limits, and approval rules. Branch: `agent/dashboard-policy-visibility`.
 
 ## Phased roadmap
 
@@ -78,13 +79,13 @@ Last updated: 20 October 2026
 
 ## Current PR and next steps
 
-- PR #182 is complete; the user confirmed both checks passed on updated `main` and deleted its branch.
-- Current PR #183 adds an Overview panel for `GET /spending/summary` without changing backend accounting or execution behaviour.
-- CI initially exposed a regression-test harness omission: the isolated connection test did not stub the new `refreshSpendingSummary` callback. The test harness now stubs that callback; the application change itself remains owner-authenticated and session-guarded.
-- Ask the user to pull `agent/dashboard-spending-visibility` and run `uv run --locked ruff check .` and `uv run --locked python -m pytest -q`.
-- Once both pass on the PR branch, verify the current PR head and squash-merge PR #183.
+- PR #183 is complete; the user confirmed both checks passed on updated `main` and deleted its branch.
+- Current PR #184 adds a read-only active-policy panel to Settings using `GET /policy/config`; it does not change backend policy, credentials, or execution behaviour.
+- The panel is owner-authenticated, guards against stale-session responses, renders backend-provided values as escaped text, and displays policy errors without treating them as connection failures.
+- Ask the user to pull `agent/dashboard-policy-visibility` and run `uv run --locked ruff check .` and `uv run --locked python -m pytest -q`.
+- Once both pass on the PR branch, verify the current PR head and squash-merge PR #184.
 - Then have the user pull updated `main` and rerun both checks. Verify the merge and only then provide combined local/remote cleanup commands.
-- After cleanup, inspect the current repository and choose the next small Phase 2 slice; include handoff changes in that feature PR.
+- After cleanup, update this handoff inside the next feature PR.
 
 ## Standard accounting and safety semantics
 
