@@ -116,7 +116,8 @@ def test_frontend_shows_owner_authenticated_read_only_policy_configuration():
     assert "approval_threshold_base_units" in response.text
     assert "allowed_recipients" in response.text
     assert "state.policyConfigRequestId += 1;" in _script_function(response.text, "invalidatePendingRequests")
-    assert "sessionVersion !== state.sessionVersion || requestId !== state.policyConfigRequestId" in _script_function(response.text, "refreshPolicyConfig")
+    refresh = _script_function(response.text, "refreshPolicyConfig")
+    assert "sessionVersion !== state.sessionVersion || requestId !== state.policyConfigRequestId" in refresh
     assert "state.policyConfig = null;" in _script_function(response.text, "clearSessionData")
 
 
