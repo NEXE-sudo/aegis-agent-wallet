@@ -89,6 +89,22 @@ def test_frontend_covers_supported_views_and_workflow_endpoints():
     assert "No on-chain transaction occurred." in response.text
 
 
+def test_frontend_shows_owner_authenticated_daily_spending_summary():
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert 'id="spending-summary"' in response.text
+    assert 'id="spending-date"' in response.text
+    assert "api('/spending/summary'" in response.text
+    assert "spent_base_units" in response.text
+    assert "daily_limit_base_units" in response.text
+    assert "remaining_base_units" in response.text
+    assert "Local workflow accounting includes active reservations" in response.text
+    assert "state.spendingRequestId += 1;" in _script_function(response.text, "invalidatePendingRequests")
+    assert "sessionVersion !== state.sessionVersion || requestId !== state.spendingRequestId" in _script_function(response.text, "refreshSpendingSummary")
+    assert "state.spendingSummary = null;" in _script_function(response.text, "clearSessionData")
+
+
 def test_frontend_supports_vault_only_testnet_execution():
     response = client.get("/")
 
