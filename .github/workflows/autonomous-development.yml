@@ -164,7 +164,7 @@ jobs:
         run: |
           set -euo pipefail
           CHANGED="$(git status --short)"
-          CHANGED_FILES="$( { git diff --name-only; git ls-files --others --exclude-standard; } | sort -u )"
+          CHANGED_FILES="$( { git diff --name-only; git diff --cached --name-only; git ls-files --others --exclude-standard; } | sort -u )"
           if [[ -z "$CHANGED" ]]; then
             echo "::error::Copilot produced no changes; stopping without a PR."
             exit 1
