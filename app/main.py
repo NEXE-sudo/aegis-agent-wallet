@@ -358,7 +358,6 @@ def get_policy_config() -> dict[str, object]:
     }
 
 
-
 @app.get("/spending/summary", dependencies=[Depends(require_owner)])
 def get_spending_summary() -> dict[str, object]:
     """Summarize today's local workflow spend and active reservations per allowed token."""
