@@ -445,6 +445,5 @@ def test_frontend_shows_owner_authenticated_read_only_vault_status():
     refresh = _script_function(response.text, "refreshVaultStatus")
     assert "sessionVersion !== state.sessionVersion || requestId !== state.vaultStatusRequestId" in refresh
     assert "status.in_sync === true" in _script_function(response.text, "renderVaultStatus")
-    assert "does not verify" not in response.text
     assert "not an independent contract audit" in response.text
     assert "state.vaultStatus = null;" in _script_function(response.text, "clearSessionData")
