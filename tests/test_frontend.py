@@ -105,6 +105,22 @@ def test_frontend_shows_owner_authenticated_daily_spending_summary():
     assert "state.spendingSummary = null;" in _script_function(response.text, "clearSessionData")
 
 
+def test_frontend_shows_owner_authenticated_read_only_policy_configuration():
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert 'id="policy-config-content"' in response.text
+    assert "api('/policy/config'" in response.text
+    assert "max_transaction_base_units" in response.text
+    assert "daily_limit_base_units" in response.text
+    assert "approval_threshold_base_units" in response.text
+    assert "allowed_recipients" in response.text
+    assert "state.policyConfigRequestId += 1;" in _script_function(response.text, "invalidatePendingRequests")
+    refresh = _script_function(response.text, "refreshPolicyConfig")
+    assert "sessionVersion !== state.sessionVersion || requestId !== state.policyConfigRequestId" in refresh
+    assert "state.policyConfig = null;" in _script_function(response.text, "clearSessionData")
+
+
 def test_frontend_supports_vault_only_testnet_execution():
     response = client.get("/")
 
@@ -262,6 +278,7 @@ const renderAll = () => {};
 const refreshAuditSummary = async () => {};
 const refreshMarketSnapshot = async () => {};
 const refreshSpendingSummary = async () => {};
+const refreshPolicyConfig = async () => {};
 const setApiState = () => {};
 const event = {preventDefault() {}, currentTarget: form};
 (async () => {

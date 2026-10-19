@@ -63,6 +63,7 @@ def _mock_api(
     transaction_statuses: list[int] | None = None,
     health_statuses: list[int] | None = None,
     audit_events: list[dict] | None = None,
+    policy_config: dict | None = None,
 ) -> list[dict]:
     calls: list[dict] = []
     remaining_transaction_statuses = list(transaction_statuses or [])
@@ -100,6 +101,23 @@ def _mock_api(
         elif parsed.path == "/transactions" and request.method == "GET":
             status = remaining_transaction_statuses.pop(0) if remaining_transaction_statuses else 200
             fulfill(route, status, transactions if status == 200 and transactions is not None else [])
+        elif parsed.path == "/policy/config" and request.method == "GET":
+            fulfill(route, 200, policy_config or {
+                "agent_id": "devops-01",
+                "enabled": True,
+                "allowed_chain_ids": [84532],
+                "allowed_tokens": [{"address": "0x036cbd53842c5426634e7929541ec2318f3dcf7e", "symbol": "USDC", "chain_id": 84532, "decimals": 6}],
+                "allowed_token_symbols": ["USDC"],
+                "allowed_recipients": ["0x2222222222222222222222222222222222222222"],
+                "max_transaction_base_units": 50000000,
+                "daily_limit_base_units": 150000000,
+                "approval_threshold_base_units": 50000000,
+                "approval_expires_seconds": 300,
+                "unknown_recipient_requires_approval": True,
+                "recipient_token_allowlist": {},
+                "recipient_daily_limits_base_units": {},
+                "recipient_transaction_limits_base_units": {},
+            })
         elif parsed.path.startswith("/transactions/") and parsed.path.endswith("/audit"):
             fulfill(route, 200, audit_events or [])
         elif parsed.path.startswith("/market-data/"):
@@ -379,3 +397,46 @@ def test_browser_transaction_failures_keep_auth_and_confirmation_contracts(page:
     )
     assert execution_call["authorization"] == "Bearer owner-token"
     assert "confirmed simulated execution" not in page.locator("#global-feedback").inner_text()
+
+
+
+def test_browser_policy_configuration_is_owner_read_only(page: Page, frontend_url: str):
+    policy_config = {
+        "agent_id": "devops-01",
+        "enabled": True,
+        "allowed_chain_ids": [84532],
+        "allowed_tokens": [{
+            "address": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+            "symbol": "USDC",
+            "chain_id": 84532,
+            "decimals": 6,
+        }],
+        "allowed_token_symbols": ["USDC"],
+        "allowed_recipients": ["0x2222222222222222222222222222222222222222"],
+        "max_transaction_base_units": 50000000,
+        "daily_limit_base_units": 150000000,
+        "approval_threshold_base_units": 50000000,
+        "approval_expires_seconds": 300,
+        "unknown_recipient_requires_approval": True,
+        "recipient_token_allowlist": {},
+        "recipient_daily_limits_base_units": {},
+        "recipient_transaction_limits_base_units": {},
+    }
+    calls = _mock_api(page, policy_config=policy_config)
+    page.goto(frontend_url)
+    _connect(page, "agent-token", "owner-token")
+    expect(page.locator("#connection-status")).to_have_text("Agent token stored in memory")
+    page.locator('nav [data-view="settings"]').click()
+    panel = page.locator("#policy-config-content")
+    expect(panel).to_contain_text("50 USDC")
+    expect(panel).to_contain_text("150 USDC")
+    expect(panel).to_contain_text("300 seconds")
+    expect(panel).to_contain_text("0x2222222222222222222222222222222222222222")
+    assert any(
+        call["path"] == "/policy/config" and call["authorization"] == "Bearer owner-token"
+        for call in calls
+    )
+    assert not any(
+        call["path"] == "/policy/config" and call["authorization"] == "Bearer agent-token"
+        for call in calls
+    )

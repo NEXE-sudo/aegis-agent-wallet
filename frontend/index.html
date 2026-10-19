@@ -569,6 +569,13 @@ button.audit-card{text-align:left;width:100%;color:inherit}
           <h3>API health</h3>
           <p id="settings-health">Not checked.</p>
         </section>
+        <section class="settings-card" style="grid-column:1/-1">
+          <h3>Active policy configuration</h3>
+          <p>Owner-authenticated, read-only settings returned by the API; changes must be made through backend configuration.</p>
+          <div id="policy-config-content" aria-live="polite">
+            <div class="empty-state"><span>⌁</span><strong>Owner connection required</strong><div>Connect to inspect active limits and allowlists.</div></div>
+          </div>
+        </section>
         <section class="settings-card">
           <h3>Session controls</h3>
           <div class="form-actions" style="padding:0;">
@@ -624,6 +631,9 @@ const state = {
   spendingSummary: null,
   spendingSummaryError: '',
   spendingRequestId: 0,
+  policyConfig: null,
+  policyConfigError: '',
+  policyConfigRequestId: 0,
   auditLoadFailed: false,
   tokens: {agent: '', owner: ''},
   transactions: [],
@@ -714,6 +724,7 @@ const invalidatePendingRequests = () => {
   state.auditRequestId += 1;
   state.auditSummaryRequestId += 1;
   state.spendingRequestId += 1;
+  state.policyConfigRequestId += 1;
   state.proposalRequestId += 1;
 };
 
@@ -985,6 +996,90 @@ const refreshSpendingSummary = async () => {
   renderSpendingSummary();
 };
 
+
+const renderPolicyConfig = () => {
+  const target = document.getElementById('policy-config-content');
+  if (!state.tokens.owner) {
+    target.innerHTML = '<div class="empty-state"><span>⌁</span><strong>Owner connection required</strong><div>Connect to inspect active limits and allowlists.</div></div>';
+    return;
+  }
+  if (state.policyConfigError) {
+    target.textContent = 'Policy configuration is unavailable: ' + state.policyConfigError + '. Use Refresh to try again.';
+    target.className = 'inline-error';
+    return;
+  }
+  if (!state.policyConfig) {
+    target.innerHTML = '<div class="loading">Loading active policy configuration from the owner-authenticated API…</div>';
+    return;
+  }
+  target.className = '';
+  const config = state.policyConfig;
+  const tokens = Array.isArray(config.allowed_tokens) ? config.allowed_tokens : [];
+  const symbols = Array.isArray(config.allowed_token_symbols) ? config.allowed_token_symbols : [];
+  const chains = Array.isArray(config.allowed_chain_ids) ? config.allowed_chain_ids : [];
+  const recipients = Array.isArray(config.allowed_recipients) ? config.allowed_recipients : [];
+  const token = tokens[0] || {};
+  const decimals = Number.isInteger(token.decimals) ? token.decimals : 6;
+  const symbol = typeof token.symbol === 'string' ? token.symbol : (symbols[0] || 'USDC');
+  const tokenCards = tokens.length ? tokens.map((item) =>
+    '<div class="meta-card"><small>Allowed token · chain ' + esc(item.chain_id ?? '—') +
+    '</small><strong>' + esc(item.symbol || 'TOKEN') + '</strong><p class="small-mono" style="margin:8px 0 0">' +
+    esc(item.address || 'Address unavailable') + '</p><p class="muted" style="margin:6px 0 0;font-size:10px">' +
+    esc(Number.isInteger(item.decimals) ? item.decimals : '—') + ' decimals</p></div>'
+  ).join('') : '<div class="empty">No trusted allowed-token metadata was returned.</div>';
+  const recipientList = recipients.length
+    ? recipients.map((recipient) => '<li class="small-mono">' + esc(recipient) + '</li>').join('')
+    : '<li>No explicit recipients configured.</li>';
+  const metric = (label, value) => '<div class="meta-card"><small>' + esc(label) + '</small><strong>' + esc(value) + '</strong></div>';
+  target.innerHTML =
+    '<div class="metrics-row" style="margin:14px 0"><div><small class="muted smallcaps">Agent</small><div class="value">' +
+    esc(config.agent_id || '—') + '</div></div><span class="tag ' + (config.enabled === true ? 'good' : 'bad') + '">' +
+    (config.enabled === true ? 'ENABLED' : 'DISABLED') + '</span></div>' +
+    '<div class="meta-grid" style="padding:0">' +
+    metric('Allowed chain IDs', chains.length ? chains.join(', ') : '—') +
+    metric('Allowed token symbols', symbols.length ? symbols.join(', ') : '—') +
+    metric('Maximum transaction', formatMoney(config.max_transaction_base_units, symbol, decimals)) +
+    metric('Daily limit', formatMoney(config.daily_limit_base_units, symbol, decimals)) +
+    metric('Approval threshold', formatMoney(config.approval_threshold_base_units, symbol, decimals)) +
+    metric('Approval expiry', Number.isInteger(config.approval_expires_seconds) ? config.approval_expires_seconds + ' seconds' : '—') +
+    '</div><div class="settings-grid" style="padding:14px 0 0">' + tokenCards +
+    '<div class="settings-card"><h3>Approval rules</h3><p>Unknown recipient requires approval: <strong>' +
+    (config.unknown_recipient_requires_approval === true ? 'Yes' : config.unknown_recipient_requires_approval === false ? 'No' : '—') +
+    '</strong></p><p style="margin-top:8px">Recipient allowlist entries: <strong>' + esc(recipients.length) +
+    '</strong></p></div></div><div class="settings-card" style="margin-top:14px"><h3>Allowed recipients</h3><ul>' +
+    recipientList + '</ul></div><p class="field-help" style="margin-top:12px">Limits use the first returned allowed token’s decimals and symbol (' +
+    esc(symbol) + '); API values remain authoritative. This view is informational and cannot change policy.</p>';
+};
+
+const refreshPolicyConfig = async () => {
+  const sessionVersion = state.sessionVersion;
+  const requestId = ++state.policyConfigRequestId;
+  if (!state.tokens.owner) {
+    state.policyConfig = null;
+    state.policyConfigError = '';
+    renderPolicyConfig();
+    return;
+  }
+  state.policyConfig = null;
+  state.policyConfigError = '';
+  renderPolicyConfig();
+  try {
+    const config = await api('/policy/config', { method: 'GET' }, 'owner');
+    if (sessionVersion !== state.sessionVersion || requestId !== state.policyConfigRequestId) return;
+    if (!config || typeof config !== 'object' || !Array.isArray(config.allowed_tokens)
+      || !Array.isArray(config.allowed_chain_ids) || !Array.isArray(config.allowed_recipients)) {
+      throw new Error('The API returned an unexpected policy configuration.');
+    }
+    state.policyConfig = config;
+    state.policyConfigError = '';
+  } catch (error) {
+    if (sessionVersion !== state.sessionVersion || requestId !== state.policyConfigRequestId) return;
+    state.policyConfig = null;
+    state.policyConfigError = error.message;
+  }
+  renderPolicyConfig();
+};
+
 const renderOverview = () => {
   renderSpendingSummary();
   const rows = state.transactions || [];
@@ -1238,6 +1333,7 @@ const renderAll = () => {
   renderOverview();
   renderApprovals();
   renderActivity();
+  renderPolicyConfig();
 };
 
 const renderMarketButtons = () => {
@@ -1422,6 +1518,7 @@ const handleConnect = async (event) => {
     void refreshAuditSummary();
     void refreshMarketSnapshot();
     void refreshSpendingSummary();
+    void refreshPolicyConfig();
     closeConnectionModal();
     notify('Owner token verified. Agent token will be checked when a proposal is submitted.', 'success');
   } catch (error) {
@@ -1454,6 +1551,8 @@ const clearSessionData = () => {
   state.transactionError = '';
   state.spendingSummary = null;
   state.spendingSummaryError = '';
+  state.policyConfig = null;
+  state.policyConfigError = '';
   state.auditSummary = [];
   state.auditLoadFailed = false;
   state.marketQuotes = {};
@@ -1771,7 +1870,7 @@ document.getElementById('refresh').addEventListener('click', async () => {
   try {
     await Promise.all([checkApiHealth(), refreshTransactions()]);
     if (state.tokens.owner) {
-      await refreshMarketSnapshot();
+      await Promise.all([refreshMarketSnapshot(), refreshSpendingSummary(), refreshPolicyConfig()]);
       if (state.view === 'markets') await loadMarketQuote(state.marketSelected.assetClass, state.marketSelected.symbol);
     }
   } finally {
