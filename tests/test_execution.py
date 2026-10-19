@@ -22,7 +22,6 @@ from app.chain.execution import (
     ExecutionSettings,
     VaultExecutionError,
 )
-
 from app.workflow.controller import TransactionController
 from app.workflow.store import WorkflowStore
 
