@@ -528,3 +528,34 @@ def test_browser_policy_configuration_is_owner_read_only(page: Page, frontend_ur
         call["path"] == "/policy/config" and call["authorization"] == "Bearer agent-token"
         for call in calls
     )
+
+
+def test_browser_receipt_rpc_error_is_visible_without_fabricating_a_receipt(page: Page, frontend_url: str):
+    transaction_id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+    transactions = [{
+        "transaction_id": transaction_id,
+        "status": "submitted_onchain",
+        "fingerprint": "c" * 64,
+        "execution_reference": "0x" + "a" * 64,
+        "risk_level": "low",
+        "risk_score": 5,
+        "policy_decision": "allow",
+        "policy_reasons": [],
+        "risk_reasons": [],
+        "proposal": {"recipient": "0x" + "b" * 40, "amount_base_units": 1000000, "token_symbol": "USDC", "token_decimals": 6},
+        "created_at": "2026-10-15T10:00:00Z",
+        "updated_at": "2026-10-15T10:00:00Z",
+    }]
+    calls = _mock_api(page, transactions=transactions)
+    page.route("**/transactions/*/receipt", lambda route: route.fulfill(status=503, content_type="application/json", body=json.dumps({"detail": "receipt provider unavailable"})))
+    page.goto(frontend_url)
+    _connect(page, "agent-token", "owner-token")
+    page.locator('nav [data-view="activity"]').click()
+    page.get_by_role("button", name="Check receipt").click()
+    expect(page.locator("#global-feedback")).to_contain_text("Receipt status is unavailable")
+    expect(page.locator("#activity-rows .receipt-result")).to_have_count(0)
+    assert any(
+        call["path"] == "/transactions/" + transaction_id + "/receipt"
+        and call["authorization"] == "Bearer owner-token"
+        for call in calls
+    )
