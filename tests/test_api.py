@@ -2287,6 +2287,7 @@ def test_policy_config_returns_read_only_active_limits_and_allowlists():
     assert "AEGIS_AGENT_TOKEN" not in response.text
     assert "AEGIS_APPROVAL_TOKEN" not in response.text
 
+
 def test_spending_summary_requires_owner_authentication():
     response = client.get("/spending/summary")
     assert response.status_code == 401
@@ -2313,7 +2314,7 @@ def test_spending_summary_reports_daily_reservations_and_policy_limits():
         "decimals": 6,
         "spent_base_units": 1_000_000,
         "daily_limit_base_units": main.DEMO_POLICY.daily_limit_base_units,
-        "remaining_base_units": main.DEMO_POLICY.daily_limit_base_units - 1_000_000,
+        "remaining_base_units": max(0, main.DEMO_POLICY.daily_limit_base_units - 1_000_000),
         "limit_exceeded": False,
     }
 
