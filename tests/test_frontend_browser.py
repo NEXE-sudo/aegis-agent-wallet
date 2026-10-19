@@ -64,6 +64,7 @@ def _mock_api(
     health_statuses: list[int] | None = None,
     audit_events: list[dict] | None = None,
     policy_config: dict | None = None,
+    wallet_balances: dict | None = None,
 ) -> list[dict]:
     calls: list[dict] = []
     remaining_transaction_statuses = list(transaction_statuses or [])
@@ -101,6 +102,14 @@ def _mock_api(
         elif parsed.path == "/transactions" and request.method == "GET":
             status = remaining_transaction_statuses.pop(0) if remaining_transaction_statuses else 200
             fulfill(route, status, transactions if status == 200 and transactions is not None else [])
+        elif parsed.path.startswith("/chain/base-sepolia/address/") and parsed.path.endswith("/balances") and request.method == "GET":
+            fulfill(route, 200, wallet_balances or {
+                "address": "0x2222222222222222222222222222222222222222",
+                "chain_id": 84532,
+                "native_balance": {"symbol": "ETH", "decimals": 18, "balance_base_units": 1250000000000000000, "formatted_balance": "1.25"},
+                "tokens": [{"address": "0x036cbd53842c5426634e7929541ec2318f3dcf7e", "symbol": "USDC", "decimals": 6, "balance_base_units": 12345678, "formatted_balance": "12.345678"}],
+                "read_only": True,
+            })
         elif parsed.path == "/policy/config" and request.method == "GET":
             fulfill(route, 200, policy_config or {
                 "agent_id": "devops-01",
@@ -398,6 +407,29 @@ def test_browser_transaction_failures_keep_auth_and_confirmation_contracts(page:
     assert execution_call["authorization"] == "Bearer owner-token"
     assert "confirmed simulated execution" not in page.locator("#global-feedback").inner_text()
 
+
+
+
+def test_browser_wallet_balances_are_owner_authenticated_and_read_only(page: Page, frontend_url: str):
+    calls = _mock_api(page)
+    page.goto(frontend_url)
+    _connect(page, "agent-token", "owner-token")
+    expect(page.locator("#connection-status")).to_have_text("Agent token stored in memory")
+    address = "0x2222222222222222222222222222222222222222"
+    page.get_by_label("Public wallet address").fill(address)
+    page.get_by_role("button", name="Inspect balances").click()
+    panel = page.locator("#wallet-balances")
+    expect(panel).to_contain_text("1.25 ETH")
+    expect(panel).to_contain_text("12.345678 USDC")
+    expect(panel).to_contain_text(address)
+    balance_call = next(call for call in calls if call["path"].endswith("/balances"))
+    assert balance_call["path"] == f"/chain/base-sepolia/address/{address}/balances"
+    assert balance_call["authorization"] == "Bearer owner-token"
+    assert not any(
+        call["path"].endswith("/balances") and call["authorization"] == "Bearer agent-token"
+        for call in calls
+    )
+    assert "private key" in page.locator("#wallet-address-help").inner_text().lower()
 
 
 def test_browser_policy_configuration_is_owner_read_only(page: Page, frontend_url: str):
