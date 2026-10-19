@@ -93,10 +93,7 @@ The agent API client uses these scopes:
 | `get_market_quote` | `GET /agent/market-data/{asset_class}/{symbol}` | Agent token | Reads a validated quote; no workflow change. |
 | `read_transaction_status` | `GET /agent/transactions/{transaction_id}` | Agent token | Reads status, execution reference, and update time only. |
 
-Approval, rejection, execution, full transaction retrieval, and audit reads remain
-owner-only. A `ready` proposal is not a completed payment. The owner must review
-and explicitly act through the owner-authenticated API or frontend. Execution
-behavior is controlled by `AEGIS_EXECUTION_MODE`; the agent itself never executes.
+Approval, rejection, full transaction retrieval, and audit reads remain owner-only. A `ready` proposal is not a completed payment. Eligible proposals can be submitted by the agent only through the vault-only execution endpoint; proposals requiring approval remain blocked until the owner approves them. Execution behavior is controlled by `AEGIS_EXECUTION_MODE`, and actual transfers can only be submitted through the AegisVault on Base Sepolia.
 
 ## Deterministic evaluation
 
