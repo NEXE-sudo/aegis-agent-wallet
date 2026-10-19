@@ -431,3 +431,20 @@ def test_frontend_exposes_owner_authenticated_read_only_network_status():
     assert "sessionVersion !== state.sessionVersion || requestId !== state.chainStatusRequestId" in refresh
     assert "status.chain_id === 84532" in _script_function(response.text, "renderChainStatus")
     assert "does not verify vault deployment" in response.text
+
+
+
+def test_frontend_shows_owner_authenticated_read_only_vault_status():
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert 'id="vault-status"' in response.text
+    assert 'id="refresh-vault-status"' in response.text
+    assert "api('/chain/base-sepolia/vault/status'" in response.text
+    assert "state.vaultStatusRequestId += 1;" in _script_function(response.text, "invalidatePendingRequests")
+    refresh = _script_function(response.text, "refreshVaultStatus")
+    assert "sessionVersion !== state.sessionVersion || requestId !== state.vaultStatusRequestId" in refresh
+    assert "status.in_sync === true" in _script_function(response.text, "renderVaultStatus")
+    assert "does not verify" not in response.text
+    assert "not an independent contract audit" in response.text
+    assert "state.vaultStatus = null;" in _script_function(response.text, "clearSessionData")
