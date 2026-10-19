@@ -22,7 +22,7 @@ from app.chain.execution import (
     ExecutionSettings,
     VaultExecutionError,
 )
-from app.policy.canonical import hash_policy
+
 from app.workflow.controller import TransactionController
 from app.workflow.store import WorkflowStore
 
