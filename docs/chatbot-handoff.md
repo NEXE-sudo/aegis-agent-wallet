@@ -1,6 +1,6 @@
 # Aegis Agent Wallet — Chatbot Handoff
 
-Last updated: 19 October 2026
+Last updated: 20 October 2026
 
 ## Repository and product
 
@@ -16,7 +16,8 @@ Last updated: 19 October 2026
 - PR #180 added owner-authenticated read-only Base Sepolia ETH and demo USDC balance inspection.
 - PR #181 added owner-authenticated read-only `GET /policy/config` for active policy settings and allowlists.
 - PR #181 was squash-merged as `71b611700b0a3b113d9fa102789572c54c7ab77a`; the user confirmed checks passed on the PR and updated `main`, and the branch was deleted.
-- Current work is PR #182, Phase 2: owner-authenticated `GET /spending/summary` reports daily local workflow spend, reservations, configured limits, and remaining budget per allowed token. Branch: `agent/read-only-spending-summary`.
+- PR #182 added owner-authenticated `GET /spending/summary` for UTC-day local workflow spend and remaining budget per allowed token; it is merged, the user confirmed checks passed on updated `main`, and the branch was deleted.
+- Current work is PR #183, Phase 2: the Overview dashboard surfaces the API's daily spending summary with exact token-unit formatting, per-token limits and remaining budget, stale-session protection, and clear local-accounting semantics. Branch: `agent/dashboard-spending-visibility`.
 
 ## Phased roadmap
 
@@ -77,9 +78,11 @@ Last updated: 19 October 2026
 
 ## Current PR and next steps
 
-- PR #182 implements `GET /spending/summary`, tests owner authentication and reservation accounting, and documents UTC-day local workflow semantics.
-- Ask the user to pull `agent/read-only-spending-summary` and run Ruff and pytest.
-- Once both pass on the PR branch, verify the current PR head and squash-merge PR #182.
+- PR #182 is complete; the user confirmed both checks passed on updated `main` and deleted its branch.
+- Current PR #183 adds an Overview panel for `GET /spending/summary` without changing backend accounting or execution behaviour.
+- CI initially exposed a regression-test harness omission: the isolated connection test did not stub the new `refreshSpendingSummary` callback. The test harness now stubs that callback; the application change itself remains owner-authenticated and session-guarded.
+- Ask the user to pull `agent/dashboard-spending-visibility` and run `uv run --locked ruff check .` and `uv run --locked python -m pytest -q`.
+- Once both pass on the PR branch, verify the current PR head and squash-merge PR #183.
 - Then have the user pull updated `main` and rerun both checks. Verify the merge and only then provide combined local/remote cleanup commands.
 - After cleanup, inspect the current repository and choose the next small Phase 2 slice; include handoff changes in that feature PR.
 

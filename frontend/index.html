@@ -219,6 +219,15 @@ button.audit-card{text-align:left;width:100%;color:inherit}
 .event-details{padding:10px;border-radius:8px;background:#0e1925;color:#cbd7e5;white-space:pre-wrap;overflow-wrap:anywhere;font:10px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
 .loading{color:var(--muted);font-size:10px;padding:12px 18px}
 .inline-error{color:var(--red);font-size:10px;padding:12px 18px}
+.spending-list{display:grid;gap:10px;padding:0 18px 18px}
+.spending-row{display:grid;grid-template-columns:minmax(0,1.2fr) repeat(3,minmax(0,1fr));gap:12px;align-items:center;padding:12px;border:1px solid var(--border);border-radius:10px;background:#162434}
+.spending-token strong,.spending-token small{display:block}
+.spending-token strong{font-size:11px}
+.spending-token small{margin-top:3px;color:var(--muted);font-size:9px;overflow-wrap:anywhere}
+.spending-value small{display:block;color:var(--muted);font-size:8px;letter-spacing:1px;text-transform:uppercase}
+.spending-value strong{display:block;margin-top:4px;font-size:11px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.spending-value .limit-warning{color:var(--red)}
+@media (max-width:760px){.spending-row{grid-template-columns:repeat(2,minmax(0,1fr))}.spending-token{grid-column:1/-1}}
 @media (max-width: 1080px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.grid,.market-grid,.settings-grid,.form-grid{grid-template-columns:1fr}.sidebar{width:200px;min-width:200px}.main{padding:0 18px 22px}}@media (max-width:760px){.app-shell{display:block}.sidebar{position:relative;width:100%;min-width:0;height:auto;max-height:none;overflow:visible;border-right:none;border-bottom:1px solid var(--border)}.nav{grid-template-columns:repeat(2,minmax(0,1fr))}.main{padding:0 14px 20px}.topbar{height:auto;min-height:64px;padding:12px 0;flex-wrap:wrap}.heading{flex-direction:column;align-items:flex-start}.metrics{grid-template-columns:1fr}.button-group,.form-actions{flex-wrap:wrap}.}
 </style>
 </head>
@@ -303,6 +312,20 @@ button.audit-card{text-align:left;width:100%;color:inherit}
           <div class="metric-foot">Blocked / expired in loaded set</div>
         </article>
       </div>
+      <section class="panel" style="margin-bottom:16px">
+        <div class="panel-head">
+          <div>
+            <div class="kicker">BUDGET</div>
+            <h2>Daily spending</h2>
+            <p>Current UTC-day spend and remaining configured budget per allowed token.</p>
+          </div>
+          <span class="tag" id="spending-date">UTC DATE —</span>
+        </div>
+        <div class="spending-list" id="spending-summary" aria-live="polite">
+          <div class="loading">Connect with an owner token to load daily spending.</div>
+        </div>
+        <div class="market-note">Local workflow accounting includes active reservations and recorded executions; it is not an on-chain spend counter or receipt/finality check.</div>
+      </section>
       <div class="grid">
         <div class="rail">
           <section class="panel">
@@ -598,6 +621,9 @@ const state = {
   proposalRequestId: 0,
   transactionsLoaded: false,
   transactionError: '',
+  spendingSummary: null,
+  spendingSummaryError: '',
+  spendingRequestId: 0,
   auditLoadFailed: false,
   tokens: {agent: '', owner: ''},
   transactions: [],
@@ -687,6 +713,7 @@ const invalidatePendingRequests = () => {
   state.marketQuoteRequestIds.clear();
   state.auditRequestId += 1;
   state.auditSummaryRequestId += 1;
+  state.spendingRequestId += 1;
   state.proposalRequestId += 1;
 };
 
@@ -868,12 +895,15 @@ const refreshTransactions = async () => {
     setApiState('Owner API connected', 'ready');
     renderAll();
     void refreshAuditSummary();
+    void refreshSpendingSummary();
   } catch (error) {
     if (sessionVersion !== state.sessionVersion || refreshId !== state.refreshId) return;
     state.transactionError = error.message;
     state.transactionsLoaded = false;
     state.connected = false;
     state.transactions = [];
+    state.spendingSummary = null;
+    state.spendingSummaryError = error.message;
     const ownerRejected = error.status === 401;
     setApiState(ownerRejected ? 'Owner auth failed' : 'Workflow API unavailable', 'error');
     document.getElementById('connection-label').textContent = ownerRejected ? 'Reconnect to local API' : 'API unavailable';
@@ -884,7 +914,79 @@ const refreshTransactions = async () => {
   }
 };
 
+const renderSpendingSummary = () => {
+  const target = document.getElementById('spending-summary');
+  const date = document.getElementById('spending-date');
+  if (!state.tokens.owner) {
+    date.textContent = 'UTC DATE —';
+    target.innerHTML = '<div class="empty-state"><span>◷</span><strong>Owner connection required</strong><div>Connect with an owner token to inspect daily workflow spending.</div></div>';
+    return;
+  }
+  if (state.spendingSummaryError) {
+    date.textContent = 'UTC DATE —';
+    target.innerHTML = `<div class="inline-error">Daily spending is unavailable: ${esc(state.spendingSummaryError)}. Use Refresh to try again.</div>`;
+    return;
+  }
+  if (!state.spendingSummary) {
+    date.textContent = 'UTC DATE —';
+    target.innerHTML = '<div class="loading">Loading daily spending from the owner-authenticated API…</div>';
+    return;
+  }
+  date.textContent = `UTC DATE ${esc(state.spendingSummary.as_of_date_utc || '—')}`;
+  const tokens = Array.isArray(state.spendingSummary.tokens) ? state.spendingSummary.tokens : [];
+  if (!tokens.length) {
+    target.innerHTML = '<div class="empty-state"><span>◷</span><strong>No allowed tokens configured</strong><div>The active policy returned no tokens to report.</div></div>';
+    return;
+  }
+  target.innerHTML = tokens.map((token) => {
+    const symbol = typeof token.symbol === 'string' ? token.symbol : 'TOKEN';
+    const decimals = token.decimals;
+    const limitClass = token.limit_exceeded ? 'limit-warning' : '';
+    return `
+      <article class="spending-row">
+        <div class="spending-token">
+          <strong>${esc(symbol)}</strong>
+          <small>${esc(token.token_address || 'Address unavailable')} · Chain ${esc(token.chain_id ?? '—')}</small>
+          ${token.limit_exceeded ? '<span class="tag bad">LIMIT EXCEEDED</span>' : ''}
+        </div>
+        <div class="spending-value"><small>Spent / reserved</small><strong>${esc(formatMoney(token.spent_base_units, symbol, decimals))}</strong></div>
+        <div class="spending-value"><small>Daily limit</small><strong>${esc(formatMoney(token.daily_limit_base_units, symbol, decimals))}</strong></div>
+        <div class="spending-value"><small>Remaining</small><strong class="${limitClass}">${esc(formatMoney(token.remaining_base_units, symbol, decimals))}</strong></div>
+      </article>
+    `;
+  }).join('');
+};
+
+const refreshSpendingSummary = async () => {
+  const sessionVersion = state.sessionVersion;
+  const requestId = ++state.spendingRequestId;
+  if (!state.tokens.owner) {
+    state.spendingSummary = null;
+    state.spendingSummaryError = '';
+    renderSpendingSummary();
+    return;
+  }
+  state.spendingSummary = null;
+  state.spendingSummaryError = '';
+  renderSpendingSummary();
+  try {
+    const summary = await api('/spending/summary', { method: 'GET' }, 'owner');
+    if (sessionVersion !== state.sessionVersion || requestId !== state.spendingRequestId) return;
+    state.spendingSummary = summary && typeof summary === 'object' ? summary : null;
+    if (!state.spendingSummary || !Array.isArray(state.spendingSummary.tokens)) {
+      throw new Error('The API returned an unexpected spending summary.');
+    }
+    state.spendingSummaryError = '';
+  } catch (error) {
+    if (sessionVersion !== state.sessionVersion || requestId !== state.spendingRequestId) return;
+    state.spendingSummary = null;
+    state.spendingSummaryError = error.message;
+  }
+  renderSpendingSummary();
+};
+
 const renderOverview = () => {
+  renderSpendingSummary();
   const rows = state.transactions || [];
   const total = rows.length;
   const approvals = rows.filter((tx) => tx.status === 'awaiting_approval').length;
@@ -1319,6 +1421,7 @@ const handleConnect = async (event) => {
     renderAll();
     void refreshAuditSummary();
     void refreshMarketSnapshot();
+    void refreshSpendingSummary();
     closeConnectionModal();
     notify('Owner token verified. Agent token will be checked when a proposal is submitted.', 'success');
   } catch (error) {
@@ -1349,6 +1452,8 @@ const clearSessionData = () => {
   state.transactions = [];
   state.transactionsLoaded = false;
   state.transactionError = '';
+  state.spendingSummary = null;
+  state.spendingSummaryError = '';
   state.auditSummary = [];
   state.auditLoadFailed = false;
   state.marketQuotes = {};
