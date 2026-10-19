@@ -13,7 +13,7 @@ The prototype aims to:
 - Account for local daily spending reservations and handle idempotent retries consistently.
 - Preserve a useful workflow audit trail while avoiding unnecessary secret-like values in event details.
 - Support an owner-only pause/resume kill switch and a pending-proposal cap to stop or slow harmful workflows during intervention.
-- Default to simulated execution; permit actual signing/submission only in an explicitly configured Base Sepolia testnet mode.
+- Default to simulated execution; permit actual signing/submission only in explicitly configured `base_sepolia_vault` mode, with the AegisVault as the on-chain policy boundary. Direct EOA token transfers are disabled.
 - In `base_sepolia_vault` mode, use an on-chain vault as the final transfer-policy boundary for one agent key, independently enforcing token caps, recipients, approvals, and pause state.
 
 ## 2. Assets to protect
