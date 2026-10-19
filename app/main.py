@@ -304,6 +304,60 @@ def get_policy_hash() -> dict[str, str]:
     }
 
 
+@app.get("/policy/config", dependencies=[Depends(require_owner)])
+def get_policy_config() -> dict[str, object]:
+    """Expose the active demo agent policy without credentials or mutable controls."""
+    allowed_addresses = {address.lower() for address in DEMO_POLICY.allowed_token_addresses}
+    allowed_tokens = [
+        {
+            "address": address.lower(),
+            "symbol": token.symbol,
+            "chain_id": token.chain_id,
+            "decimals": token.decimals,
+        }
+        for address, token in sorted(
+            DEMO_POLICY.trusted_tokens.items(), key=lambda item: item[0].lower()
+        )
+        if address.lower() in allowed_addresses
+    ]
+    return {
+        "agent_id": DEMO_POLICY.agent_id,
+        "enabled": DEMO_POLICY.enabled,
+        "allowed_chain_ids": sorted(DEMO_POLICY.allowed_chain_ids),
+        "allowed_tokens": allowed_tokens,
+        "allowed_token_symbols": sorted(DEMO_POLICY.allowed_token_symbols),
+        "allowed_recipients": sorted(
+            address.lower() for address in DEMO_POLICY.allowed_recipients
+        ),
+        "max_transaction_base_units": DEMO_POLICY.max_transaction_base_units,
+        "daily_limit_base_units": DEMO_POLICY.daily_limit_base_units,
+        "approval_threshold_base_units": DEMO_POLICY.approval_threshold_base_units,
+        "approval_expires_seconds": DEMO_POLICY.approval_expires_seconds,
+        "unknown_recipient_requires_approval": DEMO_POLICY.unknown_recipient_requires_approval,
+        "recipient_token_allowlist": {
+            recipient.lower(): sorted(token.lower() for token in tokens)
+            for recipient, tokens in sorted(
+                DEMO_POLICY.recipient_token_allowlist.items(),
+                key=lambda item: item[0].lower(),
+            )
+        },
+        "recipient_daily_limits_base_units": {
+            recipient.lower(): limit
+            for recipient, limit in sorted(
+                DEMO_POLICY.recipient_daily_limits_base_units.items(),
+                key=lambda item: item[0].lower(),
+            )
+        },
+        "recipient_transaction_limits_base_units": {
+            recipient.lower(): limit
+            for recipient, limit in sorted(
+                DEMO_POLICY.recipient_transaction_limits_base_units.items(),
+                key=lambda item: item[0].lower(),
+            )
+        },
+    }
+
+
 _ZERO_ADDRESS = "0x" + "0" * 40
 _VAULT_APPROVAL_SIGNATURE = "approveTransfer(address,address,uint256,bytes32,uint256)"
 _VAULT_APPROVAL_SELECTOR = "0x" + keccak(text=_VAULT_APPROVAL_SIGNATURE)[:4].hex()
