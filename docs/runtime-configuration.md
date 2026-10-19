@@ -168,3 +168,8 @@ The owner-authenticated `GET /chain/base-sepolia/address/{address}/balances` end
 - Back up the database only while following a consistent SQLite backup procedure, and protect backup files as sensitive application data.
 - Audit triggers guard against ordinary row updates/deletes through the application database connection. They are not cryptographic tamper protection against someone who controls the database file.
 - This is a local prototype, not production key custody. The default simulation mode never loads a key. The optional testnet mode holds a throwaway private key in process memory and may keep already-signed transaction bytes in the SQLite database while safely retrying a submission. Protect the host and database; no mainnet execution is supported.
+
+
+## Read-only policy configuration
+
+The owner-authenticated `GET /policy/config` endpoint returns the active demo agent ID, enabled state, allowed chain IDs, configured trusted tokens, recipient allowlists, transaction and daily limits, recipient-specific limits, and approval settings. Spending limits are returned in token base units; for the demo USDC token, 1 USDC equals 1,000,000 base units. This endpoint is read-only and does not expose bearer tokens, private keys, or mutation controls. The policy hash remains available separately through `GET /policy/hash`.
