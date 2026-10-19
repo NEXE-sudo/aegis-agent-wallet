@@ -5,7 +5,7 @@ import re
 import secrets
 import sqlite3
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from time import perf_counter, time
 from typing import Literal
@@ -355,6 +355,39 @@ def get_policy_config() -> dict[str, object]:
                 key=lambda item: item[0].lower(),
             )
         },
+    }
+
+
+
+@app.get("/spending/summary", dependencies=[Depends(require_owner)])
+def get_spending_summary() -> dict[str, object]:
+    """Summarize today's local workflow spend and active reservations per allowed token."""
+    allowed_addresses = {address.lower() for address in DEMO_POLICY.allowed_token_addresses}
+    tokens: list[dict[str, object]] = []
+    for address, token in sorted(
+        DEMO_POLICY.trusted_tokens.items(), key=lambda item: item[0].lower()
+    ):
+        if (
+            address.lower() not in allowed_addresses
+            or token.chain_id not in DEMO_POLICY.allowed_chain_ids
+        ):
+            continue
+        spent = store.daily_spend(token.chain_id, address)
+        limit = DEMO_POLICY.daily_limit_base_units
+        tokens.append({
+            "chain_id": token.chain_id,
+            "token_address": address.lower(),
+            "symbol": token.symbol,
+            "decimals": token.decimals,
+            "spent_base_units": spent,
+            "daily_limit_base_units": limit,
+            "remaining_base_units": max(0, limit - spent),
+            "limit_exceeded": spent > limit,
+        })
+    return {
+        "as_of_date_utc": datetime.now(UTC).date().isoformat(),
+        "accounting_source": "local_workflow",
+        "tokens": tokens,
     }
 
 
