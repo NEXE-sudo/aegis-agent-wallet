@@ -343,6 +343,20 @@ button.audit-card{text-align:left;width:100%;color:inherit}
       <section class="panel" style="margin-bottom:16px">
         <div class="panel-head">
           <div>
+            <div class="kicker">VAULT · OWNER READ ONLY</div>
+            <h2>Vault configuration</h2>
+            <p>Compare the configured AegisVault's reported on-chain roles and policy with the demo policy.</p>
+          </div>
+          <button class="btn secondary" id="refresh-vault-status" type="button">Check vault</button>
+        </div>
+        <div id="vault-status" class="spending-list" aria-live="polite">
+          <div class="loading">Connect with an owner token, then check the configured vault.</div>
+        </div>
+        <div class="market-note">This is a point-in-time read from the configured RPC and is not an independent contract audit or proof of source-code authenticity. A mismatch should be resolved before testnet execution.</div>
+      </section>
+      <section class="panel" style="margin-bottom:16px">
+        <div class="panel-head">
+          <div>
             <div class="kicker">BASE SEPOLIA · READ ONLY</div>
             <h2>Wallet balances</h2>
             <p>Inspect native ETH and demo USDC for a public address on chain 84532.</p>
@@ -670,6 +684,9 @@ const state = {
   chainStatus: null,
   chainStatusError: '',
   chainStatusRequestId: 0,
+  vaultStatus: null,
+  vaultStatusError: '',
+  vaultStatusRequestId: 0,
   walletBalances: null,
   walletBalancesError: '',
   walletBalancesRequestId: 0,
@@ -768,6 +785,7 @@ const invalidatePendingRequests = () => {
   state.auditSummaryRequestId += 1;
   state.spendingRequestId += 1;
   state.chainStatusRequestId += 1;
+  state.vaultStatusRequestId += 1;
   state.walletBalancesRequestId += 1;
   state.policyConfigRequestId += 1;
   state.proposalRequestId += 1;
@@ -1092,6 +1110,67 @@ const refreshChainStatus = async () => {
     state.chainStatusError = error.message;
   }
   renderChainStatus();
+};
+
+const renderVaultStatus = () => {
+  const target = document.getElementById('vault-status');
+  if (!state.tokens.owner) {
+    target.innerHTML = '<div class="empty-state"><strong>Owner connection required</strong><div>Connect to inspect the configured vault.</div></div>';
+    return;
+  }
+  if (state.vaultStatusError) {
+    target.innerHTML = `<div class="inline-error">Vault status unavailable: ${esc(state.vaultStatusError)}. Check the vault address and RPC configuration, then retry.</div>`;
+    return;
+  }
+  if (!state.vaultStatus) {
+    target.innerHTML = '<div class="empty-state"><strong>Vault not checked</strong><div>Check the configured AegisVault on Base Sepolia.</div></div>';
+    return;
+  }
+  const status = state.vaultStatus;
+  const differences = Array.isArray(status.differences) ? status.differences : [];
+  const differenceMarkup = differences.length
+    ? `<ul>${differences.map((item) => `<li><strong>${esc(item.field)}</strong>: expected ${esc(JSON.stringify(item.expected))}, received ${esc(JSON.stringify(item.actual))}</li>`).join('')}</ul>`
+    : '<p class="field-help">No differences were reported against the current demo policy.</p>';
+  target.innerHTML = `
+    <div class="spending-row">
+      <div class="spending-token"><strong>${status.in_sync === true ? 'Policy in sync' : 'Policy mismatch'}</strong><small>Reported on-chain configuration</small></div>
+      <div class="spending-value"><small>Chain ID</small><strong>${esc(status.chain_id ?? 'Unavailable')}</strong></div>
+      <div class="spending-value"><small>Paused</small><strong>${status.paused === true ? 'Yes' : status.paused === false ? 'No' : 'Unavailable'}</strong></div>
+    </div>
+    <div class="spending-row">
+      <div class="spending-token"><strong>Vault</strong><small>${esc(status.vault_address)}</small></div>
+      <div class="spending-token"><strong>Owner</strong><small>${esc(status.owner)}</small></div>
+      <div class="spending-token"><strong>Agent</strong><small>${esc(status.agent)}</small></div>
+    </div>
+    ${differenceMarkup}
+  `;
+};
+
+const refreshVaultStatus = async () => {
+  const sessionVersion = state.sessionVersion;
+  const requestId = ++state.vaultStatusRequestId;
+  if (!state.tokens.owner) {
+    state.vaultStatus = null;
+    state.vaultStatusError = '';
+    renderVaultStatus();
+    return;
+  }
+  state.vaultStatus = null;
+  state.vaultStatusError = '';
+  renderVaultStatus();
+  try {
+    const status = await api('/chain/base-sepolia/vault/status', { method: 'GET' }, 'owner');
+    if (sessionVersion !== state.sessionVersion || requestId !== state.vaultStatusRequestId) return;
+    if (!status || typeof status !== 'object' || !Array.isArray(status.differences)
+      || typeof status.in_sync !== 'boolean' || !Number.isInteger(status.chain_id)) {
+      throw new Error('The API returned an unexpected vault status response.');
+    }
+    state.vaultStatus = status;
+  } catch (error) {
+    if (sessionVersion !== state.sessionVersion || requestId !== state.vaultStatusRequestId) return;
+    state.vaultStatusError = error.message;
+  }
+  renderVaultStatus();
 };
 
 const renderWalletBalances = () => {
@@ -1719,6 +1798,8 @@ const handleConnect = async (event) => {
 const clearSessionData = () => {
   state.chainStatus = null;
   state.chainStatusError = '';
+  state.vaultStatus = null;
+  state.vaultStatusError = '';
   state.transactions = [];
   state.transactionsLoaded = false;
   state.transactionError = '';
@@ -2043,6 +2124,7 @@ document.querySelectorAll('[data-target]').forEach((button) => {
 });
 
 document.getElementById('refresh-chain-status').addEventListener('click', refreshChainStatus);
+document.getElementById('refresh-vault-status').addEventListener('click', refreshVaultStatus);
 
 document.getElementById('wallet-balance-form').addEventListener('submit', async (event) => {
   event.preventDefault();
