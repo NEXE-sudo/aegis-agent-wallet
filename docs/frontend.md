@@ -46,7 +46,7 @@ The frontend tests check the served page structure, supported API operations, cr
 
 - The UI never accepts private keys or seed phrases. In default simulated mode it does not sign or broadcast; testnet signing is performed locally by the backend only after explicit configuration and owner execution.
 - Approval and execution outcomes are shown only after API confirmation. Backend validation, policy blocks, expiry, and state transitions remain authoritative.
-- The UI reports `base_sepolia` as testnet only. A successful RPC submission and receipt status do not prove finality; the owner-only receipt API reads the reported pending/success/failed state.
+- The UI supports simulated execution and `base_sepolia_vault` only. Vault mode submits through the AegisVault on Base Sepolia; direct EOA execution is disabled. A successful RPC submission and receipt status do not prove finality; the owner-only receipt API reads the reported pending/success/failed state.
 - The risk score is an explainable heuristic, not a validated fraud detector.
 - Market data is disconnected from policy decisions and execution. Crypto quotes may be delayed or stale; equity prices are daily closes. Provider availability and rate limits apply.
 - The workflow list is limited to the latest 50 API results. Audit summaries request events for only the latest workflows and do not imply complete lifetime history.
