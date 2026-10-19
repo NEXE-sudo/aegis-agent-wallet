@@ -14,10 +14,10 @@ Aegis is a Python/FastAPI local prototype with a constrained agent package, SQLi
 workflow store, deterministic policy engine, heuristic risk engine, dependency-free
 frontend, external market-data and JSON-RPC providers, and an optional
 OpenAI-compatible LLM endpoint. Simulated execution is the default. Actual signing
-and submission is restricted to explicitly enabled Base Sepolia testnet modes
-(chain ID `84532`). The optional `base_sepolia_vault` mode adds an unaudited,
-testnet-only AegisVault contract as an independent policy boundary for vault-held
-tokens.
+and submission is restricted to explicitly enabled `base_sepolia_vault`
+execution on Base Sepolia (chain ID `84532`). Direct EOA token transfers are
+disabled. The unaudited, testnet-only AegisVault contract provides an independent
+policy boundary for vault-held tokens.
 
 The assessment assumes the operator controls the local host, environment variables,
 and SQLite file. It does not assume that an RPC provider, market-data provider, or
@@ -57,16 +57,18 @@ No category below should be read as a pass or certification.
 
 ### Transaction and key boundary
 
-- `AEGIS_EXECUTION_MODE` defaults to `simulated`. `base_sepolia` requires a valid
-  `AEGIS_TESTNET_PRIVATE_KEY` and HTTPS `BASE_SEPOLIA_RPC_URL`; invalid settings
-  fail rather than selecting simulation.
-- Testnet execution is owner-only, revalidates proposal integrity, policy, spending,
-  risk, and approval, checks chain ID `84532`, and signs locally.
+- `AEGIS_EXECUTION_MODE` defaults to `simulated`; the only real-transfer mode is
+  `base_sepolia_vault`, which requires a deployed vault, an agent session key, and
+  HTTPS `BASE_SEPOLIA_RPC_URL`. The retired direct EOA mode is rejected rather
+  than selecting simulation.
+- Vault execution revalidates proposal integrity, policy, spending, risk, and approval,
+  checks chain ID `84532`, and signs locally. Eligible agent requests use the same
+  vault-enforced path; owner approval remains mandatory when required.
 - The private key is not accepted in an API body, returned in API responses, or
   intentionally logged. The process and SQLite database may contain sensitive
   material, including persisted signed transaction bytes for retry.
 - No mainnet support, production key custody, or real-fund transfer capability is
-  implemented.
+  implemented. Direct EOA transfer code is no longer part of the execution path.
 - In `base_sepolia_vault`, `AEGIS_TESTNET_PRIVATE_KEY` is the agent session key
   only. The Aegis server must never hold the vault owner key. Vault policy is a
   second enforcement layer, not a replacement for Aegis workflow review or a
