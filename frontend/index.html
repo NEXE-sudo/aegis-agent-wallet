@@ -326,6 +326,28 @@ button.audit-card{text-align:left;width:100%;color:inherit}
         </div>
         <div class="market-note">Local workflow accounting includes active reservations and recorded executions; it is not an on-chain spend counter or receipt/finality check.</div>
       </section>
+      <section class="panel" style="margin-bottom:16px">
+        <div class="panel-head">
+          <div>
+            <div class="kicker">BASE SEPOLIA · READ ONLY</div>
+            <h2>Wallet balances</h2>
+            <p>Inspect native ETH and demo USDC for a public address on chain 84532.</p>
+          </div>
+          <span class="tag">NO SIGNING</span>
+        </div>
+        <form id="wallet-balance-form" class="form-row" style="align-items:end;gap:10px">
+          <label class="field" for="wallet-address" style="flex:1;min-width:240px">
+            <span>Public wallet address</span>
+            <input id="wallet-address" name="wallet-address" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="0x…" maxlength="42" aria-describedby="wallet-address-help">
+            <small id="wallet-address-help" class="field-help">Public address only. Never enter a private key or seed phrase.</small>
+          </label>
+          <button class="btn secondary" id="inspect-wallet-balances" type="submit">Inspect balances</button>
+        </form>
+        <div id="wallet-balances" class="spending-list" aria-live="polite">
+          <div class="empty-state"><span>◇</span><strong>Owner connection required</strong><div>Connect with an owner token, then enter a public Base Sepolia address.</div></div>
+        </div>
+        <div class="market-note">Values come from the owner-authenticated read-only RPC endpoint. These are testnet balances, not a portfolio valuation, and no transaction is signed or broadcast.</div>
+      </section>
       <div class="grid">
         <div class="rail">
           <section class="panel">
@@ -631,6 +653,10 @@ const state = {
   spendingSummary: null,
   spendingSummaryError: '',
   spendingRequestId: 0,
+  walletBalances: null,
+  walletBalancesError: '',
+  walletBalancesRequestId: 0,
+  walletAddress: '',
   policyConfig: null,
   policyConfigError: '',
   policyConfigRequestId: 0,
@@ -724,6 +750,7 @@ const invalidatePendingRequests = () => {
   state.auditRequestId += 1;
   state.auditSummaryRequestId += 1;
   state.spendingRequestId += 1;
+  state.walletBalancesRequestId += 1;
   state.policyConfigRequestId += 1;
   state.proposalRequestId += 1;
 };
@@ -996,6 +1023,76 @@ const refreshSpendingSummary = async () => {
   renderSpendingSummary();
 };
 
+
+const renderWalletBalances = () => {
+  const target = document.getElementById('wallet-balances');
+  const addressInput = document.getElementById('wallet-address');
+  if (addressInput && addressInput.value !== state.walletAddress) addressInput.value = state.walletAddress;
+  if (!state.tokens.owner) {
+    target.innerHTML = '<div class="empty-state"><span>◇</span><strong>Owner connection required</strong><div>Connect with an owner token to inspect read-only Base Sepolia balances.</div></div>';
+    return;
+  }
+  if (state.walletBalancesError) {
+    target.innerHTML = `<div class="inline-error">Wallet balances are unavailable: ${esc(state.walletBalancesError)}. Check the address and RPC configuration, then retry.</div>`;
+    return;
+  }
+  if (!state.walletBalances) {
+    target.innerHTML = '<div class="empty-state"><span>◇</span><strong>Enter a public address</strong><div>Balances are fetched only when you request an address; no private key is needed.</div></div>';
+    return;
+  }
+  const data = state.walletBalances;
+  const native = data.native_balance || {};
+  const token = Array.isArray(data.tokens) ? data.tokens.find((item) => item.symbol === 'USDC') || data.tokens[0] || {} : {};
+  target.innerHTML = `
+    <div class="spending-row">
+      <div class="spending-token"><strong>ETH</strong><small>Native testnet asset</small></div>
+      <div class="spending-value"><small>Balance</small><strong>${esc(native.formatted_balance ?? 'Unavailable')} ETH</strong></div>
+      <div class="spending-value"><small>Network</small><strong>Base Sepolia</strong></div>
+    </div>
+    <div class="spending-row">
+      <div class="spending-token"><strong>${esc(token.symbol || 'USDC')}</strong><small>Demo token · chain ${esc(data.chain_id ?? '—')}</small></div>
+      <div class="spending-value"><small>Balance</small><strong>${esc(token.formatted_balance ?? 'Unavailable')} ${esc(token.symbol || 'USDC')}</strong></div>
+      <div class="spending-value"><small>Decimals</small><strong>${esc(token.decimals ?? '—')}</strong></div>
+    </div>
+    <p class="field-help" style="margin-top:10px">Address: <span class="small-mono">${esc(data.address || state.walletAddress)}</span></p>
+  `;
+};
+
+const refreshWalletBalances = async () => {
+  const sessionVersion = state.sessionVersion;
+  const requestId = ++state.walletBalancesRequestId;
+  const address = state.walletAddress.trim();
+  if (!state.tokens.owner || !address) {
+    state.walletBalances = null;
+    state.walletBalancesError = '';
+    renderWalletBalances();
+    return;
+  }
+  if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
+    state.walletBalances = null;
+    state.walletBalancesError = 'Enter a valid 20-byte EVM public address.';
+    renderWalletBalances();
+    return;
+  }
+  state.walletBalances = null;
+  state.walletBalancesError = '';
+  renderWalletBalances();
+  try {
+    const balances = await api(`/chain/base-sepolia/address/${encodeURIComponent(address)}/balances`, { method: 'GET' }, 'owner');
+    if (sessionVersion !== state.sessionVersion || requestId !== state.walletBalancesRequestId) return;
+    if (!balances || typeof balances !== 'object' || balances.chain_id !== 84532
+      || !balances.native_balance || !Array.isArray(balances.tokens)) {
+      throw new Error('The API returned an unexpected balance response.');
+    }
+    state.walletBalances = balances;
+    state.walletBalancesError = '';
+  } catch (error) {
+    if (sessionVersion !== state.sessionVersion || requestId !== state.walletBalancesRequestId) return;
+    state.walletBalances = null;
+    state.walletBalancesError = error.message;
+  }
+  renderWalletBalances();
+};
 
 const renderPolicyConfig = () => {
   const target = document.getElementById('policy-config-content');
@@ -1333,6 +1430,7 @@ const renderAll = () => {
   renderOverview();
   renderApprovals();
   renderActivity();
+  renderWalletBalances();
   renderPolicyConfig();
 };
 
@@ -1518,6 +1616,7 @@ const handleConnect = async (event) => {
     void refreshAuditSummary();
     void refreshMarketSnapshot();
     void refreshSpendingSummary();
+    void refreshWalletBalances();
     void refreshPolicyConfig();
     closeConnectionModal();
     notify('Owner token verified. Agent token will be checked when a proposal is submitted.', 'success');
@@ -1551,6 +1650,11 @@ const clearSessionData = () => {
   state.transactionError = '';
   state.spendingSummary = null;
   state.spendingSummaryError = '';
+  state.walletBalances = null;
+  state.walletBalancesError = '';
+  state.walletAddress = '';
+  const walletAddressInput = document.getElementById('wallet-address');
+  if (walletAddressInput) walletAddressInput.value = '';
   state.policyConfig = null;
   state.policyConfigError = '';
   state.auditSummary = [];
@@ -1864,13 +1968,19 @@ document.querySelectorAll('[data-target]').forEach((button) => {
   });
 });
 
+document.getElementById('wallet-balance-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  state.walletAddress = document.getElementById('wallet-address').value.trim();
+  await refreshWalletBalances();
+});
+
 document.getElementById('refresh').addEventListener('click', async () => {
   const button = document.getElementById('refresh');
   button.disabled = true;
   try {
     await Promise.all([checkApiHealth(), refreshTransactions()]);
     if (state.tokens.owner) {
-      await Promise.all([refreshMarketSnapshot(), refreshSpendingSummary(), refreshPolicyConfig()]);
+      await Promise.all([refreshMarketSnapshot(), refreshSpendingSummary(), refreshWalletBalances(), refreshPolicyConfig()]);
       if (state.view === 'markets') await loadMarketQuote(state.marketSelected.assetClass, state.marketSelected.symbol);
     }
   } finally {
