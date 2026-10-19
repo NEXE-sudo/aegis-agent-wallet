@@ -295,6 +295,7 @@ const renderAll = () => {};
 const refreshAuditSummary = async () => {};
 const refreshMarketSnapshot = async () => {};
 const refreshSpendingSummary = async () => {};
+const refreshWalletBalances = async () => {};
 const refreshPolicyConfig = async () => {};
 const setApiState = () => {};
 const event = {preventDefault() {}, currentTarget: form};
