@@ -33,7 +33,6 @@ jobs:
     timeout-minutes: 60
     env:
       REPO: ${{ github.repository }}
-      GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
       EVENT_NAME: ${{ github.event_name }}
       FAILED_RUN_ID: ${{ github.event.workflow_run.id }}
       FAILED_BRANCH: ${{ github.event.workflow_run.head_branch }}
@@ -66,6 +65,8 @@ jobs:
       - name: Select a single task or repair target
         id: select
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
         run: |
           set -euo pipefail
           git fetch origin main
@@ -115,6 +116,8 @@ jobs:
       - name: Collect failed CI logs for a repair
         if: steps.select.outputs.skip != 'true' && steps.select.outputs.mode == 'repair'
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
         run: |
           set -euo pipefail
           gh run view "$FAILED_RUN_ID" --repo "$REPO" --log-failed > "$RUNNER_TEMP/failed-ci.log" || true
@@ -187,6 +190,7 @@ jobs:
         id: publish
         shell: bash
         env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
           TASK_MODE: ${{ steps.select.outputs.mode }}
           TASK_BRANCH: ${{ steps.select.outputs.branch }}
           PR_NUMBER: ${{ steps.select.outputs.pr_number }}
@@ -232,6 +236,7 @@ jobs:
         if: steps.select.outputs.skip != 'true'
         shell: bash
         env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
           PR_URL: ${{ steps.publish.outputs.pr_url }}
         run: |
           set -euo pipefail
@@ -241,6 +246,7 @@ jobs:
         if: steps.select.outputs.skip != 'true' && steps.select.outputs.mode == 'new'
         shell: bash
         env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
           PR_URL: ${{ steps.publish.outputs.pr_url }}
         run: |
           set -euo pipefail
