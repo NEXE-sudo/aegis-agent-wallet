@@ -22,6 +22,7 @@ Last updated: 20 October 2026
 - PR #184 exposed the owner-authenticated `GET /policy/config` response in Settings as a read-only view of active chain/token/recipient allowlists, spending limits, and approval rules; it was squash-merged as `f548deeb5506b0ce121aa059c3ab2c344154c14b`, CI passed on Python 3.11/3.12/3.14, the user confirmed checks on updated `main`, and the branch was deleted.
 - PR #185 added an Overview panel for on-demand owner-authenticated, read-only Base Sepolia ETH and demo-USDC balances for a user-entered public address. It was squash-merged as `fbe22f13dd59a6572eccd07544aa3016a22b1cbc`; CI passed on Python 3.11/3.12/3.14, and the user confirmed both Ruff and pytest passed on updated `main`.
 - PR #186 refreshed this handoff and was squash-merged as `fde988a7c0309d67e73b5492a607283b42cf6fe9`; CI passed on Python 3.11/3.12/3.14, and the user confirmed post-merge checks passed.
+- PR #187 added the owner-authenticated, on-demand Overview network status panel using `GET /chain/base-sepolia/status`; it was squash-merged as `f220ee98fc75ee03910feee39b8c5f2220b7634c`, CI passed on Python 3.11/3.12/3.14, and the user confirmed post-merge checks passed and deleted the branch.
 
 ## Phased roadmap
 
@@ -32,8 +33,8 @@ Last updated: 20 October 2026
 
 ### Phase 2 — Wallet read and configuration layer (in progress)
 - Backend read surfaces now include public-address Base Sepolia ETH/demo-USDC balances, active policy configuration, and UTC-day local workflow spending summaries.
-- Frontend surfaces now include read-only wallet balances, active policy settings/allowlists, daily spending/remaining budget, and the owner-authenticated RPC-reported network status panel proposed in the current PR.
-- Next candidates: configured wallet/vault identity verification and transaction status/history where supported.
+- Frontend surfaces now include read-only wallet balances, active policy settings/allowlists, daily spending/remaining budget, and the owner-authenticated RPC-reported network status panel.
+- Next: surface the existing owner-authenticated vault status comparison in the Overview dashboard, then review transaction receipt/history visibility where supported.
 - Clearly distinguish local configuration/database values from state verified on-chain; fail clearly when values are unavailable or configuration is missing/mismatched.
 - Inspect existing routes, service boundaries, frontend data flow, and tests before choosing the next smallest coherent slice. Avoid duplicate endpoints and never expose secrets/private keys.
 
@@ -89,8 +90,9 @@ Last updated: 20 October 2026
 - PR #185 (read-only wallet balances on Overview): squash-merged as `fbe22f13dd59a6572eccd07544aa3016a22b1cbc`; CI passed on Python 3.11/3.12/3.14 and the user confirmed checks on updated `main`.
 - The wallet balance panel uses owner-authenticated `GET /chain/base-sepolia/address/{address}/balances`, accepts a public address, checks chain ID 84532, guards against stale-session responses, and escapes API-provided values. It does not request private keys or sign/broadcast transactions.
 - The user has confirmed post-merge Ruff and pytest checks for PR #185. Local `.forge/` and `contracts/lib/` are intentionally untracked while the user investigates them; do not delete, stage, or modify them without instruction.
-- Current PR: `agent/dashboard-network-status` adds an on-demand owner-authenticated Overview network-status panel using `GET /chain/base-sepolia/status`. It only reports the RPC-reported chain ID and explicitly does not establish vault deployment, token authenticity, or transaction finality. Run Ruff and pytest on the PR branch; after merge, repeat on `main` before branch cleanup.
-- Next: inspect configured vault identity/status and current transaction receipt/status support, then select the smallest verified slice.
+- PR #187 (network status on Overview): squash-merged as `f220ee98fc75ee03910feee39b8c5f2220b7634c`; CI passed on Python 3.11/3.12/3.14, and the user confirmed Ruff and pytest passed on updated `main` and deleted the branch. The panel reports only the configured RPC's chain ID; it does not prove vault deployment, token authenticity, or transaction finality.
+- Current PR: `agent/dashboard-vault-status` adds an on-demand owner-authenticated Overview panel using the existing `GET /chain/base-sepolia/vault/status` endpoint to display reported vault roles, pause state, and policy differences. It is a point-in-time RPC comparison, not an independent contract audit. Run Ruff and pytest on the PR branch; after merge, repeat on `main` before branch cleanup.
+- Next: review transaction receipt/history visibility and its existing endpoint support, then select the smallest verified slice.
 - Keep every future handoff update inside the feature PR that motivates it. Never update `main` directly.
 
 ## Standard accounting and safety semantics
