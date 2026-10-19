@@ -18,7 +18,8 @@ Last updated: 20 October 2026
 - PR #181 was squash-merged as `71b611700b0a3b113d9fa102789572c54c7ab77a`; the user confirmed checks passed on the PR and updated `main`, and the branch was deleted.
 - PR #182 added owner-authenticated `GET /spending/summary` for UTC-day local workflow spend and remaining budget per allowed token; it is merged, the user confirmed checks passed on updated `main`, and the branch was deleted.
 - PR #183 added the Overview dashboard's owner-authenticated daily spending summary with exact token-unit formatting, per-token limits and remaining budget, stale-session protection, and clear local-accounting semantics; it was squash-merged as `62bdf6d9b72b01d322929294bfcd4f33be346918`, all three CI jobs passed, and the user confirmed checks passed on updated `main` and deleted the branch.
-- Current work is PR #184, Phase 2: expose the existing owner-authenticated `GET /policy/config` response in Settings as a read-only view of active chain/token/recipient allowlists, spending limits, and approval rules. Branch: `agent/dashboard-policy-visibility`.
+- PR #184 exposed the owner-authenticated `GET /policy/config` response in Settings as a read-only view of active chain/token/recipient allowlists, spending limits, and approval rules; it was squash-merged as `f548deeb5506b0ce121aa059c3ab2c344154c14b`, CI passed on Python 3.11/3.12/3.14, the user confirmed checks on updated `main`, and the branch was deleted.
+- Current work is PR #185, Phase 2: add an Overview panel for on-demand owner-authenticated, read-only Base Sepolia ETH and demo-USDC balances for a user-entered public address. Branch: `agent/dashboard-wallet-balances`.
 
 ## Phased roadmap
 
@@ -28,7 +29,7 @@ Last updated: 20 October 2026
 - Preserve owner approval requirements and simulated mode as the default.
 
 ### Phase 2 — Wallet read and configuration layer (in progress)
-- Read wallet balances and inspect policy configuration.
+- Read wallet balances for an explicitly supplied public address and inspect policy configuration.
 - Report current spending and transaction status with explicit local-versus-on-chain semantics.
 - Keep each feature in a small, independently testable PR.
 
@@ -79,13 +80,12 @@ Last updated: 20 October 2026
 
 ## Current PR and next steps
 
-- PR #183 is complete; the user confirmed both checks passed on updated `main` and deleted its branch.
-- Current PR #184 adds a read-only active-policy panel to Settings using `GET /policy/config`; it does not change backend policy, credentials, or execution behaviour.
-- The panel is owner-authenticated, guards against stale-session responses, renders backend-provided values as escaped text, and displays policy errors without treating them as connection failures.
-- Ask the user to pull `agent/dashboard-policy-visibility` and run `uv run --locked ruff check .` and `uv run --locked python -m pytest -q`.
-- Once both pass on the PR branch, verify the current PR head and squash-merge PR #184.
-- Then have the user pull updated `main` and rerun both checks. Verify the merge and only then provide combined local/remote cleanup commands.
-- After cleanup, update this handoff inside the next feature PR.
+- PR #184 is complete; the user confirmed both checks passed on updated `main` and deleted its branch.
+- Current PR #185 adds an on-demand Overview panel for native ETH and demo-USDC balances at a user-entered public address using the existing read-only `GET /chain/base-sepolia/address/{address}/balances` endpoint.
+- The view requires owner authentication, validates address shape, verifies the API response is for Base Sepolia chain ID 84532, guards against stale-session responses, and escapes API-provided values. It neither requests private keys nor signs or broadcasts transactions.
+- Pull `agent/dashboard-wallet-balances` and run `uv run --locked ruff check .` and `uv run --locked python -m pytest -q`.
+- After both pass on the PR branch, verify the current PR head and squash-merge PR #185. Then have the user pull updated `main` and rerun both checks; only after confirmation should local/remote cleanup commands be provided.
+- Keep future handoff updates inside the feature PR that motivates them.
 
 ## Standard accounting and safety semantics
 
