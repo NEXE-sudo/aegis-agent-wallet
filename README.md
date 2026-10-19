@@ -1,6 +1,6 @@
 # Aegis Agent Wallet
 
-A testnet-only AI-agent wallet prototype. This build includes deterministic policy checks, explainable heuristic risk scoring, persistent transaction state, atomic daily-spend reservations, time-limited fingerprint-bound approval with stale-approval expiry checks on execution and reapproval with persisted-proposal integrity verification, an append-only approval/execution audit trail, bearer-token separation for agent and owner operations, idempotent proposal retries with persisted-proposal integrity verification, and simulated execution by default with an explicitly gated Base Sepolia testnet executor.
+A testnet-only AI-agent wallet prototype. This build includes deterministic policy checks, explainable heuristic risk scoring, persistent transaction state, atomic daily-spend reservations, time-limited fingerprint-bound approval with stale-approval expiry checks on execution and reapproval with persisted-proposal integrity verification, an append-only approval/execution audit trail, bearer-token separation for agent and owner operations, idempotent proposal retries with persisted-proposal integrity verification, and simulated execution by default with an explicitly gated AegisVault-only Base Sepolia testnet executor.
 
 For the environment-variable reference, safe local binding, and operational troubleshooting, see the [runtime configuration guide](docs/runtime-configuration.md).
 
@@ -20,7 +20,7 @@ export AEGIS_APPROVAL_TOKEN="$(python -c 'import secrets; print(secrets.token_ur
 export AEGIS_DB_PATH="./aegis-workflow.sqlite3"
 export AEGIS_APPROVAL_EXPIRES_SECONDS="300"
 # Optional: set this for read-only chain inspection. Testnet execution additionally
-# requires explicit mode selection and a throwaway Base Sepolia private key.
+# requires `AEGIS_EXECUTION_MODE=base_sepolia_vault`, a deployed vault, and a throwaway agent session key.
 # export BASE_SEPOLIA_RPC_URL="https://YOUR_BASE_SEPOLIA_RPC_PROVIDER_URL"
 uv run --locked playwright install chromium
 uv run --locked python -m pytest -q
@@ -38,7 +38,7 @@ Agent-token calls include proposal creation, limited transaction-status and mark
 
 Start the API with the commands above, then open [http://127.0.0.1:8000/](http://127.0.0.1:8000/). The dependency-free frontend shares the API origin and includes an overview, read-only crypto/equity market quotes, proposal submission, owner approvals, mode-aware execution, workflow search, audit inspection, and local connection settings. Connect with distinct local agent and owner tokens. The browser keeps them in memory only; disconnect or reload to clear them. Market prices are informational (equity quotes are daily closes). See [the frontend guide](docs/frontend.md) for functionality, validation, and safety limitations.
 
-The UI reflects the current USDC-on-Base-Sepolia demo workflow. Owner-authenticated market quotes are provided by the separate read-only market-data API; see [the market-data guide](docs/market-data.md) for supported symbols and provider freshness. No broker or exchange order routing is provided. On-chain transfers are restricted to explicitly enabled Base Sepolia testnet execution; simulated mode is the default.
+The UI reflects the current USDC-on-Base-Sepolia demo workflow. Owner-authenticated market quotes are provided by the separate read-only market-data API; see [the market-data guide](docs/market-data.md) for supported symbols and provider freshness. No broker or exchange order routing is provided. On-chain transfers are restricted to explicitly enabled AegisVault execution on Base Sepolia; direct EOA transfers are disabled and simulated mode is the default.
 
 ## Base Sepolia integration (v0.7.0)
 
@@ -90,7 +90,7 @@ Owner approvals are timestamped in UTC and expire after `AEGIS_APPROVAL_EXPIRES_
 ## Safety boundaries and limitations
 
 - Recipient addresses must match the EVM format (`0x` followed by 40 hexadecimal characters); malformed recipients are blocked and cannot be approved. Address format validation does not prove that an address belongs to the intended person or contract.
-- **Execution defaults to simulation.** Only explicit `AEGIS_EXECUTION_MODE=base_sepolia` configuration enables locally signed ERC-20 transfers on Base Sepolia (chain ID 84532); that mode requires a throwaway testnet key and HTTPS RPC URL and fails closed when configuration is invalid. It does not support mainnet or real-fund execution. An RPC-accepted transaction is not proof of mining or finality.
+- **Execution defaults to simulation.** Actual ERC-20 transfers require explicit `AEGIS_EXECUTION_MODE=base_sepolia_vault` configuration and are submitted only through the AegisVault on Base Sepolia (chain ID 84532). Direct EOA token transfers are disabled. Vault mode requires a deployed vault, a separate throwaway agent session key, and an HTTPS RPC URL; invalid configuration fails closed. It does not support mainnet or real-fund execution. An RPC-accepted transaction is not proof of mining or finality.
 - The demo token is Circle's published Base Sepolia USDC testnet contract. Demo recipient addresses remain placeholders and are not verified accounts.
 - Bearer-token authentication is a development guard, not a full identity/authorization system. Keep the API bound to localhost and do not expose it publicly.
 - The risk score is a transparent heuristic, not a validated fraud detector.
@@ -107,7 +107,7 @@ Run `python examples/propose_transaction.py` with `AEGIS_AGENT_TOKEN` set in you
 
 Follow the step-by-step [reproducible demo scenario](docs/demo-scenario.md) to exercise an allowed proposal, human approval, a hard block, idempotency replay/conflict, and audit retrieval with expected outcomes.
 
-This remains a local prototype. Use only simulated mode or a throwaway Base Sepolia wallet funded by faucets; never use mainnet keys or real funds.
+This remains a local prototype. Use simulated mode or the unaudited vault integration with throwaway Base Sepolia wallets funded by faucets; never use mainnet keys or real funds.
 
 ## Documentation
 
