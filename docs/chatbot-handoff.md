@@ -33,8 +33,8 @@ Last updated: 20 October 2026
 
 ### Phase 2 — Wallet read and configuration layer (in progress)
 - Backend read surfaces now include public-address Base Sepolia ETH/demo-USDC balances, active policy configuration, and UTC-day local workflow spending summaries.
-- Frontend surfaces now include read-only wallet balances, active policy settings/allowlists, daily spending/remaining budget, and the owner-authenticated RPC-reported network status panel.
-- Next: surface the existing owner-authenticated vault status comparison in the Overview dashboard, then review transaction receipt/history visibility where supported.
+- Frontend surfaces now include read-only wallet balances, active policy settings/allowlists, daily spending/remaining budget, the owner-authenticated RPC-reported network status panel, and the configured vault status comparison.
+- Next: review transaction receipt/history visibility and its existing endpoint support, then select the smallest verified slice.
 - Clearly distinguish local configuration/database values from state verified on-chain; fail clearly when values are unavailable or configuration is missing/mismatched.
 - Inspect existing routes, service boundaries, frontend data flow, and tests before choosing the next smallest coherent slice. Avoid duplicate endpoints and never expose secrets/private keys.
 
@@ -91,8 +91,9 @@ Last updated: 20 October 2026
 - The wallet balance panel uses owner-authenticated `GET /chain/base-sepolia/address/{address}/balances`, accepts a public address, checks chain ID 84532, guards against stale-session responses, and escapes API-provided values. It does not request private keys or sign/broadcast transactions.
 - The user has confirmed post-merge Ruff and pytest checks for PR #185. Local `.forge/` and `contracts/lib/` are intentionally untracked while the user investigates them; do not delete, stage, or modify them without instruction.
 - PR #187 (network status on Overview): squash-merged as `f220ee98fc75ee03910feee39b8c5f2220b7634c`; CI passed on Python 3.11/3.12/3.14, and the user confirmed Ruff and pytest passed on updated `main` and deleted the branch. The panel reports only the configured RPC's chain ID; it does not prove vault deployment, token authenticity, or transaction finality.
-- Current PR: `agent/dashboard-vault-status` adds an on-demand owner-authenticated Overview panel using the existing `GET /chain/base-sepolia/vault/status` endpoint to display reported vault roles, pause state, and policy differences. It is a point-in-time RPC comparison, not an independent contract audit. Run Ruff and pytest on the PR branch; after merge, repeat on `main` before branch cleanup.
-- Next: review transaction receipt/history visibility and its existing endpoint support, then select the smallest verified slice.
+- PR #188 (configured vault status on Overview): squash-merged as `7f829059c4400f1300a338c6b32692f7acce8118`; GitHub Actions passed on Python 3.11/3.12/3.14, the user confirmed post-merge Ruff and pytest passed on updated `main`, and the branch was deleted. The panel reports vault roles, pause state, and policy differences from the configured RPC; this is not an independent contract audit.
+- The user has completed post-merge verification for PR #188 and deleted its branch. The next product slice is transaction receipt/history visibility, after inspecting existing endpoint support.
+- The autonomous development setup is being proposed in its own PR. It must use GitHub cloud execution, one focused task at a time, bounded Copilot credit/continuation/time limits, one same-branch CI repair, required checks before squash auto-merge, and the safety rules in docs/autonomous-development.md. Never update `main` directly.
 - Keep every future handoff update inside the feature PR that motivates it. Never update `main` directly.
 
 ## Standard accounting and safety semantics
@@ -102,3 +103,12 @@ Last updated: 20 October 2026
 - `executed_simulated` and `submitted_onchain` count for the UTC execution day recorded by the workflow store. A submitted transaction is not proof of mining or finality.
 - `GET /spending/summary` is local workflow accounting, not an on-chain balance or vault spend counter.
 - Protect the SQLite database and backups. The testnet vault is unaudited and must only use throwaway Base Sepolia wallets.
+
+
+## Autonomous development workflow
+
+- Setup PR: add the GitHub Actions/Copilot CLI workflow, repository instructions, and setup documentation. Configure the repository secrets described in docs/autonomous-development.md before starting it.
+- The loop starts from Actions → Autonomous development → Run workflow, then continues after an autonomous task PR is merged. It creates no more than one task PR at a time and has a rolling cap of three autonomous task PR merges per 24 hours.
+- Each Copilot run is capped at 100 AI credits, three autopilot continuations, and 60 minutes. One failed CI run may be repaired on the same branch; after a second failure the PR remains open for human intervention.
+- Generated PR descriptions remain one sentence; a hidden marker identifies autonomous task PRs for continuation. Required branch protections and review rules remain authoritative.
+- The automation must never touch user-owned untracked .forge/, contracts/lib/, or aegis-agent-wallet-handoff.md, nor expand beyond simulated-by-default Base Sepolia testnet execution through the unaudited AegisVault.
