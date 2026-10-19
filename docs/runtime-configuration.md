@@ -173,3 +173,7 @@ The owner-authenticated `GET /chain/base-sepolia/address/{address}/balances` end
 ## Read-only policy configuration
 
 The owner-authenticated `GET /policy/config` endpoint returns the active demo agent ID, enabled state, allowed chain IDs, configured trusted tokens, recipient allowlists, transaction and daily limits, recipient-specific limits, and approval settings. Spending limits are returned in token base units; for the demo USDC token, 1 USDC equals 1,000,000 base units. This endpoint is read-only and does not expose bearer tokens, private keys, or mutation controls. The policy hash remains available separately through `GET /policy/hash`.
+
+## Read-only spending summary
+
+The owner-authenticated `GET /spending/summary` endpoint reports the UTC date, local workflow accounting source, and daily spend, configured daily limit, remaining budget, and limit status for each configured token allowed by the active policy. Values are exact integer token base units; for the demo USDC token, 1 USDC equals 1,000,000 base units. The accounting includes active `ready`, `awaiting_approval`, and `approved` reservations, uncertain `submitting_onchain` submissions, and simulated or submitted executions recorded for the current UTC day. Cancelling or rejecting a pending proposal releases its reservation. This is local workflow accounting, not an on-chain balance, vault spend counter, transaction receipt, or finality check.
