@@ -931,3 +931,75 @@ def test_uncertain_submission_retry_reuses_the_exact_persisted_signed_bytes(
     assert submitted_raw[0] == submitted_raw[1]
     assert calls == {"nonce": 1, "estimate": 1}
     assert store.daily_spend(BASE_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_USDC_ADDRESS) == 1_000_000
+
+
+
+def test_agent_execution_requires_vault_mode(isolated_app, monkeypatch):
+    _, agent_headers, _ = isolated_app
+    proposal = client.post(
+        "/transactions/propose",
+        headers=agent_headers,
+        json=_vault_proposal(),
+    ).json()
+    monkeypatch.setattr(main, "execution_settings", ExecutionSettings(mode="simulated"))
+
+    response = client.post(
+        f"/agent/transactions/{proposal['transaction_id']}/execute",
+        headers=agent_headers,
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "agent_execution_requires_vault"
+
+
+def test_agent_execution_requires_agent_authentication(isolated_app, monkeypatch):
+    _, agent_headers, owner_headers = isolated_app
+    proposal = client.post(
+        "/transactions/propose",
+        headers=agent_headers,
+        json=_vault_proposal(),
+    ).json()
+    settings = _vault_settings(monkeypatch)
+    monkeypatch.setattr(main, "execution_settings", settings)
+
+    response = client.post(
+        f"/agent/transactions/{proposal['transaction_id']}/execute",
+        headers=owner_headers,
+    )
+
+    assert response.status_code == 401
+
+
+def test_agent_execution_routes_ready_proposal_through_vault_executor(
+    isolated_app, monkeypatch
+):
+    store, agent_headers, _ = isolated_app
+    proposal = client.post(
+        "/transactions/propose",
+        headers=agent_headers,
+        json=_vault_proposal(),
+    ).json()
+    settings = _vault_settings(monkeypatch)
+    monkeypatch.setattr(main, "execution_settings", settings)
+    executor_marker = object()
+    monkeypatch.setattr(
+        main,
+        "BaseSepoliaVaultExecutor",
+        lambda configured: executor_marker,
+    )
+    execute_calls = []
+
+    def execute(transaction_id, executor):
+        execute_calls.append((transaction_id, executor))
+        return "ready", store.get(transaction_id)
+
+    monkeypatch.setattr(main.controller, "execute", execute)
+
+    response = client.post(
+        f"/agent/transactions/{proposal['transaction_id']}/execute",
+        headers=agent_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["transaction_id"] == proposal["transaction_id"]
+    assert execute_calls == [(proposal["transaction_id"], executor_marker)]
