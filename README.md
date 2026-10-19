@@ -46,6 +46,7 @@ Set `BASE_SEPOLIA_RPC_URL` to an HTTPS JSON-RPC endpoint from your RPC provider.
 
 - `GET /chain/base-sepolia/status` — reads `eth_chainId` and reports whether it is 84532.
 - `GET /chain/base-sepolia/token/{address}` — checks the selected chain, reads contract bytecode, and calls ERC-20 `symbol()`, `decimals()`, and optional `name()` using `eth_call`.
+- `GET /chain/base-sepolia/address/{address}/balances` — reads native ETH and the demo Base Sepolia USDC balance for a public address, returning exact base-unit integers and decimal strings without floating-point conversion.
 
 These endpoints are read-only. They do not sign or submit transactions. The demo policy allowlists Circle's published Base Sepolia USDC contract (`0x036CbD53842c5426634e7929541eC2318f3dCF7e`; 6 decimals), cross-checked against [Circle's USDC on Base information](https://www.circle.com/multi-chain-usdc/base) and your live RPC metadata response. Bytecode and readable ERC-20 metadata alone do **not** establish token authenticity; check official sources before adding any other token. Requests fail closed if the RPC URL is missing, the endpoint is on the wrong chain, or the RPC returns an error.
 
