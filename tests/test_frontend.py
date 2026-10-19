@@ -254,7 +254,7 @@ def test_stale_connection_attempt_cannot_overwrite_newer_session():
 const assert = require('node:assert/strict');
 const state = {
   sessionVersion: 0, refreshId: 0, healthRequestId: 0, marketRequestId: 0,
-  marketSnapshotId: 0, marketQuoteRequestIds: new Map(), auditRequestId: 0,
+  marketSnapshotId: 0, marketQuoteRequestIds: new Map(), walletBalancesRequestId: 0, auditRequestId: 0,
   auditSummaryRequestId: 0, proposalRequestId: 0, connectionRequestId: 0,
   tokens: {agent: '', owner: ''}, connected: false, executionMode: null
 };
@@ -328,7 +328,7 @@ def test_disconnect_while_connecting_prevents_pending_response_from_restoring_se
 const assert = require('node:assert/strict');
 const state = {
   sessionVersion: 0, refreshId: 0, healthRequestId: 0, marketRequestId: 0,
-  marketSnapshotId: 0, marketQuoteRequestIds: new Map(), auditRequestId: 0,
+  marketSnapshotId: 0, marketQuoteRequestIds: new Map(), walletBalancesRequestId: 0, auditRequestId: 0,
   auditSummaryRequestId: 0, proposalRequestId: 0, connectionRequestId: 0,
   tokens: {agent: '', owner: ''}, connected: false
 };
