@@ -4,12 +4,11 @@ The repository can use GitHub Actions and Copilot CLI to implement one roadmap i
 
 ## Required repository secrets
 
-In Settings → Secrets and variables → Actions, create these two repository secrets:
+In Settings → Secrets and variables → Actions, create this repository secret:
 
-1. **COPILOT_GITHUB_TOKEN** — a fine-grained personal access token with the Copilot Requests permission, used only to authenticate Copilot CLI and bill usage to the associated Copilot account.
-2. **AUTOMATION_TOKEN** — a fine-grained token restricted to this repository with Contents: read/write, Pull requests: read/write, Actions: read, and Metadata: read. It is used by trusted workflow steps to push the generated branch, open/update PRs, inspect CI, and request auto-merge. Do not pass this token into the Copilot process.
+1. **AUTOMATION_TOKEN** — a fine-grained token restricted to this repository with Contents: read/write, Pull requests: read/write, Actions: read, and Metadata: read. It is used by trusted workflow steps to push the generated branch, open/update PRs, inspect CI, and request auto-merge. Do not pass this token into the Copilot process.
 
-Use the minimum permissions available in the token UI. Never put either token in a repository file, issue, PR comment, or log. If your account or organisation supports Copilot CLI billed to GitHub Actions, you may later choose the documented GITHUB_TOKEN approach for Copilot authentication instead of COPILOT_GITHUB_TOKEN; this workflow currently expects the explicit secret.
+Copilot CLI authentication uses the workflow's short-lived built-in `GITHUB_TOKEN` with the `copilot-requests: write` permission; no personal Copilot token is required by this workflow. The workflow's trusted Git operations continue to use `AUTOMATION_TOKEN`. Never put tokens in a repository file, issue, PR comment, or log. GitHub documents built-in-token Copilot billing for organisation-owned repositories; this repository is on a personal account, so eligibility must be verified before relying on the workflow.
 
 ## Repository settings
 
