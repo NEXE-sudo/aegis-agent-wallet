@@ -60,6 +60,9 @@ def test_frontend_covers_supported_views_and_workflow_endpoints():
         assert f'id="view-{view}"' in response.text
 
     for element in (
+        'id="wallet-balance-form"',
+        'id="wallet-address"',
+        'id="wallet-balances"',
         'id="market-list"',
         'id="proposal-form"',
         'id="approval-list"',
@@ -87,6 +90,20 @@ def test_frontend_covers_supported_views_and_workflow_endpoints():
     assert 'data-action="execute"' in response.text
     assert 'data-action="cancel"' in response.text
     assert "No on-chain transaction occurred." in response.text
+
+
+
+def test_frontend_shows_owner_authenticated_read_only_wallet_balances():
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert 'id="wallet-balances"' in response.text
+    assert "api(`/chain/base-sepolia/address/${encodeURIComponent(address)}/balances`" in response.text
+    assert "state.walletBalancesRequestId += 1;" in _script_function(response.text, "invalidatePendingRequests")
+    refresh = _script_function(response.text, "refreshWalletBalances")
+    assert "sessionVersion !== state.sessionVersion || requestId !== state.walletBalancesRequestId" in refresh
+    assert "state.walletBalances = null;" in _script_function(response.text, "clearSessionData")
+    assert "No transaction is signed or broadcast." in response.text
 
 
 def test_frontend_shows_owner_authenticated_daily_spending_summary():
