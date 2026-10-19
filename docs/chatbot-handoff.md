@@ -12,11 +12,10 @@ Last updated: 19 October 2026
 ## Current state
 
 - PR #177 is merged: vault-bounded agent execution for eligible proposals while preserving owner approvals.
-- PR #179 is merged: removed direct EOA execution and made AegisVault the only route for actual Base Sepolia transfers.
-- PR #179 merge commit: `c092d9b953cc6eecfefb224cf33a5d3001331a0a`.
-- The `agent/vault-only-execution` branch was deleted locally and remotely after Ruff and pytest passed on updated `main`.
-- Current work is PR #180, Phase 2 first slice: [Add read-only Base Sepolia wallet balances](https://github.com/NEXE-sudo/aegis-agent-wallet/pull/180). Branch: `agent/base-sepolia-wallet-balances`; the PR is open and awaits user-run Ruff/pytest validation.
-- This PR adds owner-authenticated `GET /chain/base-sepolia/address/{address}/balances` to read native ETH and demo USDC balances, exact integer base units and decimal strings, strict Base Sepolia chain verification, tests, and documentation. It must be validated by the user before merge.
+- PR #179 is merged: removed direct EOA execution and made AegisVault the only route for actual Base Sepolia transfers; merge commit `c092d9b953cc6eecfefb224cf33a5d3001331a0a`.
+- PR #180 is merged: added owner-authenticated `GET /chain/base-sepolia/address/{address}/balances` for read-only native ETH and demo USDC balances, exact integer base units, decimal strings, strict Base Sepolia verification, tests, and documentation; merge commit `9ff090e94b86e3a466505256d3f040ca8a90271e`.
+- The user confirmed Ruff and pytest passed on updated `main` after PR #180 and reported that the `agent/base-sepolia-wallet-balances` branch was deleted.
+- Current work is PR #181, Phase 2 second slice: add owner-authenticated read-only `GET /policy/config` for the active demo policy, allowlists, spending limits, and approval settings, with tests and documentation. Branch: `agent/read-only-policy-config`.
 
 ## Phased roadmap
 
@@ -29,7 +28,7 @@ Last updated: 19 October 2026
 - Add wallet address/network inspection and native ETH plus configured token balance reads.
 - Expose agent/owner identity and policy/limits in safe, read-only form.
 - Surface current spending and transaction status with clear semantics.
-- Keep each feature in a small focused PR; the current PR is the first balances slice.
+- Keep each feature in a small focused PR; PR #180 delivered the balance-read slice and PR #181 adds the policy-configuration read.
 
 ### Phase 3 — Wallet lifecycle and configuration verification
 - Improve setup and verification of network settings, wallet deployment state, and contract configuration.
@@ -94,8 +93,8 @@ git push origin --delete <branch-name>
 
 ## Next steps
 
-- Finish the current wallet-balance PR review and ensure the handoff document is included in that same PR.
-- Wait for the user to run Ruff and pytest on the PR branch.
-- After passing branch checks, have the user squash-merge, pull main, and rerun checks.
+- PR #180 is complete: merge verified, the user confirmed Ruff and pytest passed on updated `main`, and the user reported branch cleanup complete.
+- Review PR #181 for `GET /policy/config`; wait for the user to run Ruff and pytest on its branch.
+- After passing branch checks, have the user squash-merge PR #181, pull updated `main`, and rerun both checks.
 - Only after successful main checks and confirmed merge, provide combined local/remote branch cleanup commands.
-- Update this handoff document in a subsequent PR as needed, then continue Phase 2 with the next small read/configuration slice.
+- Keep this handoff document current through a future PR, never by editing `main` directly.
