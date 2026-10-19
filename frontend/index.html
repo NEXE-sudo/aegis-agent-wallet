@@ -216,6 +216,7 @@ button.audit-card{text-align:left;width:100%;color:inherit}
 .event-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;color:#cbd7e5;font-size:10px}
 .event-meta div{min-width:0}
 .event-meta strong{display:block;color:var(--muted);font-size:8px;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px}
+.receipt-result{display:grid;gap:4px;margin-top:8px;padding:8px;border:1px solid var(--border);border-radius:8px;color:#cbd7e5;font-size:10px}
 .event-details{padding:10px;border-radius:8px;background:#0e1925;color:#cbd7e5;white-space:pre-wrap;overflow-wrap:anywhere;font:10px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
 .loading{color:var(--muted);font-size:10px;padding:12px 18px}
 .inline-error{color:var(--red);font-size:10px;padding:12px 18px}
@@ -697,6 +698,7 @@ const state = {
   auditLoadFailed: false,
   tokens: {agent: '', owner: ''},
   transactions: [],
+  receiptResults: {},
   auditSummary: [],
   auditSelectedId: '',
   marketQuotes: {},
@@ -1545,6 +1547,15 @@ const renderActivity = () => {
       const canExecute = ['ready', 'approved'].includes(tx.status)
         || (state.executionMode === 'base_sepolia_vault' && tx.status === 'submitting_onchain');
       const canCancel = ['ready', 'awaiting_approval', 'approved'].includes(tx.status);
+      const receipt = state.receiptResults[tx.transaction_id];
+      const receiptDetails = receipt
+        ? `<div class="receipt-result" aria-live="polite">
+          <strong>Base Sepolia receipt · ${esc(receipt.status)}</strong>
+          <span>Chain ID ${esc(receipt.chain_id)} · Block ${esc(receipt.block_number ?? 'not reported')}</span>
+          <span class="small-mono">Transaction hash · ${esc(receipt.transaction_hash)}</span>
+          <span>Point-in-time RPC result; not proof of transaction finality.</span>
+        </div>`
+        : '';
       const action = `<div style="display:flex;align-items:center;gap:7px">
         <button class="btn secondary" type="button" data-action="inspect" data-id="${esc(tx.transaction_id)}">Inspect</button>
         ${canCancel
@@ -1561,7 +1572,8 @@ const renderActivity = () => {
                     ? `<button class="btn secondary" type="button" data-action="receipt" data-id="${esc(tx.transaction_id)}" ${state.busyActions.has(tx.transaction_id) ? 'disabled' : ''}>Check receipt</button>`
                 : tx.status === 'cancelled' ? '<span class="muted">Reservation released</span>'
                 : '<span class="muted">—</span>'}
-      </div>`;
+      </div>
+      ${receiptDetails}`;
       return `
     <tr data-id="${esc(tx.transaction_id || '')}">
       <td class="small-mono">${esc(tx.transaction_id || 'Unknown ID')}</td>
@@ -1801,6 +1813,7 @@ const clearSessionData = () => {
   state.vaultStatus = null;
   state.vaultStatusError = '';
   state.transactions = [];
+  state.receiptResults = {};
   state.transactionsLoaded = false;
   state.transactionError = '';
   state.spendingSummary = null;
@@ -2001,6 +2014,7 @@ const handleExecute = async (transactionId) => {
       : `Submit ${formatMoney(proposal?.amount_base_units, proposal?.token_symbol || 'USDC', proposal?.token_decimals ?? 6)} through the AegisVault to ${proposal?.recipient || 'the recorded recipient'} on Base Sepolia testnet? The vault enforces its configured caps, recipient rules, approvals, and pause state.`
     : 'Request a simulation only? No transaction will be signed or broadcast.';
   if (!window.confirm(confirmation)) return;
+  delete state.receiptResults[transactionId];
   state.busyActions.add(transactionId);
   const sessionVersion = state.sessionVersion;
   renderActivity();
@@ -2039,6 +2053,7 @@ const handleExecute = async (transactionId) => {
 
 const handleReceipt = async (transactionId) => {
   if (!state.tokens.owner || state.busyActions.has(transactionId)) return;
+  delete state.receiptResults[transactionId];
   state.busyActions.add(transactionId);
   renderActivity();
   const sessionVersion = state.sessionVersion;
@@ -2049,6 +2064,7 @@ const handleReceipt = async (transactionId) => {
       'owner'
     );
     if (sessionVersion !== state.sessionVersion) return;
+    state.receiptResults[transactionId] = receipt;
     const block = receipt.block_number === null ? '' : ` in block ${receipt.block_number}`;
     notify(
       `Base Sepolia receipt: ${receipt.status}${block}. Receipt status is not finality.`,

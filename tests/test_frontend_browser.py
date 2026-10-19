@@ -65,6 +65,7 @@ def _mock_api(
     audit_events: list[dict] | None = None,
     policy_config: dict | None = None,
     wallet_balances: dict | None = None,
+    receipt_payload: dict | None = None,
 ) -> list[dict]:
     calls: list[dict] = []
     remaining_transaction_statuses = list(transaction_statuses or [])
@@ -129,6 +130,14 @@ def _mock_api(
             })
         elif parsed.path.startswith("/transactions/") and parsed.path.endswith("/audit"):
             fulfill(route, 200, audit_events or [])
+        elif parsed.path.startswith("/transactions/") and parsed.path.endswith("/receipt") and request.method == "GET":
+            fulfill(route, 200, receipt_payload or {
+                "transaction_id": parsed.path.split("/")[-2],
+                "transaction_hash": "0x" + "a" * 64,
+                "chain_id": 84532,
+                "status": "success",
+                "block_number": 123456,
+            })
         elif parsed.path.startswith("/market-data/"):
             fulfill(route, 502, {"detail": "provider temporarily unavailable"})
         elif parsed.path == "/transactions/propose" and request.method == "POST":
@@ -407,6 +416,53 @@ def test_browser_transaction_failures_keep_auth_and_confirmation_contracts(page:
     assert execution_call["authorization"] == "Bearer owner-token"
     assert "confirmed simulated execution" not in page.locator("#global-feedback").inner_text()
 
+
+def test_browser_receipt_result_stays_visible_in_activity(page: Page, frontend_url: str):
+    transaction_id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+    transaction_hash = "0x" + "a" * 64
+    transactions = [{
+        "transaction_id": transaction_id,
+        "status": "submitted_onchain",
+        "fingerprint": "c" * 64,
+        "execution_reference": transaction_hash,
+        "risk_level": "low",
+        "risk_score": 5,
+        "policy_decision": "allow",
+        "policy_reasons": [],
+        "risk_reasons": [],
+        "proposal": {
+            "recipient": "0x" + "b" * 40,
+            "amount_base_units": 1000000,
+            "token_symbol": "USDC",
+            "token_decimals": 6,
+        },
+        "created_at": "2026-10-15T10:00:00Z",
+        "updated_at": "2026-10-15T10:00:00Z",
+    }]
+    calls = _mock_api(
+        page,
+        transactions=transactions,
+        receipt_payload={
+            "transaction_id": transaction_id,
+            "transaction_hash": transaction_hash,
+            "chain_id": 84532,
+            "status": "success",
+            "block_number": 123456,
+        },
+    )
+    page.goto(frontend_url)
+    _connect(page, "agent-token", "owner-token")
+
+    page.locator('nav [data-view="activity"]').click()
+    page.get_by_role("button", name="Check receipt").click()
+
+    receipt_result = page.locator("#activity-rows .receipt-result")
+    expect(receipt_result).to_contain_text("Base Sepolia receipt · success")
+    expect(receipt_result).to_contain_text("Chain ID 84532 · Block 123456")
+    expect(receipt_result).to_contain_text(transaction_hash)
+    expect(receipt_result).to_contain_text("not proof of transaction finality")
+    receipt_call = next(call for call in calls if call["path"].endswith("/receipt"))
+    assert receipt_call["authorization"] == "Bearer owner-token"
 
 
 
