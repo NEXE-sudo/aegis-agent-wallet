@@ -108,7 +108,7 @@ The current prototype assumes:
 
 The project does **not**:
 
-- Support mainnet execution, real-fund transfers, seed phrases, production key custody, or hardware-backed signing. Throwaway keys may be loaded only for explicitly selected Base Sepolia execution modes; in vault mode the Aegis process holds only the agent session key, never the owner key.
+- Support mainnet execution, real-fund transfers, seed phrases, production key custody, or hardware-backed signing. Throwaway keys may be loaded only for explicitly selected `base_sepolia_vault` execution; the Aegis process holds only the agent session key, never the owner key.
 - Treat an RPC submission response or receipt as proof of finality; automated confirmation/reorganization handling is not implemented.
 - Prove recipient identity, token authenticity, or provider honesty.
 - Provide a production identity system, hardware-backed key custody, multi-party approval, or production secret rotation.
