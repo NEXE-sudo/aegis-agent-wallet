@@ -89,6 +89,16 @@ def test_frontend_covers_supported_views_and_workflow_endpoints():
     assert "No on-chain transaction occurred." in response.text
 
 
+def test_frontend_supports_vault_only_testnet_execution():
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "['simulated', 'base_sepolia_vault']" in response.text
+    assert "base_sepolia_vault" in response.text
+    assert "Execute via vault" in response.text
+    assert "['simulated', 'base_sepolia']" not in response.text
+
+
 def test_frontend_does_not_persist_credentials_or_show_fabricated_market_moves():
     response = client.get("/")
 
