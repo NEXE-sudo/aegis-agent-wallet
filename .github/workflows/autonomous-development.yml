@@ -172,6 +172,9 @@ jobs:
             echo "::error::The task touched protected or user-owned paths; refusing to publish."
             exit 1
           fi
+          if [[ "$TASK_MODE" == "repair" ]]; then
+            rm -f .autonomous-task-result.json
+          fi
           if [[ "$TASK_MODE" == "new" ]]; then
             if ! git diff --name-only | grep -qx 'docs/chatbot-handoff.md'; then
               echo "::error::Every autonomous feature PR must update docs/chatbot-handoff.md."
@@ -198,6 +201,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          gh auth setup-git
           if [[ "$TASK_MODE" == "new" ]]; then
             TITLE="$(jq -r '.title' .autonomous-task-result.json)"
             DESCRIPTION="$(jq -r '.description' .autonomous-task-result.json)"
