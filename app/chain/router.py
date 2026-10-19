@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.auth import require_chain_owner
 from app.chain.base_sepolia import (
     BASE_SEPOLIA_CHAIN_ID,
+    BASE_SEPOLIA_USDC_ADDRESS,
     BaseSepoliaRpc,
     RpcConfigurationError,
     RpcRequestError,
