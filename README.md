@@ -67,6 +67,7 @@ Policy construction fails fast when global transaction or daily limits are non-p
 - `POST /transactions/{transaction_id}/cancel` — requires the owner token and cancels a `ready`, `awaiting_approval`, or `approved` proposal, releasing its daily spend reservation.
 - `POST /transactions/{transaction_id}/execute` — requires the owner token and re-evaluates policy, daily spending, and heuristic risk under the same SQLite write lock used for the simulated state transition. If risk escalates to high, human approval is required before simulation.
 - `POST /policy/evaluate` and `POST /risk/assess` — standalone evaluation endpoints; their caller-provided spend is not trusted by the transaction workflow.
+- `GET /policy/config` — owner-authenticated, read-only view of the active demo policy, allowlists, transaction/daily limits, and approval settings.
 
 The daily limit is calculated from persisted same-day transactions for the same chain and token. Ready, awaiting-approval, approved, and simulated-executed transactions count against the daily limit; blocked and cancelled proposals do not. Pending transactions reserve budget to reduce overspending from concurrent proposals, and an owner can cancel pending proposals to release those reservations. This is a local prototype accounting model, not a substitute for confirmed on-chain balances/receipts in a production wallet.
 
