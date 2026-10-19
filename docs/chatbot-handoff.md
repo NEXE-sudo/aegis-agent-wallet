@@ -80,7 +80,8 @@ Last updated: 20 October 2026
 
 - PR #182 is complete; the user confirmed both checks passed on updated `main` and deleted its branch.
 - Current PR #183 adds an Overview panel for `GET /spending/summary` without changing backend accounting or execution behaviour.
-- Ask the user to pull `agent/dashboard-spending-visibility` and run Ruff and pytest.
+- CI initially exposed a regression-test harness omission: the isolated connection test did not stub the new `refreshSpendingSummary` callback. The test harness now stubs that callback; the application change itself remains owner-authenticated and session-guarded.
+- Ask the user to pull `agent/dashboard-spending-visibility` and run `uv run --locked ruff check .` and `uv run --locked python -m pytest -q`.
 - Once both pass on the PR branch, verify the current PR head and squash-merge PR #183.
 - Then have the user pull updated `main` and rerun both checks. Verify the merge and only then provide combined local/remote cleanup commands.
 - After cleanup, inspect the current repository and choose the next small Phase 2 slice; include handoff changes in that feature PR.
