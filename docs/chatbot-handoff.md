@@ -19,7 +19,7 @@ Last updated: 20 October 2026
 - PR #182 added owner-authenticated `GET /spending/summary` for UTC-day local workflow spend and remaining budget per allowed token; it is merged, the user confirmed checks passed on updated `main`, and the branch was deleted.
 - PR #183 added the Overview dashboard's owner-authenticated daily spending summary with exact token-unit formatting, per-token limits and remaining budget, stale-session protection, and clear local-accounting semantics; it was squash-merged as `62bdf6d9b72b01d322929294bfcd4f33be346918`, all three CI jobs passed, and the user confirmed checks passed on updated `main` and deleted the branch.
 - PR #184 exposed the owner-authenticated `GET /policy/config` response in Settings as a read-only view of active chain/token/recipient allowlists, spending limits, and approval rules; it was squash-merged as `f548deeb5506b0ce121aa059c3ab2c344154c14b`, CI passed on Python 3.11/3.12/3.14, the user confirmed checks on updated `main`, and the branch was deleted.
-- Current work is PR #185, Phase 2: add an Overview panel for on-demand owner-authenticated, read-only Base Sepolia ETH and demo-USDC balances for a user-entered public address. Branch: `agent/dashboard-wallet-balances`.
+- PR #185 added an Overview panel for on-demand owner-authenticated, read-only Base Sepolia ETH and demo-USDC balances for a user-entered public address. It was squash-merged as `fbe22f13dd59a6572eccd07544aa3016a22b1cbc`; CI passed on Python 3.11/3.12/3.14, and the user confirmed both Ruff and pytest passed on updated `main`.
 
 ## Phased roadmap
 
@@ -29,9 +29,11 @@ Last updated: 20 October 2026
 - Preserve owner approval requirements and simulated mode as the default.
 
 ### Phase 2 — Wallet read and configuration layer (in progress)
-- Read wallet balances for an explicitly supplied public address and inspect policy configuration.
-- Report current spending and transaction status with explicit local-versus-on-chain semantics.
-- Keep each feature in a small, independently testable PR.
+- Backend read surfaces now include public-address Base Sepolia ETH/demo-USDC balances, active policy configuration, and UTC-day local workflow spending summaries.
+- Frontend surfaces now include read-only wallet balances, active policy settings/allowlists, and daily spending/remaining budget.
+- Next candidates: wallet address and configured network identity; agent/owner identity and relevant status; transaction status/history where supported.
+- Clearly distinguish local configuration/database values from state verified on-chain; fail clearly when values are unavailable or configuration is missing/mismatched.
+- Inspect existing routes, service boundaries, frontend data flow, and tests before choosing the next smallest coherent slice. Avoid duplicate endpoints and never expose secrets/private keys.
 
 ### Phase 3 — Wallet lifecycle and configuration verification
 - Verify network settings, wallet deployment state, and contract configuration.
@@ -78,14 +80,15 @@ Last updated: 20 October 2026
 8. Inspect GitHub state before each PR and before cleanup. Do not infer that tests passed or a merge occurred without confirmation.
 9. Use British English, keep instructions compact, and do not address the user by name.
 
-## Current PR and next steps
+## Current status and next action
 
-- PR #184 is complete; the user confirmed both checks passed on updated `main` and deleted its branch.
-- Current PR #185 adds an on-demand Overview panel for native ETH and demo-USDC balances at a user-entered public address using the existing read-only `GET /chain/base-sepolia/address/{address}/balances` endpoint.
-- The view requires owner authentication, validates address shape, verifies the API response is for Base Sepolia chain ID 84532, guards against stale-session responses, and escapes API-provided values. It neither requests private keys nor signs or broadcasts transactions.
-- Pull `agent/dashboard-wallet-balances` and run `uv run --locked ruff check .` and `uv run --locked python -m pytest -q`.
-- After both pass on the PR branch, verify the current PR head and squash-merge PR #185. Then have the user pull updated `main` and rerun both checks; only after confirmation should local/remote cleanup commands be provided.
-- Keep future handoff updates inside the feature PR that motivates them.
+- PR #183 (daily spending Overview panel): squash-merged as `62bdf6d9b72b01d322929294bfcd4f33be346918`; CI passed and the user confirmed checks on updated `main`.
+- PR #184 (read-only active policy configuration in Settings): squash-merged as `f548deeb5506b0ce121aa059c3ab2c344154c14b`; CI passed and the user confirmed checks on updated `main`.
+- PR #185 (read-only wallet balances on Overview): squash-merged as `fbe22f13dd59a6572eccd07544aa3016a22b1cbc`; CI passed on Python 3.11/3.12/3.14 and the user confirmed checks on updated `main`.
+- The wallet balance panel uses owner-authenticated `GET /chain/base-sepolia/address/{address}/balances`, accepts a public address, checks chain ID 84532, guards against stale-session responses, and escapes API-provided values. It does not request private keys or sign/broadcast transactions.
+- The user has confirmed post-merge Ruff and pytest checks for PR #185. Local `.forge/` and `contracts/lib/` are intentionally untracked while the user investigates them; do not delete, stage, or modify them without instruction.
+- Next: inspect current `main` routes, services, frontend flow, and tests; select the smallest useful Phase 2 wallet identity/network/transaction-state read slice; create a focused feature branch and PR with tests and a handoff update.
+- Keep every future handoff update inside the feature PR that motivates it. Never update `main` directly.
 
 ## Standard accounting and safety semantics
 
