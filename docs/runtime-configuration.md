@@ -17,15 +17,14 @@ The package declares Python `>=3.11`. CI tests Python 3.11, 3.12, and 3.14; othe
 | `AEGIS_DB_PATH` | No | `aegis-workflow.sqlite3` | SQLite database path. An explicitly empty or whitespace-only value is rejected; choose a writable path and protect the database and its backups. Relative paths are resolved from the process working directory. |
 | `AEGIS_APPROVAL_EXPIRES_SECONDS` | No | `300` | Approval lifetime in seconds. Must parse as an integer greater than zero; invalid values prevent the application from initializing correctly. Expired approvals must be granted again. |
 | `AEGIS_MAX_PENDING_PROPOSALS` | No | `10` | Maximum number of active `ready`, `awaiting_approval`, and `approved` proposals. The value must be a positive integer; invalid values prevent startup. When the cap is reached, new proposals fail with HTTP 429 and no row is created, while idempotent replays still return the stored record. |
-| `AEGIS_EXECUTION_MODE` | No | `simulated` | One of `simulated`, `base_sepolia`, or `base_sepolia_vault`. Any other value prevents startup. Testnet execution is never selected automatically. |
-| `AEGIS_PREFLIGHT_ENABLED` | No | `true` in `base_sepolia` and `base_sepolia_vault`; `false` in `simulated` | In `base_sepolia`, controls read-only ERC-20 transfer simulation and sender token/ETH balance checks. In `base_sepolia_vault`, the vault transfer simulation is mandatory and cannot be disabled by this flag. Must be exactly `true` or `false` (case-insensitive); invalid values prevent startup. |
+| `AEGIS_EXECUTION_MODE` | No | `simulated` | One of `simulated` or `base_sepolia_vault`. The retired `base_sepolia` direct EOA mode and any other value prevent startup. Vault execution is never selected automatically. |
 | `AEGIS_VAULT_ADDRESS` | For `base_sepolia_vault` mode and the owner-only vault helper/status routes | None | Validated EVM address of the deployed Base Sepolia AegisVault. Vault execution requires contract code and the configured key to be its agent, with a signer distinct from the vault owner. The read-only status and approval-helper routes use only this public address; they do not read a private key or sign. |
-| `AEGIS_TESTNET_PRIVATE_KEY` | Only for `base_sepolia` or `base_sepolia_vault` mode | None | A throwaway Base Sepolia key, loaded only when testnet execution is explicitly enabled. In `base_sepolia_vault` mode this is the **agent session key only**, never the owner key. A missing or invalid key prevents startup. Keep it in the process environment; it is never accepted in an API request, returned, or logged. |
-| `BASE_SEPOLIA_RPC_URL` | Only for chain inspection or either Base Sepolia execution mode | None | HTTP(S) JSON-RPC endpoint for read-only inspection. Testnet execution requires a valid HTTPS URL. Missing or invalid execution configuration prevents startup; RPC failures return sanitized HTTP errors. Never commit a provider URL containing credentials. |
+| `AEGIS_TESTNET_PRIVATE_KEY` | Only for `base_sepolia_vault` mode | None | A throwaway Base Sepolia **agent session key**, loaded only when vault execution is explicitly enabled; never use the vault owner key here. A missing or invalid key prevents startup. Keep it in the process environment; it is never accepted in an API request, returned, or logged. |
+| `BASE_SEPOLIA_RPC_URL` | Only for chain inspection or `base_sepolia_vault` mode | None | HTTP(S) JSON-RPC endpoint for read-only inspection. Vault execution requires a valid HTTPS URL. Missing or invalid execution configuration prevents startup; RPC failures return sanitized HTTP errors. Never commit a provider URL containing credentials. |
 
 The agent token authenticates proposal creation and the limited `GET /agent/transactions/{transaction_id}` and `GET /agent/market-data/{asset_class}/{symbol}` reads. The owner token remains required for full transaction records, approvals, rejection, execution, audit events, and owner market-data or chain-inspection operations. See the [agent guide](agent.md) for LLM configuration and the evaluation harness.
 
-With the default `simulated` mode, the workflow does not load a private key or send transaction RPC calls. The optional chain inspection routes remain read-only. In `base_sepolia` mode, owner execution revalidates policy, spend, risk, and approvals, then signs and submits only allowlisted ERC-20 transfers on chain ID `84532`. In `base_sepolia_vault` mode, the server key is an agent session key only: the executor verifies the vault code, reads `owner()` and `agent()`, refuses owner/agent key overlap or an unconfigured signer, simulates the vault call, and only then signs `transferToken` on chain ID `84532`. Neither testnet mode has a silent fallback; an invalid chain ID is rejected.
+With the default `simulated` mode, the workflow does not load a private key or send transaction RPC calls. The optional chain inspection routes remain read-only. Actual transfers are available only in `base_sepolia_vault` mode: owner execution and eligible agent execution submit calls through the AegisVault on Base Sepolia (chain ID `84532`). The executor verifies vault code and `owner()`/`agent()` identity separation, validates the exact proposal-bound calldata, and simulates the vault call before signing. The vault independently enforces its caps, recipient/approval rules, and pause state. The retired direct EOA mode is rejected at startup; there is no fallback from vault execution to direct token transfers or simulation.
 When `AEGIS_VAULT_ADDRESS` and `BASE_SEPOLIA_RPC_URL` are configured, the
 owner-only `GET /chain/base-sepolia/vault/status` reads the vault owner, agent,
 pause state, token policies, today's spend, and allowlisted-recipient flags, then
@@ -46,7 +45,7 @@ operational commands, bypass demonstration, and evidence placeholders.
 
 The owner-only `POST /pause` and `POST /resume` controls persist a pause flag and append-only control log in SQLite. While paused, new proposal attempts are recorded as `blocked` with a clear reason, and owner approval/execution requests fail with HTTP 409. Reads, cancellation, rejection, and receipt lookups continue to work; an existing idempotent replay still resolves to its stored record.
 
-By default, Base Sepolia execution runs a read-only `eth_call` for the proposed transfer from the configured sender, checks the sender's token balance, and checks that its ETH balance covers the gas limit multiplied by the capped gas price. A failed or malformed preflight returns HTTP 409 with a machine-readable code and does not sign, submit, change workflow status, or append an audit event. This refusal follows the existing no-op behavior for rejected workflow actions; audit events are reserved for committed state transitions and security-relevant persisted checks. Setting `AEGIS_PREFLIGHT_ENABLED=false` explicitly skips these checks; it does not change the policy, approval, or gas caps.
+Vault execution always simulates the exact proposed `transferToken` call before signing. A failed or malformed simulation returns HTTP 409 with a machine-readable code and does not sign or broadcast. This simulation cannot be disabled by environment configuration; on-chain vault checks remain authoritative when the transaction is submitted.
 
 ## Start locally
 
@@ -85,91 +84,27 @@ Both chain routes require the owner/approval bearer token and are read-only. A r
 
 ## Manual Base Sepolia test transfer
 
-Use only a throwaway wallet and Base Sepolia faucet assets. The workflow's
-configured token is Base Sepolia USDC. The demo's policy limits still apply, and
-an unknown recipient or a proposal at the 50 USDC approval threshold requires
-owner approval.
+Actual transfers must go through the AegisVault; the direct EOA `base_sepolia`
+execution mode has been retired and is rejected at startup.
 
-1. Create a throwaway EVM wallet using a wallet tool you trust. Keep its private
-   key private; note only its public address. Fund it with Base Sepolia test ETH
-   for gas and test USDC from a Base Sepolia faucet.
-2. Set distinct `AEGIS_AGENT_TOKEN` and `AEGIS_APPROVAL_TOKEN` values in both
-   local shells (API and client). In the API process environment, also set
-   `AEGIS_EXECUTION_MODE="base_sepolia"`, an HTTPS `BASE_SEPOLIA_RPC_URL`, and
-   `AEGIS_TESTNET_PRIVATE_KEY` from your local environment/secret manager. Do
-   not paste the key into chat, source files, request bodies, shell history,
-   screenshots, or logs. Do not enable shell tracing. Startup must fail if the
-   key, RPC URL, or execution mode is invalid; it does not fall back to
-   simulation.
-3. Start the API on loopback using the documented `uvicorn` command. In another
-   local shell, make the proposal as the agent. This example proposes 2.5 USDC
-   to the demo allowlisted recipient; use a test amount and recipient covered by
-   the active policy:
+1. Follow the deployment and owner setup instructions in
+   [on-chain enforcement](onchain-enforcement.md), using Base Sepolia testnet
+   assets only. Keep the vault owner key separate from the API server.
+2. Configure the API process with `AEGIS_EXECUTION_MODE="base_sepolia_vault"`,
+   `AEGIS_VAULT_ADDRESS`, an HTTPS `BASE_SEPOLIA_RPC_URL`, and
+   `AEGIS_TESTNET_PRIVATE_KEY` containing only the separate agent session key.
+   Never paste keys or provider credentials into source files, chat, screenshots,
+   or logs.
+3. Keep `AEGIS_AGENT_TOKEN` and `AEGIS_APPROVAL_TOKEN` distinct. Propose a
+   policy-eligible transfer through the API. If approval is required, use the
+   owner-only vault approval helper and the separate owner key as described in
+   the runbook. The server never receives the owner key.
+4. Execute only after checking the proposal and vault status. Verify the returned
+   transaction hash and receipt independently; an RPC submission is not proof
+   of finality. Do not use mainnet or real funds.
 
-   ```bash
-   API="http://127.0.0.1:8000"
-   PROPOSAL_JSON=$(curl -fsS -X POST "$API/transactions/propose" \
-     -H "Authorization: Bearer $AEGIS_AGENT_TOKEN" \
-     -H "Content-Type: application/json" \
-     -d '{"agent_id":"devops-01","chain_id":84532,"token_symbol":"USDC","token_address":"0x036cbd53842c5426634e7929541ec2318f3dcf7e","recipient":"0x2222222222222222222222222222222222222222","amount_base_units":2500000,"token_decimals":6}')
-   TX_ID=$(printf '%s' "$PROPOSAL_JSON" | python -c 'import json,sys; print(json.load(sys.stdin)["transaction_id"])')
-   FINGERPRINT=$(printf '%s' "$PROPOSAL_JSON" | python -c 'import json,sys; print(json.load(sys.stdin)["fingerprint"])')
-   STATUS=$(printf '%s' "$PROPOSAL_JSON" | python -c 'import json,sys; print(json.load(sys.stdin)["status"])')
-   ```
-
-4. If the returned status is `awaiting_approval`, approve the exact proposal
-   fingerprint as owner. Then execute as owner. This is safe to run for a
-   `ready` proposal too; it simply skips the approval step:
-
-   ```bash
-   if [ "$STATUS" = "awaiting_approval" ]; then
-     curl -fsS -X POST "$API/transactions/$TX_ID/approve" \
-       -H "Authorization: Bearer $AEGIS_APPROVAL_TOKEN" \
-       -H "Content-Type: application/json" \
-       -d "{\"transaction_fingerprint\":\"$FINGERPRINT\",\"confirmation\":\"APPROVE\"}"
-   fi
-   EXECUTION_JSON=$(curl -fsS -X POST "$API/transactions/$TX_ID/execute" \
-     -H "Authorization: Bearer $AEGIS_APPROVAL_TOKEN")
-   printf '%s\n' "$EXECUTION_JSON"
-   ```
-
-   Confirm the response status is `submitted_onchain`. Read the transaction
-   hash from `execution_reference` or the owner-only
-   `onchain_transaction_submitted` audit event. A `ready` response is not an
-   executed transfer.
-5. Read the owner-only receipt and verify its returned hash/status. Poll if it
-   reports `pending`; a successful RPC submission is not proof of finality:
-
-   ```bash
-   TX_HASH=$(printf '%s' "$EXECUTION_JSON" | python -c 'import json,sys; print(json.load(sys.stdin)["execution_reference"])')
-   curl -fsS "$API/transactions/$TX_ID/receipt" \
-     -H "Authorization: Bearer $AEGIS_APPROVAL_TOKEN"
-   uv run python scripts/verify_testnet_evidence.py "$TX_HASH" \
-     --expected-sender "<TODO: throwaway wallet address>" \
-     --audit-db "<path to Aegis workflow SQLite database>"
-   ```
-
-   The verifier makes read-only RPC calls and confirms chain ID `84532`, a
-   successful receipt, and standard ERC-20 `transfer(address,uint256)` calldata.
-   It checks the transaction sender against the throwaway wallet's public
-   address, then opens the Aegis database strictly read-only and verifies the
-   matching submitted transaction and ordered audit events against the on-chain
-   token contract, recipient, and amount. It reports these fields and a Base
-   Sepolia explorer link. It exits unsuccessfully for a wrong chain, sender
-   mismatch, missing transaction/receipt, non-transfer calldata, failed receipt,
-   or inconsistent/missing audit record. To omit the sender check, explicitly use
-   `--skip-sender-check`; the verifier prints a warning.
-
-   For a vault-mode transfer, add `--vault "<AegisVault address>"`. The verifier
-   then requires the transaction destination and `transferToken` calldata to
-   match the vault, checks the vault `TokenTransferred` and ERC-20 `Transfer`
-   receipt logs against the token, recipient, amount, and proposal reference,
-   and, when `--audit-db` is supplied, compares that reference with the stored
-   and independently recomputed proposal fingerprint. Keep
-   `--expected-sender` set to the public agent address.
-6. Stop the API and unset `AEGIS_TESTNET_PRIVATE_KEY` in its shell. Never use a
-   mainnet key or endpoint. Tests use mocked RPC transports only and do not
-   submit to a live network.
+`base_sepolia_vault` is an unaudited testnet integration. A deployment and
+successful transfer must not be described as production readiness.
 
 ## Vault bypass demonstration
 
@@ -221,7 +156,7 @@ succeeds.
 - **HTTP 503 from a chain endpoint:** configure `BASE_SEPOLIA_RPC_URL` and verify the endpoint is reachable.
 - **HTTP 502 from a chain endpoint:** inspect provider availability and configuration without sharing the full credential-bearing URL. The client intentionally returns sanitized request errors.
 - **Chain status reports a different chain ID:** verify that the configured RPC endpoint is for Base Sepolia (chain ID `84532`).
-- **Execution configuration prevents startup:** set `AEGIS_EXECUTION_MODE` to `simulated` or configure a valid throwaway testnet key and HTTPS RPC URL for `base_sepolia`.
+- **Execution configuration prevents startup:** set `AEGIS_EXECUTION_MODE` to `simulated`, or configure `base_sepolia_vault`, a valid vault address, a throwaway agent session key, and an HTTPS RPC URL.
 
 ## Operational cautions
 
