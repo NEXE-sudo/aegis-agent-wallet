@@ -2221,3 +2221,68 @@ def test_execution_requires_new_approval_when_policy_tightens_after_proposal():
         f"/transactions/{record['transaction_id']}/audit", headers=OWNER_HEADERS
     ).json()
     assert [event["event_type"] for event in events][-1] == "policy_revalidation_requires_approval"
+
+
+def test_policy_config_requires_owner_authentication():
+    response = client.get("/policy/config")
+    assert response.status_code == 401
+
+
+def test_policy_config_returns_read_only_active_limits_and_allowlists():
+    response = client.get("/policy/config", headers=OWNER_HEADERS)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body == {
+        "agent_id": main.DEMO_POLICY.agent_id,
+        "enabled": main.DEMO_POLICY.enabled,
+        "allowed_chain_ids": sorted(main.DEMO_POLICY.allowed_chain_ids),
+        "allowed_tokens": [
+            {
+                "address": address.lower(),
+                "symbol": token.symbol,
+                "chain_id": token.chain_id,
+                "decimals": token.decimals,
+            }
+            for address, token in sorted(
+                main.DEMO_POLICY.trusted_tokens.items(),
+                key=lambda item: item[0].lower(),
+            )
+            if address.lower()
+            in {allowed.lower() for allowed in main.DEMO_POLICY.allowed_token_addresses}
+        ],
+        "allowed_token_symbols": sorted(main.DEMO_POLICY.allowed_token_symbols),
+        "allowed_recipients": sorted(
+            address.lower() for address in main.DEMO_POLICY.allowed_recipients
+        ),
+        "max_transaction_base_units": main.DEMO_POLICY.max_transaction_base_units,
+        "daily_limit_base_units": main.DEMO_POLICY.daily_limit_base_units,
+        "approval_threshold_base_units": main.DEMO_POLICY.approval_threshold_base_units,
+        "approval_expires_seconds": main.DEMO_POLICY.approval_expires_seconds,
+        "unknown_recipient_requires_approval": (
+            main.DEMO_POLICY.unknown_recipient_requires_approval
+        ),
+        "recipient_token_allowlist": {
+            recipient.lower(): sorted(token.lower() for token in tokens)
+            for recipient, tokens in sorted(
+                main.DEMO_POLICY.recipient_token_allowlist.items(),
+                key=lambda item: item[0].lower(),
+            )
+        },
+        "recipient_daily_limits_base_units": {
+            recipient.lower(): limit
+            for recipient, limit in sorted(
+                main.DEMO_POLICY.recipient_daily_limits_base_units.items(),
+                key=lambda item: item[0].lower(),
+            )
+        },
+        "recipient_transaction_limits_base_units": {
+            recipient.lower(): limit
+            for recipient, limit in sorted(
+                main.DEMO_POLICY.recipient_transaction_limits_base_units.items(),
+                key=lambda item: item[0].lower(),
+            )
+        },
+    }
+    assert "AEGIS_AGENT_TOKEN" not in response.text
+    assert "AEGIS_APPROVAL_TOKEN" not in response.text
