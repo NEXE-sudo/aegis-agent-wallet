@@ -107,7 +107,7 @@ Last updated: 20 October 2026
 
 ## Autonomous development workflow
 
-- Setup PR: add the GitHub Actions/Copilot CLI workflow, repository instructions, and setup documentation. Configure the repository secrets described in docs/autonomous-development.md before starting it.
+- PR #189 (Set up bounded autonomous development) is open on branch agent/autonomous-development-workflow. It adds the GitHub Actions/Copilot CLI workflow, repository instructions, and setup documentation; configure the repository secrets described in docs/autonomous-development.md before enabling the loop. Wait for all CI checks and the user's branch validation before merging.
 - The loop starts from Actions → Autonomous development → Run workflow, then continues after an autonomous task PR is merged. It creates no more than one task PR at a time and has a rolling cap of three autonomous task PR merges per 24 hours.
 - Each Copilot run is capped at 100 AI credits, three autopilot continuations, and 60 minutes. One failed CI run may be repaired on the same branch; after a second failure the PR remains open for human intervention.
 - Generated PR descriptions remain one sentence; a hidden marker identifies autonomous task PRs for continuation. Required branch protections and review rules remain authoritative.
