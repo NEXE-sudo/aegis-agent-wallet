@@ -7,6 +7,7 @@ Last updated: 20 October 2026
 - Repository: https://github.com/NEXE-sudo/aegis-agent-wallet
 - Product: testnet-only AI-agent wallet prototype for the FinTechathon 2026 Shenzhen International Track, theme “Agent Wallet on Chain”.
 - The AI agent is a wallet user, not the product pitch.
+- Use British English and do not address the user by name.
 - Safety boundary: simulated execution by default; actual ERC-20 execution is only through the unaudited AegisVault on Base Sepolia (chain ID 84532). No mainnet or production-readiness claims.
 
 ## Current state
