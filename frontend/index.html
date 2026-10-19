@@ -329,6 +329,20 @@ button.audit-card{text-align:left;width:100%;color:inherit}
       <section class="panel" style="margin-bottom:16px">
         <div class="panel-head">
           <div>
+            <div class="kicker">NETWORK · OWNER READ ONLY</div>
+            <h2>Network status</h2>
+            <p>Check the configured RPC endpoint's reported chain ID before relying on testnet reads.</p>
+          </div>
+          <button class="btn secondary" id="refresh-chain-status" type="button">Check network</button>
+        </div>
+        <div id="chain-status" class="spending-list" aria-live="polite">
+          <div class="loading">Connect with an owner token to inspect the configured network.</div>
+        </div>
+        <div class="market-note">This verifies the RPC-reported chain ID only; it does not verify vault deployment, token authenticity, or transaction finality.</div>
+      </section>
+      <section class="panel" style="margin-bottom:16px">
+        <div class="panel-head">
+          <div>
             <div class="kicker">BASE SEPOLIA · READ ONLY</div>
             <h2>Wallet balances</h2>
             <p>Inspect native ETH and demo USDC for a public address on chain 84532.</p>
@@ -653,6 +667,9 @@ const state = {
   spendingSummary: null,
   spendingSummaryError: '',
   spendingRequestId: 0,
+  chainStatus: null,
+  chainStatusError: '',
+  chainStatusRequestId: 0,
   walletBalances: null,
   walletBalancesError: '',
   walletBalancesRequestId: 0,
@@ -750,6 +767,7 @@ const invalidatePendingRequests = () => {
   state.auditRequestId += 1;
   state.auditSummaryRequestId += 1;
   state.spendingRequestId += 1;
+  state.chainStatusRequestId += 1;
   state.walletBalancesRequestId += 1;
   state.policyConfigRequestId += 1;
   state.proposalRequestId += 1;
@@ -1024,6 +1042,58 @@ const refreshSpendingSummary = async () => {
 };
 
 
+const renderChainStatus = () => {
+  const target = document.getElementById('chain-status');
+  if (!state.tokens.owner) {
+    target.innerHTML = '<div class="empty-state"><strong>Owner connection required</strong><div>Connect to inspect the configured RPC network.</div></div>';
+    return;
+  }
+  if (state.chainStatusError) {
+    target.innerHTML = `<div class="inline-error">Network status unavailable: ${esc(state.chainStatusError)}. Check the RPC configuration and retry.</div>`;
+    return;
+  }
+  if (!state.chainStatus) {
+    target.innerHTML = '<div class="empty-state"><strong>Network not checked</strong><div>Check the RPC-reported chain ID on demand.</div></div>';
+    return;
+  }
+  const status = state.chainStatus;
+  const matches = status.chain_id === 84532;
+  target.innerHTML = `
+    <div class="spending-row">
+      <div class="spending-token"><strong>${matches ? 'Base Sepolia' : 'Unexpected network'}</strong><small>RPC-reported network</small></div>
+      <div class="spending-value"><small>Chain ID</small><strong>${esc(status.chain_id ?? 'Unavailable')}</strong></div>
+      <div class="spending-value"><small>Expected</small><strong>84532</strong></div>
+    </div>
+    <p class="field-help" style="margin-top:10px">${matches ? 'The configured RPC reports Base Sepolia.' : 'The configured RPC does not report Base Sepolia. Testnet operations must remain unavailable.'}</p>
+  `;
+};
+
+const refreshChainStatus = async () => {
+  const sessionVersion = state.sessionVersion;
+  const requestId = ++state.chainStatusRequestId;
+  if (!state.tokens.owner) {
+    state.chainStatus = null;
+    state.chainStatusError = '';
+    renderChainStatus();
+    return;
+  }
+  state.chainStatus = null;
+  state.chainStatusError = '';
+  renderChainStatus();
+  try {
+    const status = await api('/chain/base-sepolia/status', { method: 'GET' }, 'owner');
+    if (sessionVersion !== state.sessionVersion || requestId !== state.chainStatusRequestId) return;
+    if (!status || typeof status !== 'object' || !Number.isInteger(status.chain_id)) {
+      throw new Error('The API returned an unexpected network status response.');
+    }
+    state.chainStatus = status;
+  } catch (error) {
+    if (sessionVersion !== state.sessionVersion || requestId !== state.chainStatusRequestId) return;
+    state.chainStatusError = error.message;
+  }
+  renderChainStatus();
+};
+
 const renderWalletBalances = () => {
   const target = document.getElementById('wallet-balances');
   const addressInput = document.getElementById('wallet-address');
@@ -1074,6 +1144,8 @@ const refreshWalletBalances = async () => {
     renderWalletBalances();
     return;
   }
+  state.chainStatus = null;
+  state.chainStatusError = '';
   state.walletBalances = null;
   state.walletBalancesError = '';
   renderWalletBalances();
@@ -1645,6 +1717,8 @@ const handleConnect = async (event) => {
 };
 
 const clearSessionData = () => {
+  state.chainStatus = null;
+  state.chainStatusError = '';
   state.transactions = [];
   state.transactionsLoaded = false;
   state.transactionError = '';
@@ -1968,6 +2042,8 @@ document.querySelectorAll('[data-target]').forEach((button) => {
   });
 });
 
+document.getElementById('refresh-chain-status').addEventListener('click', refreshChainStatus);
+
 document.getElementById('wallet-balance-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   state.walletAddress = document.getElementById('wallet-address').value.trim();
@@ -1980,7 +2056,7 @@ document.getElementById('refresh').addEventListener('click', async () => {
   try {
     await Promise.all([checkApiHealth(), refreshTransactions()]);
     if (state.tokens.owner) {
-      await Promise.all([refreshMarketSnapshot(), refreshSpendingSummary(), refreshWalletBalances(), refreshPolicyConfig()]);
+      await Promise.all([refreshMarketSnapshot(), refreshSpendingSummary(), refreshChainStatus(), refreshWalletBalances(), refreshPolicyConfig()]);
       if (state.view === 'markets') await loadMarketQuote(state.marketSelected.assetClass, state.marketSelected.symbol);
     }
   } finally {
