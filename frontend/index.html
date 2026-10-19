@@ -638,7 +638,7 @@ const setExecutionMode = (mode) => {
     ? 'Base Sepolia testnet execution'
     : 'Simulation-only workflow';
   document.getElementById('execution-notice-body').textContent = isTestnet
-    ? 'Owner execution signs and broadcasts an allowlisted testnet transfer after policy and risk revalidation. This is not mainnet.'
+    ? 'Owner or eligible agent execution submits a proposal-bound call through the AegisVault, which enforces its on-chain policy. This is Base Sepolia testnet only, not mainnet.'
     : 'Proposal decisions, approvals, and execution requests are handled by the authenticated backend. No transaction is broadcast.';
   document.getElementById('execution-notice-tag').textContent = isTestnet
     ? 'TESTNET · NOT MAINNET'
