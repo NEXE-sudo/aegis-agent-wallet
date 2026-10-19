@@ -15,7 +15,7 @@ Last updated: 19 October 2026
 - PR #179 is merged: removed direct EOA execution and made AegisVault the only route for actual Base Sepolia transfers.
 - PR #179 merge commit: `c092d9b953cc6eecfefb224cf33a5d3001331a0a`.
 - The `agent/vault-only-execution` branch was deleted locally and remotely after Ruff and pytest passed on updated `main`.
-- Current work is Phase 2, first slice: read-only Base Sepolia wallet balances. Branch: `agent/base-sepolia-wallet-balances`.
+- Current work is PR #180, Phase 2 first slice: [Add read-only Base Sepolia wallet balances](https://github.com/NEXE-sudo/aegis-agent-wallet/pull/180). Branch: `agent/base-sepolia-wallet-balances`; the PR is open and awaits user-run Ruff/pytest validation.
 - This PR adds owner-authenticated `GET /chain/base-sepolia/address/{address}/balances` to read native ETH and demo USDC balances, exact integer base units and decimal strings, strict Base Sepolia chain verification, tests, and documentation. It must be validated by the user before merge.
 
 ## Phased roadmap
