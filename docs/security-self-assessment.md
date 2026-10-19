@@ -14,10 +14,10 @@ Aegis is a Python/FastAPI local prototype with a constrained agent package, SQLi
 workflow store, deterministic policy engine, heuristic risk engine, dependency-free
 frontend, external market-data and JSON-RPC providers, and an optional
 OpenAI-compatible LLM endpoint. Simulated execution is the default. Actual signing
-and submission is restricted to explicitly enabled Base Sepolia testnet modes
-(chain ID `84532`). The optional `base_sepolia_vault` mode adds an unaudited,
-testnet-only AegisVault contract as an independent policy boundary for vault-held
-tokens.
+and submission is restricted to explicitly enabled `base_sepolia_vault`
+execution on Base Sepolia (chain ID `84532`). Direct EOA token transfers are
+disabled. The unaudited, testnet-only AegisVault contract provides an independent
+policy boundary for vault-held tokens.
 
 The assessment assumes the operator controls the local host, environment variables,
 and SQLite file. It does not assume that an RPC provider, market-data provider, or
@@ -49,7 +49,7 @@ No category below should be read as a pass or certification.
 | **ASI06 — Memory & Context Poisoning** | The agent has no persistent conversational memory feature. Structured payment fields are separated from invoice text, and proposal tool arguments are checked against those structured fields. Workflow persistence stores transaction state, not a reusable LLM memory store. | **Partial.** A task's structured payment may itself be wrong or poisoned upstream. Current-turn context can still influence LLM output and user-facing explanations; no general context provenance or external memory integrity system is implemented. |
 | **ASI07 — Insecure Inter-Agent Communication** | The prototype provides a single agent package and does not implement agent-to-agent delegation or messaging. Agent-to-API authentication uses the agent token; non-loopback API and LLM URLs require HTTPS in their respective clients/configuration. | **Limited / out of scope.** There is no inter-agent protocol to assess. This does not assess the security of an external LLM provider, RPC provider, or any future multi-agent extension. |
 | **ASI08 — Cascading Failures** | Policy limits, SQLite-serialized spend reservations, idempotency handling, explicit errors, sanitized provider failures, and retry of the same persisted signed transaction reduce selected duplicate-spend and uncertain-broadcast cases. Tests exercise workflow and retry behavior with mocked providers. | **Partial.** There is no distributed transaction coordinator, circuit breaker, RPC quorum, automatic receipt/finality or reorganization reconciliation, or production incident recovery. Local reservations are not chain balances. Provider failure and stale state remain operational risks. |
-| **ASI09 — Human-Agent Trust Exploitation** | The agent cannot approve or execute. Owner actions are separate and fingerprint-bound approvals expire. Hard policy blocks cannot be overridden. The UI/API distinguish a proposal from `executed_simulated` and `submitted_onchain`; the latter is not described as finality. | **Partial.** A bearer token is not proof of a human's identity or informed review. Operators can over-trust a risk score, model explanation, quote, token metadata, or RPC response. No multi-person review, comprehension check, or formal approval evidence is provided. |
+| **ASI09 — Human-Agent Trust Exploitation** | The agent cannot approve, reject, or change vault policy, but it can request execution of eligible proposals through the vault-only endpoint. Owner actions remain separate and fingerprint-bound approvals expire. Hard policy blocks cannot be overridden. The UI/API distinguish a proposal from `executed_simulated` and `submitted_onchain`; the latter is not described as finality. | **Partial.** A bearer token is not proof of a human's identity or informed review. Operators can over-trust a risk score, model explanation, quote, token metadata, or RPC response. No multi-person review, comprehension check, or formal approval evidence is provided. |
 | **ASI10 — Rogue Agents** | The agent's capability set is small; its API client uses only the agent token and lacks owner routes. Server-side owner authentication and workflow policy remain required even if the agent misbehaves. The offline mode is deterministic and the optional LLM tool loop rejects non-allowlisted calls. | **Partial.** There is no independent runtime monitor, anomaly detector, per-agent credential revocation service, or fleet-management control. Compromise of the application, agent token, host, or supplied structured payment remains in scope. |
 | **Vault-mode permission boundary** | The server holds only the agent session key. The contract independently enforces its agent role, pause state, per-token caps, recipient allowlist or exact expiring approval, and one UTC-day bucket. Owner-only status and approval-helper routes never sign or read a key. | **Unaudited, testnet-only.** A compromised agent/server can spend within configured caps, send to allowed recipients, or use an already existing exact approval. It cannot change vault policy or withdraw funds without the separately held owner key. A compromised owner key can change policy and roles, approve transfers, pause/unpause, or withdraw. Malicious/upgradeable tokens, token blacklists, RPC/provider failures, chain timestamp boundaries, and a single-agent compromise remain risks. |
 
@@ -57,16 +57,18 @@ No category below should be read as a pass or certification.
 
 ### Transaction and key boundary
 
-- `AEGIS_EXECUTION_MODE` defaults to `simulated`. `base_sepolia` requires a valid
-  `AEGIS_TESTNET_PRIVATE_KEY` and HTTPS `BASE_SEPOLIA_RPC_URL`; invalid settings
-  fail rather than selecting simulation.
-- Testnet execution is owner-only, revalidates proposal integrity, policy, spending,
-  risk, and approval, checks chain ID `84532`, and signs locally.
+- `AEGIS_EXECUTION_MODE` defaults to `simulated`; the only real-transfer mode is
+  `base_sepolia_vault`, which requires a deployed vault, an agent session key, and
+  HTTPS `BASE_SEPOLIA_RPC_URL`. The retired direct EOA mode is rejected rather
+  than selecting simulation.
+- Vault execution revalidates proposal integrity, policy, spending, risk, and approval,
+  checks chain ID `84532`, and signs locally. Eligible agent requests use the same
+  vault-enforced path; owner approval remains mandatory when required.
 - The private key is not accepted in an API body, returned in API responses, or
   intentionally logged. The process and SQLite database may contain sensitive
   material, including persisted signed transaction bytes for retry.
 - No mainnet support, production key custody, or real-fund transfer capability is
-  implemented.
+  implemented. Direct EOA transfer code is no longer part of the execution path.
 - In `base_sepolia_vault`, `AEGIS_TESTNET_PRIVATE_KEY` is the agent session key
   only. The Aegis server must never hold the vault owner key. Vault policy is a
   second enforcement layer, not a replacement for Aegis workflow review or a

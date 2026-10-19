@@ -28,7 +28,7 @@ export AEGIS_DB_PATH="./aegis-demo.sqlite3"
 export AEGIS_APPROVAL_EXPIRES_SECONDS="300"
 ```
 
-Keep both tokens private and distinct. The default simulated workflow does not require an RPC URL. Configure `BASE_SEPOLIA_RPC_URL` only for read-only chain inspection, or explicitly enable the separately documented Base Sepolia testnet execution mode.
+Keep both tokens private and distinct. The default simulated workflow does not require an RPC URL. Configure `BASE_SEPOLIA_RPC_URL` only for read-only chain inspection, or explicitly enable the documented `base_sepolia_vault` mode with a deployed vault and separate agent session key. Direct EOA execution is disabled.
 
 Start the API in Terminal 1:
 

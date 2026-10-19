@@ -13,7 +13,7 @@ The prototype aims to:
 - Account for local daily spending reservations and handle idempotent retries consistently.
 - Preserve a useful workflow audit trail while avoiding unnecessary secret-like values in event details.
 - Support an owner-only pause/resume kill switch and a pending-proposal cap to stop or slow harmful workflows during intervention.
-- Default to simulated execution; permit actual signing/submission only in an explicitly configured Base Sepolia testnet mode.
+- Default to simulated execution; permit actual signing/submission only in explicitly configured `base_sepolia_vault` mode, with the AegisVault as the on-chain policy boundary. Direct EOA token transfers are disabled.
 - In `base_sepolia_vault` mode, use an on-chain vault as the final transfer-policy boundary for one agent key, independently enforcing token caps, recipients, approvals, and pause state.
 
 ## 2. Assets to protect
@@ -85,7 +85,7 @@ risks.
 | Duplicate or conflicting proposal retries | Idempotency key handling, SQLite write locking, proposal fingerprints, and conflict responses | Idempotency does not provide distributed coordination beyond this local SQLite-backed application. |
 | Spending-accounting overflow or races | SQLite write transactions, bounded persisted integer values, and Python-integer aggregation of reservations | Reservations are local accounting, not on-chain balances, pending transfers, or confirmed receipts. |
 | Duplicate transfer after uncertain RPC outcome | Persist the signed transaction and its hash before broadcast; retry the same signed bytes rather than selecting a new nonce; account for unresolved submissions conservatively | An RPC provider can be unavailable or dishonest. Pending signed bytes in SQLite can be rebroadcast by anyone with database access, and receipt reads do not establish finality or protect against chain reorganizations. |
-| Unauthorized or misdirected testnet transfer | Execution is opt-in, owner-only, policy/spend/risk revalidated, fingerprint-bound, restricted to Base Sepolia and trusted tokens; immediately before signing, the unsigned transaction's chain, token, zero native value, transfer selector, decoded recipient, and amount are checked against the approved proposal. Vault mode also simulates the exact call before signing. | The process environment and throwaway wallet remain sensitive; a compromised host or owner token can execute a policy-permitted test transfer. Simulation uses the configured RPC provider and does not independently establish provider honesty or finality. |
+| Unauthorized or misdirected testnet transfer | Execution is opt-in and vault-only, proposal-integrity/policy/spend/risk revalidated, and restricted to Base Sepolia. Immediately before signing, the vault executor validates the deployed vault, agent/owner separation, and exact proposal-bound calldata, then simulates the call; the contract enforces caps, recipient/approval rules, and pause state. | The process environment and throwaway agent key remain sensitive; a compromised host or agent key can execute transfers permitted by vault policy or an existing exact approval. Simulation uses the configured RPC provider and does not independently establish provider honesty or finality. |
 | Compromised Aegis server or agent key in vault mode | The agent key can call only the vault's agent function; the contract enforces enabled-token, per-transaction and UTC-day caps, recipient allowlisting or exact owner approval, and pause state. The owner key is separate and is never loaded by the Aegis server. | The agent may spend within those limits and use any already-existing exact approval. A compromised owner key can replace policy, approve transfers, change roles, unpause, or withdraw assets. AegisVault and its OpenZeppelin dependencies are unaudited; a malicious/upgradeable token or token blacklist can still prevent or affect transfers. |
 | Vault policy drift or misleading chain evidence | The owner-only status endpoint compares current on-chain limits, threshold, and recipient flags with the Aegis demo policy; the evidence verifier checks vault calldata and matching vault/token receipt events. | A single RPC provider can lie or be unavailable; no RPC quorum, independent finality monitor, or automatic policy synchronization exists. The UTC day-bucket cap is not a rolling 24-hour limit. |
 | Prompt injection or altered payment details | The agent treats invoice text as untrusted and permits a proposal tool call only when its fields match the task's structured `authorized_payment`; the agent token cannot approve or execute | This guard does not prove the structured payment was verified correctly. An LLM may still produce misleading explanations, and test scenarios do not establish general resistance to prompt injection. |
@@ -108,7 +108,7 @@ The current prototype assumes:
 
 The project does **not**:
 
-- Support mainnet execution, real-fund transfers, seed phrases, production key custody, or hardware-backed signing. Throwaway keys may be loaded only for explicitly selected Base Sepolia execution modes; in vault mode the Aegis process holds only the agent session key, never the owner key.
+- Support mainnet execution, real-fund transfers, seed phrases, production key custody, or hardware-backed signing. Throwaway keys may be loaded only for explicitly selected `base_sepolia_vault` execution; the Aegis process holds only the agent session key, never the owner key.
 - Treat an RPC submission response or receipt as proof of finality; automated confirmation/reorganization handling is not implemented.
 - Prove recipient identity, token authenticity, or provider honesty.
 - Provide a production identity system, hardware-backed key custody, multi-party approval, or production secret rotation.
@@ -116,7 +116,7 @@ The project does **not**:
 - Reconcile balances, mempool state, transaction receipts, chain reorganizations, or finality.
 - Claim that heuristic risk scoring is a validated fraud detector or that passing tests proves production security.
 
-Any move beyond the explicitly gated Base Sepolia testnet mode—including mainnet support or production key custody—requires a separate scope decision and dedicated design/security review.
+Any move beyond the explicitly gated Base Sepolia vault-only testnet mode—including mainnet support or production key custody—requires a separate scope decision and dedicated design/security review.
 
 ## 7. Review checklist for future changes
 

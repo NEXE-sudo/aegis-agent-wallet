@@ -47,12 +47,13 @@ default and explicitly gated Base Sepolia testnet execution (chain ID `84532`).
 
 ## Safety boundary
 
-The default execution mode is simulated. The optional execution mode supports
-Base Sepolia only and is not production key custody. Use a throwaway testnet wallet
-and protect its private key. The agent cannot approve or execute; owner-only,
-fingerprint-bound approval and execution controls remain in force. This prototype
-does not support mainnet or real-fund transfers and does not claim transaction
-finality.
+The default execution mode is simulated. The only actual-transfer mode is
+`base_sepolia_vault`, which submits allowlisted Base Sepolia ERC-20 transfers
+through the AegisVault after explicit configuration of a deployed vault, an agent
+session key, and an HTTPS RPC URL. Direct EOA execution is disabled. The agent may
+request vault execution for eligible proposals, while owner approval remains
+required when policy demands it. This prototype does not support mainnet or
+real-fund transfers and does not claim transaction finality.
 
 ---
 

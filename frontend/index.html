@@ -626,11 +626,11 @@ const state = {
 };
 
 const setExecutionMode = (mode) => {
-  if (!['simulated', 'base_sepolia'].includes(mode)) {
+  if (!['simulated', 'base_sepolia_vault'].includes(mode)) {
     throw new Error('The API did not report a supported execution mode.');
   }
   state.executionMode = mode;
-  const isTestnet = mode === 'base_sepolia';
+  const isTestnet = mode === 'base_sepolia_vault';
   const label = isTestnet ? 'BASE SEPOLIA TESTNET' : 'SIMULATION ONLY';
   document.getElementById('execution-mode-chip').textContent = label;
   document.getElementById('execution-mode-pill').textContent = label;
@@ -638,7 +638,7 @@ const setExecutionMode = (mode) => {
     ? 'Base Sepolia testnet execution'
     : 'Simulation-only workflow';
   document.getElementById('execution-notice-body').textContent = isTestnet
-    ? 'Owner execution signs and broadcasts an allowlisted testnet transfer after policy and risk revalidation. This is not mainnet.'
+    ? 'Owner or eligible agent execution submits a proposal-bound call through the AegisVault, which enforces its on-chain policy. This is Base Sepolia testnet only, not mainnet.'
     : 'Proposal decisions, approvals, and execution requests are handled by the authenticated backend. No transaction is broadcast.';
   document.getElementById('execution-notice-tag').textContent = isTestnet
     ? 'TESTNET · NOT MAINNET'
@@ -709,9 +709,9 @@ const setApiState = (label, kind = '') => {
 };
 
 const statusLabel = (status) => ({
-  ready: state.executionMode === 'base_sepolia' ? 'Ready for testnet execution' : 'Ready to simulate',
+  ready: state.executionMode === 'base_sepolia_vault' ? 'Ready for vault execution' : 'Ready to simulate',
   awaiting_approval: 'Approval required',
-  approved: state.executionMode === 'base_sepolia' ? 'Approved · ready for testnet' : 'Approved · ready to simulate',
+  approved: state.executionMode === 'base_sepolia_vault' ? 'Approved · ready for vault' : 'Approved · ready to simulate',
   blocked: 'Blocked by policy',
   cancelled: 'Cancelled · reservation released',
   expired: 'Expired',
@@ -888,7 +888,7 @@ const renderOverview = () => {
   const rows = state.transactions || [];
   const total = rows.length;
   const approvals = rows.filter((tx) => tx.status === 'awaiting_approval').length;
-  const executed = rows.filter((tx) => state.executionMode === 'base_sepolia'
+  const executed = rows.filter((tx) => state.executionMode === 'base_sepolia_vault'
     ? tx.status === 'submitted_onchain'
     : tx.status === 'executed_simulated').length;
   const blocked = rows.filter((tx) => tx.status === 'blocked' || tx.status === 'expired').length;
@@ -1098,7 +1098,7 @@ const renderActivity = () => {
     ? `<tr><td colspan="7" class="empty">${esc(state.transactionError || 'Connect with an owner token to load workflow history.')}</td></tr>`
     : rows.length ? rows.map((tx) => {
       const canExecute = ['ready', 'approved'].includes(tx.status)
-        || (state.executionMode === 'base_sepolia' && tx.status === 'submitting_onchain');
+        || (state.executionMode === 'base_sepolia_vault' && tx.status === 'submitting_onchain');
       const canCancel = ['ready', 'awaiting_approval', 'approved'].includes(tx.status);
       const action = `<div style="display:flex;align-items:center;gap:7px">
         <button class="btn secondary" type="button" data-action="inspect" data-id="${esc(tx.transaction_id)}">Inspect</button>
@@ -1106,7 +1106,7 @@ const renderActivity = () => {
           ? `<button class="btn secondary" type="button" data-action="cancel" data-id="${esc(tx.transaction_id)}" ${state.busyActions.has(tx.transaction_id) ? 'disabled' : ''}>Cancel</button>`
           : ''}
         ${canExecute
-          ? `<button class="btn primary" type="button" data-action="execute" data-id="${esc(tx.transaction_id)}" ${state.busyActions.has(tx.transaction_id) || !state.executionMode ? 'disabled' : ''}>${state.busyActions.has(tx.transaction_id) ? 'Working…' : tx.status === 'submitting_onchain' ? 'Retry submission' : state.executionMode === 'base_sepolia' ? 'Execute testnet' : 'Simulate'}</button>`
+          ? `<button class="btn primary" type="button" data-action="execute" data-id="${esc(tx.transaction_id)}" ${state.busyActions.has(tx.transaction_id) || !state.executionMode ? 'disabled' : ''}>${state.busyActions.has(tx.transaction_id) ? 'Working…' : tx.status === 'submitting_onchain' ? 'Retry submission' : state.executionMode === 'base_sepolia_vault' ? 'Execute via vault' : 'Simulate'}</button>`
           : tx.status === 'awaiting_approval' ? '<span class="muted">Approval required</span>'
             : tx.status === 'blocked' ? '<span class="muted">Blocked by policy</span>'
               : tx.status === 'executed_simulated' ? '<span class="muted">Simulation complete</span>'
@@ -1532,10 +1532,10 @@ const handleExecute = async (transactionId) => {
   }
   const transaction = state.transactions.find((item) => item.transaction_id === transactionId);
   const proposal = transaction?.proposal;
-  const confirmation = state.executionMode === 'base_sepolia'
+  const confirmation = state.executionMode === 'base_sepolia_vault'
     ? transaction?.status === 'submitting_onchain'
-      ? `Retry submission of the same signed Base Sepolia testnet transaction to ${proposal?.recipient || 'the recorded recipient'}?`
-      : `Sign and broadcast ${formatMoney(proposal?.amount_base_units, proposal?.token_symbol || 'USDC', proposal?.token_decimals ?? 6)} to ${proposal?.recipient || 'the recorded recipient'} on Base Sepolia testnet? This cannot be reversed after confirmation.`
+      ? `Retry submission of the same signed vault transaction on Base Sepolia to ${proposal?.recipient || 'the recorded recipient'}?`
+      : `Submit ${formatMoney(proposal?.amount_base_units, proposal?.token_symbol || 'USDC', proposal?.token_decimals ?? 6)} through the AegisVault to ${proposal?.recipient || 'the recorded recipient'} on Base Sepolia testnet? The vault enforces its configured caps, recipient rules, approvals, and pause state.`
     : 'Request a simulation only? No transaction will be signed or broadcast.';
   if (!window.confirm(confirmation)) return;
   state.busyActions.add(transactionId);
