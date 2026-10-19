@@ -2286,3 +2286,53 @@ def test_policy_config_returns_read_only_active_limits_and_allowlists():
     }
     assert "AEGIS_AGENT_TOKEN" not in response.text
     assert "AEGIS_APPROVAL_TOKEN" not in response.text
+
+
+def test_spending_summary_requires_owner_authentication():
+    response = client.get("/spending/summary")
+    assert response.status_code == 401
+
+
+def test_spending_summary_reports_daily_reservations_and_policy_limits():
+    proposal = propose()
+    assert proposal.status_code == 201
+
+    response = client.get("/spending/summary", headers=OWNER_HEADERS)
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["accounting_source"] == "local_workflow"
+    assert body["as_of_date_utc"] == datetime.now(UTC).date().isoformat()
+    token = next(
+        item for item in body["tokens"]
+        if item["token_address"] == BASE_SEPOLIA_USDC_ADDRESS.lower()
+    )
+    assert token == {
+        "chain_id": main.DEMO_POLICY.trusted_tokens[BASE_SEPOLIA_USDC_ADDRESS].chain_id,
+        "token_address": BASE_SEPOLIA_USDC_ADDRESS.lower(),
+        "symbol": "USDC",
+        "decimals": 6,
+        "spent_base_units": 1_000_000,
+        "daily_limit_base_units": main.DEMO_POLICY.daily_limit_base_units,
+        "remaining_base_units": max(0, main.DEMO_POLICY.daily_limit_base_units - 1_000_000),
+        "limit_exceeded": False,
+    }
+
+
+def test_spending_summary_releases_cancelled_reservations():
+    proposal = propose()
+    assert proposal.status_code == 201
+    transaction_id = proposal.json()["transaction_id"]
+
+    cancelled = owner_post(f"/transactions/{transaction_id}/cancel")
+    assert cancelled.status_code == 200
+    assert cancelled.json()["status"] == "cancelled"
+
+    response = client.get("/spending/summary", headers=OWNER_HEADERS)
+    assert response.status_code == 200
+    token = next(
+        item for item in response.json()["tokens"]
+        if item["token_address"] == BASE_SEPOLIA_USDC_ADDRESS.lower()
+    )
+    assert token["spent_base_units"] == 0
+
