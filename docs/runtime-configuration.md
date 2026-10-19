@@ -147,6 +147,10 @@ succeeds.
 
 `POST /transactions/{transaction_id}/reject` also requires the owner token and releases the reservation, recording an audit event. A submitted testnet transaction cannot be cancelled or rejected by this workflow.
 
+## Read-only wallet balances
+
+The owner-authenticated `GET /chain/base-sepolia/address/{address}/balances` endpoint reads the public address's native ETH balance and the demo USDC balance. It validates the address and confirms the RPC endpoint reports Base Sepolia (chain ID `84532`) before reading balances. The response includes exact integer base units and human-readable decimal strings; it does not use floating-point arithmetic, load a private key, sign, or submit transactions. Only the configured demo USDC token is included in this initial endpoint. A malformed address returns HTTP 422, a wrong-chain or missing-RPC configuration returns HTTP 503, and unavailable or malformed RPC data returns HTTP 502.
+
 ## Common configuration symptoms
 
 - **HTTP 503 from a protected workflow endpoint:** check that both `AEGIS_AGENT_TOKEN` and `AEGIS_APPROVAL_TOKEN` are present, non-empty, and different.
