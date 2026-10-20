@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-import scripts.submission_preflight as submission_preflight
+from scripts import submission_preflight
 from scripts.submission_manifest import build_manifest
 
 
