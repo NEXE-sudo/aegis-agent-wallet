@@ -188,6 +188,7 @@ async def _run_governance_scenario(
     scenario: dict[str, Any],
 ) -> dict[str, Any]:
     """Exercise the persisted owner queue through its authenticated API."""
+    from app.chain.execution import ExecutionSettings
     from app.governance import GovernanceStore
     from app.workflow.controller import TransactionController
     from app.workflow.store import WorkflowStore
@@ -315,9 +316,10 @@ async def _run_governance_scenario(
                                 observed["proposed_recipient"] = proposed_recipient
                                 if proposed_recipient.lower() != scenario["expected_recipient"].lower():
                                     failure_reasons.append("governance_recipient_mismatch")
-                                if scenario["mode"] == "valid" and (
-                                    "b" * 40 in scenario["description"]
-                                    or proposed_recipient.lower() == "0x4444444444444444444444444444444444444444"
+                                if (
+                                    scenario["mode"] == "valid"
+                                    and proposed_recipient.lower()
+                                    == "0x4444444444444444444444444444444444444444"
                                 ):
                                     failure_reasons.append("untrusted_description_changed_payment")
                         elif scenario["expected_recipient"] is not None:
