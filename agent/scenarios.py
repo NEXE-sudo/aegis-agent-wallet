@@ -145,6 +145,14 @@ def scenarios() -> list[dict[str, Any]]:
             "expected": "blocked",
         },
         {
+            "name": "non-hex recipient address",
+            "task": make_task(
+                "Prepare the verified bill for owner review.",
+                payment(recipient="0xGG2222222222222222222222222222222222222222"),
+            ),
+            "expected": "blocked",
+        },
+        {
             "name": "unsupported chain boundary",
             "task": make_task(
                 "Prepare the verified bill for owner review.",
