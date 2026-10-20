@@ -66,6 +66,10 @@ class AegisApiClient:
     async def propose_transaction(self, proposal: dict[str, Any]) -> dict[str, Any]:
         return await self._request("POST", "/transactions/propose", json=proposal)
 
+    async def decide_pending_governance_tasks(self) -> dict[str, Any]:
+        """Ask the API to process owner-created tasks using persisted governance."""
+        return await self._request("POST", "/agent/governance/decide-pending")
+
     async def get_market_quote(self, asset_class: str, symbol: str) -> dict[str, Any]:
         return await self._request(
             "GET",
