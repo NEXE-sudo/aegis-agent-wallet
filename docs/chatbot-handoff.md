@@ -62,6 +62,7 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 ### Phase 5 — Contract and integration hardening
 - Run Solidity unit, fuzz, and invariant tests automatically in GitHub Actions using the pinned compiler and dependency versions.
 - Gather Foundry and testnet deployment/transfer/revert evidence, including transaction hashes where available.
+- The current PR adds `scripts/verify_vault_deployment.py`, a read-only Base Sepolia deployment verifier that checks contract-creation transaction shape, receipt status/address, constructor owner, current on-chain owner, canonical receipt block hash, observed confirmation depth, and runtime bytecode fingerprint; see `docs/deployment-verification.md`.
 - The read-only verifier supports `--expect-revert` for mined failed AegisVault calls; it checks the failed receipt and call shape without claiming to decode the revert reason.
 - The evidence bundle has a separate `--expect-revert` mode that packages this verification with offline evaluation, sender and confirmation checks, provenance, and a bundle digest; reverted-call mode does not require a successful-transfer SQLite audit record.
 - PR #214 added a standalone verifier for saved JSON bundles, checking SHA-256 integrity and internal result consistency without RPC access; it supports schema v4/v5 and documents the digest as integrity checking, not authorship proof.
@@ -77,7 +78,7 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 ## Recently completed transaction-history and contract-hardening batch
 
 - The receipt visibility and error-state work, history scope/limit validation, offset pagination, Activity Previous/Next controls, exact approval-expiry boundary, and fail-closed balance RPC regression tests were incorporated before PR #202.
-- PRs #203–#208 and #212–#214 are merged, including portable evidence bundles, confirmation-depth checks, evaluation metrics/diagnostics, provenance, canonical receipt-block hash checks, reverted-call evidence, and standalone bundle validation. The current increment rechecks saved passing testnet evidence against the configured RPC. Always query GitHub before assuming there are no open pull requests.
+- PRs #203–#208 and #212–#216 are merged, including portable evidence bundles, confirmation-depth checks, evaluation metrics/diagnostics, provenance, canonical receipt-block hash checks, reverted-call evidence, standalone bundle validation, current-state re-verification, and vault configuration snapshots. The current PR adds independent deployment-transaction verification; it does not invent or substitute for real deployment evidence. Always query GitHub before assuming there are no open pull requests.
 
 ## Required PR workflow
 
@@ -116,9 +117,10 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 - PR #209 added automated Foundry contract checks and was merged; the user confirmed post-merge checks and deleted the branch.
 - PR #210 (`feat/onchain-vault-configuration-inspection`) is merged; the owner-authenticated read-only AegisVault status endpoint is in `main`, and the user confirmed post-merge Ruff/pytest checks and deleted the branch.
 - PR #211 (`feat/approval-expiry-visibility`) is merged; it exposes the backend-derived absolute approval deadline and displays expired deadlines in Activity. The user confirmed post-merge Ruff/pytest checks and deleted the branch.
-- Current work packages both successful-transfer and mined-revert verification into the portable evidence bundle, with separate expected receipt-status semantics and no claim to know the Solidity revert reason.
+- PR #216 is merged and post-merge Ruff/pytest checks passed; the user confirmed deletion of `feat/deployment-aware-testnet-evidence`.
+- Current work adds a read-only deployment verifier and regression tests. It validates the Base Sepolia deployment receipt, created vault address, constructor/current owner, runtime bytecode, canonical receipt block hash, and confirmation threshold. It does not sign, broadcast, prove source-code reproducibility, or claim finality.
 - The user must run both local Python checks on the PR branch before merge. Then verify the PR head SHA and all CI jobs (including Foundry when relevant), squash-merge, ask for post-merge checks on updated `main`, and only then provide branch deletion commands.
-- Continue bundling implementation, tests, and related docs in one coherent PR. Never update `main` directly.
+- Continue bundling the broadest coherent milestone scope practical, including implementation, regression/integration tests, docs and handoff updates; do not impose artificial PR size limits. Never update `main` directly.
 
 ## Standard accounting and safety semantics
 
@@ -131,5 +133,5 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 
 ## Development workflow status
 
-- Continue with the manual PR workflow documented above: one focused branch and PR at a time, required checks before squash merge, user-confirmed local checks on the PR and updated `main`, and branch cleanup only after post-merge verification.
+- Continue with the manual PR workflow documented above: one coherent, milestone-sized branch and PR at a time, with scope driven by completion rather than an arbitrary size limit; required checks before squash merge, user-confirmed local checks on the PR and updated `main`, and branch cleanup only after post-merge verification.
 - The dedicated Foundry contract workflow is active alongside the existing Python workflow; do not treat Python tests as evidence that Solidity tests passed. Prefer phase-completion PRs that bundle implementation, tests, and related documentation.
