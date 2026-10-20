@@ -6,8 +6,8 @@ import secrets
 import sqlite3
 import uuid
 from collections import deque
-from threading import Lock
 from contextlib import asynccontextmanager
+from threading import Lock
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from time import monotonic, perf_counter, time
@@ -35,8 +35,7 @@ from app.chain.execution import (
     VaultTransactionInvariantError,
 )
 from app.chain.router import router as base_sepolia_router
-from app.governance import GovernanceDataError, GovernanceStore
-from app.governance import router as governance_router
+from app.governance import GovernanceDataError, GovernanceStore, router as governance_router
 from app.market_data import (
     CompositeMarketDataProvider,
     MarketDataError,
