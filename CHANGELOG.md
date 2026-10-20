@@ -5,6 +5,7 @@
 - Add request IDs, process-local write rate limiting, readiness and Prometheus-style request metrics with bounded route labels and secret-free request metadata logging.
 - Add owner-facing mandate, payee and structured-task controls, persisted decision review, and JSON/CSV governance exports with CSV formula neutralisation and explicit audit-integrity limitations.
 - Add operational and governance export regression tests; keep simulated execution as the default and Base Sepolia as the only supported on-chain target.
+- Add repeatable offline agent evaluation with per-scenario pass rates and a guided owner-governed end-to-end demo.
 
 ## 1.12.0 (unreleased)
 

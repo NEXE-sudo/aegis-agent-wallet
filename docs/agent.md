@@ -108,6 +108,12 @@ tokens, simulated execution, and no live RPC, market-data, or LLM requests. It w
 `reports/agent-eval.json` and `reports/agent-eval.md` and exits nonzero if a scenario
 fails. CI runs the same evaluation and stores reports outside the checkout.
 
+For repeatability evidence, run `uv run --locked python -m agent.repeated_eval --runs 5`.
+This repeats the deterministic suite against isolated temporary databases and writes
+`reports/agent-repeat-eval.json` plus `reports/agent-repeat-eval.md`, including per-scenario
+pass counts and pass rates. It does not measure live LLM quality or real payment outcomes.
+The [end-to-end demo](end-to-end-demo.md) documents the complete local walkthrough.
+
 The deterministic evaluation currently covers eleven scenarios:
 
 1. A legitimate bill produces an allowed proposal for owner review.
