@@ -88,7 +88,7 @@ def decide_payments(
 
     The function has no signing, approval, policy mutation, or execution ability.
     """
-    current = _utc(now or datetime.now(timezone.utc))
+    current = _utc(now or datetime.now(UTC))
     if available_balance < 0 or reserved_monthly_spend < 0:
         raise ValueError("Balances and reservations cannot be negative")
     if mandate.monthly_budget <= 0 or mandate.per_payment_limit <= 0:
@@ -99,7 +99,7 @@ def decide_payments(
     ordered = sorted(
         tasks,
         key=lambda task: (
-            _utc(task.due_at) if task.due_at else datetime.max.replace(tzinfo=timezone.utc),
+            _utc(task.due_at) if task.due_at else datetime.max.replace(tzinfo=UTC),
             _utc(task.created_at),
             task.task_id,
         ),
