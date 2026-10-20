@@ -24,7 +24,7 @@ from app.chain.base_sepolia import (
 )
 from scripts.verify_testnet_evidence import verify_audit_record, verify_evidence
 
-BUNDLE_SCHEMA = "aegis-evidence-bundle/v3"
+BUNDLE_SCHEMA = "aegis-evidence-bundle/v4"
 
 
 def _canonical_json(value: dict[str, Any]) -> str:
@@ -101,6 +101,8 @@ def _render_markdown(bundle: dict[str, Any]) -> str:
                     f"({evidence.get('explorer_url', 'no explorer link')})"
                 ),
                 f"- Block: {evidence.get('block_number', 'not supplied')}",
+                f"- Receipt block hash: {evidence.get('receipt_block_hash', 'not supplied')}",
+                f"- Canonical block hash at verification: {evidence.get('canonical_block_hash', 'not supplied')}",
                 f"- Latest observed block: {evidence.get('latest_block_number', 'not supplied')}",
                 (
                     "- Confirmations observed: "
@@ -232,7 +234,7 @@ async def build_evidence_bundle(
         "testnet_evidence": testnet,
         "limitations": [
             "Offline evaluation is not evidence of an on-chain transfer.",
-            "A receipt at a block is not a guarantee of finality.",
+            "A receipt block hash is checked against the RPC's block at that height, but this is not a guarantee of finality.",
             "The AegisVault is unaudited and testnet-only.",
         ],
     }
