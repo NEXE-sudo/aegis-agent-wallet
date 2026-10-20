@@ -7,8 +7,7 @@ from typing import Any
 
 import pytest
 
-from scripts import submission_preflight
-from scripts.submission_manifest import build_manifest
+from scripts import submission_manifest, submission_preflight
 
 
 REVISION = "a" * 40
@@ -74,7 +73,7 @@ def _make_fixture(root: Path, monkeypatch) -> tuple[Path, Path, Path, Path]:
     bundle["bundle_sha256"] = _canonical_digest(bundle)
     _write_json(root / bundle_path, bundle)
 
-    manifest = build_manifest(
+    manifest = submission_manifest.build_manifest(
         root,
         [agent_eval_path, repeated_path, bundle_path],
         generated_at="2026-10-20T12:00:00+00:00",
