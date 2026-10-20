@@ -35,8 +35,9 @@ Last updated: 20 October 2026
 - Backend read surfaces now include public-address Base Sepolia ETH/demo-USDC balances, active policy configuration, and UTC-day local workflow spending summaries.
 - Frontend surfaces now include read-only wallet balances, active policy settings/allowlists, daily spending/remaining budget, the owner-authenticated RPC-reported network status panel, and the configured vault status comparison.
 - The Activity view now keeps owner-requested Base Sepolia receipt hash, chain, status, and block visible in the loaded page session. Receipt checks remain point-in-time RPC observations, not proof of finality.
-- Current task (branch `feat/inline-receipt-status`): Keep Base Sepolia receipt details visible in Activity and add browser coverage; PR details will be recorded by automation.
-- Receipt RPC errors now remain visible inline in the Activity row until the owner retries the lookup or a receipt is returned; this is transient page-session feedback, not persisted workflow state.
+- Activity search explicitly states that it covers only the latest 50 workflow records returned by the API; older records may not be included.
+- Failed receipt lookups remain visible inline beside the affected Activity row until retry or success, and receipt errors are cleared when the in-memory session ends. This is page-session feedback, not persisted workflow state.
+- Open manual PR batch: #192 restores the manual workflow, #193 covers receipt RPC failures, #194 clarifies Activity history scope, and #195 keeps receipt errors visible. Do not merge any of them until the user approves the batch after all planned changes are ready.
 - Next: review remaining workflow-history limitations without implying complete lifetime history or transaction finality.
 - Clearly distinguish local configuration/database values from state verified on-chain; fail clearly when values are unavailable or configuration is missing/mismatched.
 - Inspect existing routes, service boundaries, frontend data flow, and tests before choosing the next smallest coherent slice. Avoid duplicate endpoints and never expose secrets/private keys.
