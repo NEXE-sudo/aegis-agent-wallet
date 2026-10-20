@@ -22,9 +22,10 @@ from app.chain.base_sepolia import (
     RpcRequestError,
     validate_address,
 )
+from scripts.vault_configuration_evidence import capture_vault_configuration
 from scripts.verify_testnet_evidence import verify_audit_record, verify_evidence
 
-BUNDLE_SCHEMA = "aegis-evidence-bundle/v5"
+BUNDLE_SCHEMA = "aegis-evidence-bundle/v6"
 
 
 def _canonical_json(value: dict[str, Any]) -> str:
@@ -124,6 +125,29 @@ def _render_markdown(bundle: dict[str, Any]) -> str:
             lines.extend(["", f"Verification error: {safe_error}"])
         lines.append("")
 
+    configuration = onchain.get("vault_configuration")
+    lines.extend(["", "## Vault deployment configuration snapshot", ""])
+    if configuration is None:
+        lines.append("**Not captured.** No validated deployment snapshot is included.")
+    else:
+        lines.extend([
+            f"- Vault address: {configuration.get('vault_address', 'not supplied')}",
+            f"- Bytecode hash: {configuration.get('bytecode_sha256', 'not supplied')}",
+            f"- Owner: {configuration.get('owner', 'not supplied')}",
+            f"- Agent: {configuration.get('agent', 'not supplied')}",
+            f"- Paused at capture: {configuration.get('paused', 'not supplied')}",
+            f"- Token: {configuration.get('token_address', 'not supplied')}",
+            f"- Configuration structurally valid: {configuration.get('configuration_structurally_valid', False)}",
+            f"- Token policy: {json.dumps(configuration.get('token_policy'), sort_keys=True)}",
+        ])
+        for issue in configuration.get("issues", []):
+            lines.append(f"- Configuration issue: {issue}")
+    lines.extend([
+        "",
+        "The snapshot reflects the configured RPC's latest state when captured; it is not a historical state proof or contract audit.",
+        "",
+    ])
+
     lines.extend([
         "## Interpretation",
         "",
@@ -176,6 +200,7 @@ async def build_evidence_bundle(
         "passed": None,
         "checks": {},
         "evidence": None,
+        "vault_configuration": None,
         "audit_transaction_id": None,
         "minimum_confirmations_required": min_confirmations,
         "error": None,
@@ -187,6 +212,7 @@ async def build_evidence_bundle(
             "audit_record_matches": False,
             "receipt_status_matches_expectation": False,
             "minimum_confirmations_met": False,
+            "vault_configuration_valid": False,
         }
         try:
             if expected_sender is None or vault is None or (audit_db is None and not expect_revert):
@@ -202,6 +228,18 @@ async def build_evidence_bundle(
                     transaction_hash, rpc, normalized_vault, expect_revert=True
                 ) if expect_revert else verify_evidence(transaction_hash, rpc, normalized_vault)
             testnet["evidence"] = evidence
+            configuration = capture_vault_configuration(
+                rpc, normalized_vault, evidence["token_contract"]
+            )
+            testnet["vault_configuration"] = configuration
+            testnet["checks"]["vault_configuration_valid"] = (
+                configuration["configuration_structurally_valid"]
+            )
+            if not testnet["checks"]["vault_configuration_valid"]:
+                raise ValueError(
+                    "Vault configuration snapshot is structurally invalid: "
+                    + "; ".join(configuration["issues"])
+                )
             testnet["checks"]["chain_and_transfer_evidence_verified"] = True
             testnet["checks"]["expected_sender_matches"] = (
                 evidence["sender"] == normalized_sender
