@@ -26,6 +26,19 @@ Last updated: 20 October 2026
 
 - PR #193 adds browser regression coverage showing receipt RPC failures as unavailable status rather than fabricating a receipt.
 
+## Current implementation priority
+
+The next feature batch expands deterministic agent evaluation before additional
+dashboard polish: cover chain and trusted-token metadata mismatches, unapproved
+recipients, and the exact approval-threshold boundary in the same cohesive PR as
+the scenario runner, regression assertions, and evaluation documentation. Continue
+to treat offline scenario results as policy/workflow evidence only; they are not
+proof of successful Base Sepolia execution or general LLM safety.
+
+PRs should bundle related implementation, tests, and documentation when they form
+one deliverable. Keep the branch reviewable and the scope coherent rather than
+splitting each test or document update into a separate PR.
+
 ## Phased roadmap
 
 ### Phase 1 — Secure execution foundation (complete)

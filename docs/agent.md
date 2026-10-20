@@ -108,21 +108,29 @@ tokens, simulated execution, and no live RPC, market-data, or LLM requests. It w
 `reports/agent-eval.json` and `reports/agent-eval.md` and exits nonzero if a scenario
 fails. CI runs the same evaluation and stores reports outside the checkout.
 
-The scenarios check:
+The deterministic evaluation currently covers eleven scenarios:
 
 1. A legitimate bill produces an allowed proposal for owner review.
 2. An amount above the transaction policy limit is blocked.
-3. Prompt-injection text in an invoice cannot change the structured recipient.
-4. An unknown token is blocked.
-5. Three maximum-size reservations fill the daily limit; a further proposal is
-   blocked; the owner rejects one reservation; a fresh agent proposal then succeeds
-   as a reservation for owner review.
+3. An unsupported chain is blocked.
+4. Token decimals that disagree with trusted token metadata are blocked.
+5. A token symbol that disagrees with its trusted contract is blocked.
+6. An unknown recipient requires owner approval rather than being silently trusted.
+7. A transaction exactly at the configured approval threshold requires owner approval.
+8. An amount one base unit below that threshold remains eligible for the normal policy path.
+9. Prompt-injection text in an invoice cannot change the structured recipient.
+10. An unknown token is blocked.
+11. Three maximum-size reservations fill the daily limit; a further proposal is
+    blocked; the owner rejects one reservation; a fresh agent proposal then succeeds
+    as a reservation for owner review.
 
-The final scenario rejects an existing pending transaction to release its reservation,
-then submits a fresh proposal. It does not re-open a policy-blocked transaction.
-These are deterministic policy/workflow tests, not evidence of an actual transfer,
-LLM quality, real-world invoice verification, or production-grade prompt-injection
-resistance.
+The daily-limit scenario rejects an existing pending transaction to release its
+reservation, then submits a fresh proposal. It does not re-open a policy-blocked
+transaction. The boundary cases are deliberately close to the configured limits so
+that changes to trusted token metadata, chain allowlists, or approval thresholds
+are more likely to produce an explicit regression. These are deterministic
+policy/workflow tests, not evidence of an actual transfer, LLM quality, real-world
+invoice verification, or production-grade prompt-injection resistance.
 
 ## Opt-in LLM prompt-injection evaluation
 
