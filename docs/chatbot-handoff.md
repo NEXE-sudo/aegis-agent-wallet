@@ -29,9 +29,9 @@ Last updated: 20 October 2026
 
 ## Current implementation priority
 
-PR #209 added a dedicated Foundry GitHub Actions workflow with pinned dependencies and automated Solidity unit, fuzz, and invariant tests. The current increment adds owner-authenticated read-only inspection of a Base Sepolia AegisVault's bytecode, owner/agent, pause state, token policy, and optional comparison with the locally configured vault address. PR #203 delivered portable JSON/Markdown evidence bundles, optional read-only Base Sepolia transfer verification, audit cross-checking, and a canonical-payload SHA-256 digest. PR #204 added receipt/latest-block heights, observed confirmation depth, and configurable minimum-confirmation checks. These are point-in-time RPC observations, not finality guarantees.
+PR #209 added the dedicated Foundry GitHub Actions workflow with Solidity unit, fuzz, and invariant tests. PR #210 added owner-authenticated read-only inspection of a Base Sepolia AegisVault's bytecode, owner/agent, pause state, token policy, and optional comparison with the locally configured vault address. PRs #203–#208 added portable JSON/Markdown evidence bundles, optional read-only transfer verification, audit cross-checking, provenance, confirmation-depth checks, and canonical receipt-block hash comparisons. These are point-in-time RPC observations, not finality guarantees.
 
-PR #205 delivered aggregate pass/failure counts and pass rates for deterministic and opt-in LLM evaluations. PR #206 added machine-readable failure reasons to individual deterministic and LLM runs and aggregates LLM failure types in reports. PR #207 added source revision and Python runtime provenance to the portable evidence bundle, upgraded its schema to v3, and included provenance in the bundle digest; it is merged and the user confirmed post-merge checks and deleted the branch. PR #208 is merged: evidence bundles compare the receipt block hash with the configured RPC's block hash at the receipt height, record both hashes, and use schema v4. The current increment adds read-only vault configuration inspection as part of Phase 3. Keep the narrow scope explicit: offline scenarios do not prove actual transfers or general LLM safety.
+PRs #205–#208 added evaluation metrics and failure diagnostics, source/runtime provenance, and canonical receipt-block hash comparisons. PRs #212–#218 added reverted-call evidence, offline bundle validation, live re-verification, vault configuration snapshots, deployment verification, and approval-expiry visibility. The Phase 5 close-out adds a cross-artifact consistency verifier and operator runbook. Offline scenarios do not prove actual transfers or general LLM safety.
 
 Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve the end-to-end story (policy decision, owner approval, vault-bounded execution, on-chain receipt, and matching audit record). Keep simulated mode as the default; evidence generation must not sign or broadcast transactions. Never claim finality, independent audit, LLM safety, or production readiness.
 
@@ -59,16 +59,15 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 - Activity displays the backend-derived approval expiry timestamp for approved transactions and flags elapsed deadlines; the browser display is advisory, while the backend remains authoritative for approval validity.
 - An end-to-end browser regression covers the wallet read/configuration surfaces together, including spending summary, network and vault status, balances, policy settings, and expired-approval visibility.
 
-### Phase 5 — Contract and integration hardening
-- Run Solidity unit, fuzz, and invariant tests automatically in GitHub Actions using the pinned compiler and dependency versions.
-- Gather Foundry and testnet deployment/transfer/revert evidence, including transaction hashes where available.
-- The current PR adds `scripts/verify_vault_deployment.py`, a read-only Base Sepolia deployment verifier that checks contract-creation transaction shape, receipt status/address, constructor owner, current on-chain owner, canonical receipt block hash, observed confirmation depth, and runtime bytecode fingerprint; see `docs/deployment-verification.md`.
-- The read-only verifier supports `--expect-revert` for mined failed AegisVault calls; it checks the failed receipt and call shape without claiming to decode the revert reason.
-- The evidence bundle has a separate `--expect-revert` mode that packages this verification with offline evaluation, sender and confirmation checks, provenance, and a bundle digest; reverted-call mode does not require a successful-transfer SQLite audit record.
-- PR #214 added a standalone verifier for saved JSON bundles, checking SHA-256 integrity and internal result consistency without RPC access; it supports schema v4/v5 and documents the digest as integrity checking, not authorship proof.
-- The current increment adds a separate read-only re-verification command that re-queries Base Sepolia for passing bundle evidence, compares stable transaction/receipt fields with the saved report, enforces the confirmation threshold, checks the expected public sender, and cross-checks the SQLite audit record for successful transfers. Reverted-call mode does not require a successful-transfer audit record.
-- The current increment upgrades new evidence bundles to schema v6 and captures a read-only vault deployment snapshot alongside on-chain transaction evidence: chain ID, vault address, SHA-256 bytecode fingerprint, owner/agent, pause state, and selected token policy. Re-verification re-reads these fields and fails on changes; legacy v4/v5 bundles remain supported without configuration re-verification. Snapshots are latest-state observations, not historical state proofs or deployment-authenticity guarantees.
-- Document remaining security limitations and residual risks.
+### Phase 5 — Contract and integration hardening (implementation complete; live evidence is operator-generated)
+
+- GitHub Actions runs the Solidity unit, fuzz, and invariant suite; Python tests and Ruff remain separate required checks.
+- `scripts/verify_vault_deployment.py` verifies an already-mined Base Sepolia deployment receipt, created vault address, constructor/current owner, canonical receipt block hash, observed confirmation depth, and runtime bytecode fingerprint without signing or broadcasting.
+- `scripts/build_evidence_bundle.py` captures offline evaluation plus optional successful-transfer or expected-revert evidence, sender and confirmation checks, SQLite audit cross-checks for successful transfers, provenance, and a schema-v6 bundle digest.
+- `scripts/verify_evidence_bundle.py` validates saved bundle integrity and internal consistency offline; `scripts/reverify_testnet_bundle.py` re-queries the configured RPC and compares stable transaction/receipt fields and the saved vault configuration snapshot.
+- `scripts/verify_phase5_evidence.py` cross-checks a deployment-verification JSON artefact against a passing schema-v6 transaction bundle, rejecting mismatched chain, vault, owner, bytecode fingerprint, or transaction identities.
+- The end-to-end procedure and residual-risk matrix are documented in `docs/phase-5-hardening.md`. Implementation scope is complete; a real deployment/transfer report still must be generated from actual Base Sepolia activity and cannot be inferred from CI or fixtures.
+- Residual risks remain explicit: RPC observations are not independent consensus proofs, observed confirmations are not finality, bytecode hashes do not prove source reproducibility or safety, and evidence digests do not prove authorship. The vault is unaudited and testnet-only.
 
 ### Explicitly separate scope decisions
 - Native ETH transfer support is separate from read-only ETH balance support.
@@ -78,7 +77,7 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 ## Recently completed transaction-history and contract-hardening batch
 
 - The receipt visibility and error-state work, history scope/limit validation, offset pagination, Activity Previous/Next controls, exact approval-expiry boundary, and fail-closed balance RPC regression tests were incorporated before PR #202.
-- PRs #203–#208 and #212–#216 are merged, including portable evidence bundles, confirmation-depth checks, evaluation metrics/diagnostics, provenance, canonical receipt-block hash checks, reverted-call evidence, standalone bundle validation, current-state re-verification, and vault configuration snapshots. The current PR adds independent deployment-transaction verification; it does not invent or substitute for real deployment evidence. Always query GitHub before assuming there are no open pull requests.
+- PRs #203–#218 are merged, covering portable evidence bundles, confirmation-depth checks, evaluation metrics/diagnostics, provenance, canonical receipt-block hash checks, reverted-call evidence, standalone bundle validation, current-state re-verification, vault configuration snapshots, deployment verification, and dashboard visibility. The current Phase 5 close-out links deployment and transfer artefacts and documents the operational workflow; it does not invent or substitute for real deployment evidence. Always query GitHub before assuming there are no open pull requests.
 
 ## Required PR workflow
 
@@ -118,7 +117,7 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 - PR #210 (`feat/onchain-vault-configuration-inspection`) is merged; the owner-authenticated read-only AegisVault status endpoint is in `main`, and the user confirmed post-merge Ruff/pytest checks and deleted the branch.
 - PR #211 (`feat/approval-expiry-visibility`) is merged; it exposes the backend-derived absolute approval deadline and displays expired deadlines in Activity. The user confirmed post-merge Ruff/pytest checks and deleted the branch.
 - PR #216 is merged and post-merge Ruff/pytest checks passed; the user confirmed deletion of `feat/deployment-aware-testnet-evidence`.
-- Current work adds a read-only deployment verifier and regression tests. It validates the Base Sepolia deployment receipt, created vault address, constructor/current owner, runtime bytecode, canonical receipt block hash, and confirmation threshold. It does not sign, broadcast, prove source-code reproducibility, or claim finality.
+- PR #218 completed the dashboard visibility slice. The current Phase 5 close-out adds cross-artifact deployment-to-transfer evidence verification, regression coverage, and a single operational runbook; it does not generate fabricated live-chain evidence.
 - The user must run both local Python checks on the PR branch before merge. Then verify the PR head SHA and all CI jobs (including Foundry when relevant), squash-merge, ask for post-merge checks on updated `main`, and only then provide branch deletion commands.
 - Continue bundling the broadest coherent milestone scope practical, including implementation, regression/integration tests, docs and handoff updates; do not impose artificial PR size limits. Never update `main` directly.
 
