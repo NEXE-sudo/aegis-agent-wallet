@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from app import main
 from app.governance import GovernanceStore
+from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
 from app.workflow.controller import TransactionController
 from app.workflow.store import WorkflowStore
 
@@ -73,3 +74,62 @@ def test_mutating_requests_are_rate_limited_and_retry_after_is_set(monkeypatch):
     finally:
         with main._rate_lock:
             main._rate_windows.clear()
+
+
+def test_governance_exports_require_owner_and_csv_neutralises_formula_cells(tmp_path, monkeypatch):
+    isolate_stores(tmp_path, monkeypatch)
+    monkeypatch.setenv("AEGIS_AGENT_TOKEN", "operations-test-agent-token")
+    monkeypatch.setenv("AEGIS_APPROVAL_TOKEN", "operations-test-owner-token")
+    client = TestClient(main.app)
+    owner = {"Authorization": "Bearer operations-test-owner-token"}
+
+    denied = client.get("/governance/export?format=json")
+    assert denied.status_code == 401
+
+    mandate = {
+        "mandate_id": "utilities",
+        "allowed_categories": ["utilities"],
+        "allowed_tokens": ["USDC"],
+        "monthly_budget_base_units": 10000000,
+        "per_payment_limit_base_units": 5000000,
+        "approval_threshold_base_units": 4000000,
+        "treasury_buffer_base_units": 0,
+        "available_balance_base_units": 10000000,
+    }
+    payee = {
+        "payee_id": "utility-payee",
+        "name": "Utility Company",
+        "address": "0x2222222222222222222222222222222222222222",
+        "chain_id": 84532,
+        "token_address": BASE_SEPOLIA_USDC_ADDRESS,
+        "token_symbol": "USDC",
+        "token_decimals": 6,
+        "category": "utilities",
+        "per_tx_limit_base_units": 5000000,
+        "daily_limit_base_units": 8000000,
+        "verified": True,
+    }
+    assert client.put("/governance/mandate", headers=owner, json=mandate).status_code == 200
+    assert client.put("/governance/payees/utility-payee", headers=owner, json=payee).status_code == 200
+    queued = client.post("/governance/tasks", headers=owner, json={
+        "invoice_id": "=1+1",
+        "payee_id": "utility-payee",
+        "token_symbol": "USDC",
+        "amount_base_units": 1000000,
+        "description": "Monthly invoice",
+    })
+    assert queued.status_code == 201
+
+    decisions = client.get("/governance/decisions", headers=owner)
+    json_export = client.get("/governance/export?format=json", headers=owner)
+    csv_export = client.get("/governance/export?format=csv", headers=owner)
+
+    assert decisions.status_code == 200
+    assert decisions.json() == []
+    assert json_export.status_code == 200
+    assert json_export.json()["integrity"]["valid"] is True
+    assert json_export.json()["tasks"][0]["invoice_id"] == "=1+1"
+    assert csv_export.status_code == 200
+    assert "text/csv" in csv_export.headers["content-type"]
+    assert "'=1+1" in csv_export.text
+    assert "governance_integrity_valid" in csv_export.text
