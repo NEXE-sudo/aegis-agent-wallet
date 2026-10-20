@@ -35,6 +35,8 @@ disconnecting clears them.
 
 ## 2. Run deterministic evaluation evidence
 
+The current offline suite exercises 22 scenarios: 18 direct policy/task cases, the daily reservation/rejection/retry lifecycle, and three persisted-governance cases (injected task description, unverified payee, and stale mandate/payee). Every case uses simulated execution and temporary SQLite state; this is not live transfer evidence.
+
 In terminal two, from the repository root:
 
 ```bash
