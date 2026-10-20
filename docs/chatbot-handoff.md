@@ -3,7 +3,7 @@
 ## Current work in progress
 
 - Branch `feat/persisted-governance-decision-flow` is the next coherent WS1/WS2 milestone. It adds SQLite-backed mandates, payees, owner-created structured tasks, hash-linked governance/decision records, an agent queue mode that submits proposals through the existing policy gateway, and cumulative treasury-buffer protection. It also adds tests and updates the version/changelog/docs.
-- PR #221 is expected to carry this branch. It is not merged yet. The user must run Ruff and pytest locally; no local check result is claimed here. Review CI and contract workflow state before merge.
+- PR #221 is open and carries this branch. It is not merged yet. The user must run Ruff and pytest locally; no local check result is claimed here. Review CI and contract workflow state before merge.
 - PR #220 was squash-merged as `d4e891ef54a8a0d9300ad68996f79ad26d16a670`; its feature branch was deleted after the user confirmed post-merge checks passed.
 
 Last updated: 20 October 2026
