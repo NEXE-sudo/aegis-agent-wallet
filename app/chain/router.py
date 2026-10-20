@@ -1,4 +1,7 @@
 """Read-only Base Sepolia RPC endpoints."""
+import os
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from eth_utils import keccak
 
@@ -52,7 +55,7 @@ def inspect_token(address: str) -> dict:
 
 
 _ZERO_ADDRESS = "0x" + "0" * 40
-_WORD_RE = __import__("re").compile(r"^0x[0-9a-fA-F]{64}$")
+_WORD_RE = re.compile(r"^0x[0-9a-fA-F]{64}$")
 
 
 def _decode_vault_word(data: str, field: str) -> int:
@@ -112,7 +115,7 @@ def inspect_vault_configuration(address: str, token_address: str) -> dict:
                 "0x" + keccak(text="tokenPolicy(address)")[:4].hex()
                 + normalized_token[2:].rjust(64, "0"),
             )
-            if not isinstance(policy_data, str) or not __import__("re").fullmatch(
+            if not isinstance(policy_data, str) or not re.fullmatch(
                 r"0x[0-9a-fA-F]{256}", policy_data
             ):
                 raise RpcRequestError("Vault returned malformed token policy data")
@@ -122,7 +125,7 @@ def inspect_vault_configuration(address: str, token_address: str) -> dict:
 
             owner = "0x" + f"{owner_word:040x}"
             agent = "0x" + f"{agent_word:040x}"
-            configured_vault = __import__("os").environ.get("AEGIS_VAULT_ADDRESS", "").strip()
+            configured_vault = os.environ.get("AEGIS_VAULT_ADDRESS", "").strip()
             local_match = None
             issues = []
             if configured_vault:
