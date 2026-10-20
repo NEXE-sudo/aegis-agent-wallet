@@ -310,3 +310,78 @@ def test_task_amount_requires_a_strict_integer(monkeypatch, tmp_path, amount):
     )
 
     assert response.status_code == 422
+
+
+
+def test_governance_proposal_cannot_execute_after_mandate_changes(monkeypatch, tmp_path):
+    setup_isolated(monkeypatch, tmp_path)
+    client.put("/governance/mandate", headers=OWNER_HEADERS, json=mandate_payload())
+    client.put(
+        "/governance/payees/power-company",
+        headers=OWNER_HEADERS,
+        json=payee_payload(),
+    )
+    client.post(
+        "/governance/tasks",
+        headers=OWNER_HEADERS,
+        json={
+            "task_id": "invoice-stale-execution",
+            "invoice_id": "invoice-stale-execution",
+            "payee_id": "power-company",
+            "token_symbol": "USDC",
+            "amount_base_units": 1_000_000,
+        },
+    )
+    result = client.post("/agent/governance/decide-pending", headers=AGENT_HEADERS).json()
+    transaction_id = result["decisions"][0]["decision"]["transaction_id"]
+    assert transaction_id
+
+    client.put(
+        "/governance/mandate",
+        headers=OWNER_HEADERS,
+        json=mandate_payload(monthly_budget_base_units=9_000_000),
+    )
+    response = client.post(
+        f"/transactions/{transaction_id}/execute",
+        headers=OWNER_HEADERS,
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "governance_mandate_changed"
+
+
+def test_governance_proposal_cannot_execute_after_payee_changes(monkeypatch, tmp_path):
+    setup_isolated(monkeypatch, tmp_path)
+    client.put("/governance/mandate", headers=OWNER_HEADERS, json=mandate_payload())
+    client.put(
+        "/governance/payees/power-company",
+        headers=OWNER_HEADERS,
+        json=payee_payload(),
+    )
+    client.post(
+        "/governance/tasks",
+        headers=OWNER_HEADERS,
+        json={
+            "task_id": "invoice-stale-payee",
+            "invoice_id": "invoice-stale-payee",
+            "payee_id": "power-company",
+            "token_symbol": "USDC",
+            "amount_base_units": 1_000_000,
+        },
+    )
+    result = client.post("/agent/governance/decide-pending", headers=AGENT_HEADERS).json()
+    transaction_id = result["decisions"][0]["decision"]["transaction_id"]
+    assert transaction_id
+
+    client.put(
+        "/governance/payees/power-company",
+        headers=OWNER_HEADERS,
+        json=payee_payload(name="Changed Power Company"),
+    )
+    response = client.post(
+        f"/transactions/{transaction_id}/execute",
+        headers=OWNER_HEADERS,
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "governance_payee_changed"
