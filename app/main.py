@@ -256,7 +256,7 @@ async def log_http_requests(request: Request, call_next):
 
     response = None
     status_code = 500
-    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and True:
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
         client_key = request.client.host if request.client else "unknown"
         allowed, remaining = _consume_write_limit(client_key, monotonic())
         if not allowed:
