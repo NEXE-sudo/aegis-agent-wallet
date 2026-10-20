@@ -46,8 +46,12 @@ those checks are rejected.
   `delegatecall`, or `selfdestruct`.
 
 Foundry unit, fuzz, and invariant tests are in `contracts/test/AegisVault.t.sol`.
-They have **not been run in this environment** because `forge` is unavailable;
-run `forge test` after installing Foundry and the pinned dependencies.
+The repository now defines a dedicated GitHub Actions workflow at
+`.github/workflows/foundry-checks.yml` that installs Foundry, installs the pinned
+OpenZeppelin and `forge-std` dependencies, and runs `forge test -vvv` for contract
+changes. The workflow's actual result must be checked on each pull request; Python
+checks do not establish Solidity test results. Locally, run `forge test` from
+`contracts/` after installing Foundry and the pinned dependencies.
 
 ## Trust model and known risks
 
