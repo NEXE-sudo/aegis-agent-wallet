@@ -24,7 +24,9 @@ Last updated: 20 October 2026
 - PR #186 refreshed this handoff and was squash-merged as `fde988a7c0309d67e73b5492a607283b42cf6fe9`; CI passed on Python 3.11/3.12/3.14, and the user confirmed post-merge checks passed.
 - PR #187 added the owner-authenticated, on-demand Overview network status panel using `GET /chain/base-sepolia/status`; it was squash-merged as `f220ee98fc75ee03910feee39b8c5f2220b7634c`, CI passed on Python 3.11/3.12/3.14, and the user confirmed post-merge checks passed and deleted the branch.
 
-- PR #198 adds deterministic owner-authenticated offset pagination to transaction history; PR #199 adds the Activity controls on top.
+- PR #193 adds browser regression coverage showing receipt RPC failures as unavailable status rather than fabricating a receipt.
+
+- PR #198 adds owner-authenticated transaction-history offset pagination with non-negative offsets and deterministic ordering.
 
 ## Phased roadmap
 
@@ -61,7 +63,7 @@ Last updated: 20 October 2026
 - ERC-4337 account abstraction is a separate architectural decision.
 - Do not enable mainnet execution or claim the unaudited vault is production-ready.
 
-## Current open PR batch (do not merge without explicit user approval)
+## Current PR batch status
 
 - #192 restores the manual PR workflow.
 - #193 adds browser coverage for receipt lookup failures.
@@ -70,8 +72,8 @@ Last updated: 20 October 2026
 - #196 and #197 cover transaction history limit validation and capped results.
 - #198 adds owner-authenticated offset pagination to the transaction history API.
 - #199 adds Activity Previous/Next controls and depends on #198.
-- The current balance RPC fail-closed regression tests are being prepared as a separate focused PR from main.
-- Keep the batch unmerged until the user explicitly approves merging; inspect dependency order and resolve any handoff-document conflicts before merging.
+- PR #200 adds fail-closed regression tests for public-address balance reads on unexpected RPC chain responses and sanitised RPC failures; it has been merged.
+- The user has explicitly authorised squash merges once checks and mergeability are satisfactory. Respect dependencies, require current checks, and never force-merge conflicts.
 
 ## Required PR workflow
 
