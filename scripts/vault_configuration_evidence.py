@@ -19,10 +19,8 @@ _WORD_RE = re.compile(r"^0x[0-9a-fA-F]{64}$")
 _BYTECODE_RE = re.compile(r"^0x(?:[0-9a-fA-F]{2})+$")
 
 
-def _read_word(rpc: BaseSepoliaRpc, vault: str, signature: str, token: str | None = None) -> int:
+def _read_word(rpc: BaseSepoliaRpc, vault: str, signature: str) -> int:
     calldata = "0x" + keccak(text=signature)[:4].hex()
-    if token is not None:
-        calldata += validate_address(token)[2:].rjust(64, "0")
     value = rpc.call(_ZERO_ADDRESS, vault, calldata)
     if not isinstance(value, str) or _WORD_RE.fullmatch(value) is None:
         raise RpcRequestError(f"Vault returned malformed {signature} data")
@@ -55,10 +53,12 @@ def capture_vault_configuration(
     policy_call = "0x" + keccak(text="tokenPolicy(address)")[:4].hex()
     policy_call += token[2:].rjust(64, "0")
     policy_data = rpc.call(_ZERO_ADDRESS, vault, policy_call)
-    if not isinstance(policy_data, str) or not re.fullmatch(r"0x[0-9a-fA-F]{256}", policy_data):
+    if not isinstance(policy_data, str) or not re.fullmatch(
+        r"0x[0-9a-fA-F]{256}", policy_data
+    ):
         raise RpcRequestError("Vault returned malformed token policy data")
     policy_words = [
-        int(policy_data[2 + index * 64:2 + (index + 1) * 64], 16)
+        int(policy_data[2 + index * 64 : 2 + (index + 1) * 64], 16)
         for index in range(4)
     ]
     allowed_word, per_tx_cap, daily_cap, approval_threshold = policy_words
