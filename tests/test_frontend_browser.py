@@ -482,8 +482,12 @@ def test_browser_receipt_result_stays_visible_in_activity(page: Page, frontend_u
             "transaction_id": transaction_id,
             "transaction_hash": transaction_hash,
             "chain_id": 84532,
-            "status": "success",
+            "status": "confirmed",
             "block_number": 123456,
+            "block_hash": "0x" + "b" * 64,
+            "confirmations_observed": 12,
+            "minimum_confirmations_required": 12,
+            "canonical_block_match": True,
         },
     )
     page.goto(frontend_url)
@@ -495,10 +499,11 @@ def test_browser_receipt_result_stays_visible_in_activity(page: Page, frontend_u
     page.get_by_role("button", name="Check receipt").click()
 
     receipt_result = page.locator("#activity-rows .receipt-result")
-    expect(receipt_result).to_contain_text("Base Sepolia receipt · success")
+    expect(receipt_result).to_contain_text("Base Sepolia receipt · confirmed")
     expect(receipt_result).to_contain_text("Chain ID 84532 · Block 123456")
     expect(receipt_result).to_contain_text(transaction_hash)
-    expect(receipt_result).to_contain_text("not proof of transaction finality")
+    expect(receipt_result).to_contain_text("Confirmations 12 / 12 · Canonical block match: true")
+    expect(receipt_result).to_contain_text("confirmations are not a guarantee of finality")
     receipt_call = next(call for call in calls if call["path"].endswith("/receipt"))
     assert receipt_call["authorization"] == "Bearer owner-token"
 
