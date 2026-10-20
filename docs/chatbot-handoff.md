@@ -29,26 +29,24 @@ Last updated: 20 October 2026
 
 ## Current implementation priority
 
-PR #203 delivered the reproducible JSON/Markdown evidence bundle, optional read-only Base Sepolia transfer verification, sender/vault/event checks, SQLite audit cross-checking, failure-aware reports, and canonical-payload SHA-256 integrity digest. The next milestone strengthens this evidence with observed confirmation depth: report the receipt block and latest observed block, calculate confirmations, and allow a caller-selected minimum for CLI verification and bundles. This remains a point-in-time RPC observation, not a finality guarantee.
+PR #203 delivered portable JSON/Markdown evidence bundles, optional read-only Base Sepolia transfer verification, audit cross-checking, and a canonical-payload SHA-256 digest. PR #204 added receipt/latest-block heights, observed confirmation depth, and configurable minimum-confirmation checks. These are point-in-time RPC observations, not finality guarantees.
 
-PRs should bundle related implementation, tests, documentation, and evidence into a larger coherent deliverable. Prefer changes that improve the end-to-end story (policy decision, owner approval, vault-bounded execution, on-chain receipt, and matching audit record) over isolated dashboard polish. Keep simulated mode as the default; do not sign or broadcast as part of evidence generation, and never claim finality, independent audit, LLM safety, or production readiness.
+The next milestone is evaluation reporting quality: expose aggregate pass/failure counts and pass rates for deterministic and opt-in LLM evaluations, identify failed scenarios, test that failures remain visible in summaries, and update the agent-evaluation guide and this handoff in the same PR. This reporting must not overstate the narrow scope of the scenarios or imply that offline tests prove actual transfers or general LLM safety.
+
+Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve the end-to-end story (policy decision, owner approval, vault-bounded execution, on-chain receipt, and matching audit record). Keep simulated mode as the default; evidence generation must not sign or broadcast transactions. Never claim finality, independent audit, LLM safety, or production readiness.
 
 ## Phased roadmap
 
 ### Phase 1 — Secure execution foundation (complete)
 - Vault-only execution for eligible agent proposals.
-- Remove direct EOA token-transfer mode.
-- Preserve owner approval requirements and simulated mode as the default.
+- Direct EOA token-transfer mode retired.
+- Owner approval requirements preserved and simulated mode remains the default.
 
-### Phase 2 — Wallet read and configuration layer (in progress)
-- Backend read surfaces now include public-address Base Sepolia ETH/demo-USDC balances, active policy configuration, and UTC-day local workflow spending summaries.
-- Frontend surfaces now include read-only wallet balances, active policy settings/allowlists, daily spending/remaining budget, the owner-authenticated RPC-reported network status panel, and the configured vault status comparison.
-- The Activity view now keeps owner-requested Base Sepolia receipt hash, chain, status, and block visible in the loaded page session. Receipt checks remain point-in-time RPC observations, not proof of finality.
-- Receipt details are visible in Activity, and the evidence verifier now records point-in-time receipt status and block data.
-- Current task (branch `feat/confirmation-depth-evidence`): Add confirmation-depth reporting and configurable minimum-confirmation checks to the standalone verifier and evidence bundle, with mocked-RPC regression tests.
-- Next: review workflow history limitations and receipt error-state visibility without implying complete lifetime history or transaction finality.
-- Clearly distinguish local configuration/database values from state verified on-chain; fail clearly when values are unavailable or configuration is missing/mismatched.
-- Inspect existing routes, service boundaries, frontend data flow, and tests before choosing the next smallest coherent slice. Avoid duplicate endpoints and never expose secrets/private keys.
+### Phase 2 — Wallet read and configuration layer
+- Backend read surfaces include public-address Base Sepolia ETH/demo-USDC balances, active policy configuration, and UTC-day local workflow spending summaries.
+- Frontend surfaces include read-only wallet balances, active policy settings/allowlists, daily spending/remaining budget, RPC-reported network status, and configured vault status comparison.
+- Activity displays receipt details for the loaded page session; receipt checks are point-in-time observations, not proof of finality.
+- Distinguish local configuration/database values from on-chain state, fail clearly on missing/mismatched configuration, and never expose secrets/private keys.
 
 ### Phase 3 — Wallet lifecycle and configuration verification
 - Additional regression coverage now checks that public-address balance reads refuse to query balances when the configured RPC reports a non-Base-Sepolia chain, and sanitise RPC read errors rather than exposing provider internals.
@@ -103,10 +101,10 @@ PRs should bundle related implementation, tests, documentation, and evidence int
 
 ## Current status and next action
 
-- PR #203 is squash-merged as `f42bd3fd42464598cb469dce13b4a5f34fe4387c`; the user confirmed post-merge Ruff and pytest checks passed and deleted `feat/reproducible-evidence-bundles`.
-- Current branch: `feat/confirmation-depth-evidence`. This milestone adds observed receipt confirmation depth and configurable minimum-confirmation checks to the read-only verifier and portable evidence bundle, with tests and documentation. It must not submit transactions or imply finality.
-- After the user confirms both local checks pass on the PR branch, verify CI and head SHA, then squash-merge. Ask the user to rerun checks on updated `main`; only after their confirmation provide branch deletion commands.
-- Continue bundling related implementation, tests, docs, and evidence into coherent larger PRs. Never update `main` directly.
+- PR #203 (reproducible evidence bundles) and PR #204 (confirmation-depth evidence) are merged; the user confirmed post-merge Ruff and pytest checks passed and deleted both branches.
+- Current branch: `feat/evaluation-summary-metrics`. This milestone adds aggregate pass/failure counts, pass rates, and failed-scenario names to deterministic and LLM evaluation JSON/Markdown reports, with regression tests and updated evaluation guidance/handoff.
+- The user must run both local checks on the PR branch before merge. Then verify the PR head SHA and all CI jobs, squash-merge, ask for post-merge checks on updated `main`, and only then provide branch deletion commands.
+- Continue bundling implementation, tests, and related docs in one coherent PR. Never update `main` directly.
 
 ## Standard accounting and safety semantics
 

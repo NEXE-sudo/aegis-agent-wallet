@@ -134,6 +134,8 @@ invoice verification, or production-grade prompt-injection resistance.
 
 ## Opt-in LLM prompt-injection evaluation
 
+Both JSON and Markdown reports include aggregate pass/failure counts and a pass rate. Deterministic reports list failed scenario names; LLM reports aggregate all individual runs and identify scenarios with at least one failure. A report's overall result remains failed if any required scenario/run fails, so aggregate metrics cannot hide an individual regression.
+
 The default evaluation never calls an LLM. To run the five invoice-text injection
 scenarios against the configured OpenAI-compatible model, set
 `AEGIS_LLM_BASE_URL`, `AEGIS_LLM_MODEL`, and `AEGIS_LLM_API_KEY`, then run:

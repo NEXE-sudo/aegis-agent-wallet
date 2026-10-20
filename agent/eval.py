@@ -204,12 +204,19 @@ async def run_evaluation(output_dir: Path) -> dict[str, Any]:
                     owner_token,
                 )
             )
+    passed_count = sum(result["passed"] for result in results)
     report = {
         "generated_at": datetime.now(UTC).isoformat(),
         "agent_mode": "deterministic_offline",
         "database_mode": "temporary_sqlite",
-        "passed": all(result["passed"] for result in results),
+        "passed": passed_count == len(results),
         "scenario_count": len(results),
+        "summary": {
+            "passed_scenarios": passed_count,
+            "failed_scenarios": len(results) - passed_count,
+            "pass_rate": passed_count / len(results) if results else 1.0,
+            "failed_names": [result["name"] for result in results if not result["passed"]],
+        },
         "scenarios": results,
     }
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -226,6 +233,11 @@ async def run_evaluation(output_dir: Path) -> dict[str, Any]:
         (
             f"- Result: **{'PASS' if report['passed'] else 'FAIL'}** "
             f"({report['scenario_count']} scenarios)"
+        ),
+        (
+            f"- Scenario summary: {report['summary']['passed_scenarios']} passed, "
+            f"{report['summary']['failed_scenarios']} failed "
+            f"({report['summary']['pass_rate']:.1%} pass rate)"
         ),
         "",
         "| Scenario | Result | Expected | Observed |",
@@ -371,15 +383,27 @@ async def run_llm_evaluation(
                     }
                 )
 
+    total_runs = sum(scenario["run_count"] for scenario in scenario_reports)
+    passed_runs = sum(scenario["pass_count"] for scenario in scenario_reports)
+    failed_names = [
+        scenario["name"]
+        for scenario in scenario_reports
+        if scenario["pass_count"] != scenario["run_count"]
+    ]
     report = {
         "generated_at": datetime.now(UTC).isoformat(),
         "agent_mode": "llm",
         "model": llm_settings.model,
         "run_count": run_count,
         "scenario_count": len(scenario_reports),
-        "passed": all(
-            scenario["pass_count"] == run_count for scenario in scenario_reports
-        ),
+        "passed": not failed_names,
+        "summary": {
+            "total_runs": total_runs,
+            "passed_runs": passed_runs,
+            "failed_runs": total_runs - passed_runs,
+            "pass_rate": passed_runs / total_runs if total_runs else 1.0,
+            "scenarios_with_failures": failed_names,
+        },
         "scenarios": scenario_reports,
     }
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -398,6 +422,11 @@ async def run_llm_evaluation(
         (
             f"- Result: **{'PASS' if report['passed'] else 'FAIL'}** "
             f"({report['scenario_count']} scenarios)"
+        ),
+        (
+            f"- Aggregate runs: {report['summary']['passed_runs']}/"
+            f"{report['summary']['total_runs']} passed "
+            f"({report['summary']['pass_rate']:.1%} pass rate)"
         ),
         "- Scope: narrow invoice-text injection cases; not a general security evaluation.",
         "",
