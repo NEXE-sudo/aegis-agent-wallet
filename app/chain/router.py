@@ -2,9 +2,9 @@
 import os
 import re
 
-from fastapi import APIRouter, Depends, HTTPException
-from eth_utils import keccak
 from eth_account import Account
+from eth_utils import keccak
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth import require_chain_owner
 from app.chain.base_sepolia import (
@@ -62,7 +62,7 @@ _WORD_RE = re.compile(r"^0x[0-9a-fA-F]{64}$")
 def _decode_vault_word(data: str, field: str) -> int:
     if not isinstance(data, str) or not _WORD_RE.fullmatch(data):
         raise RpcRequestError(f"Vault returned malformed {field} data")
-    return int(data[2:], 16)
+    return int(data, 0)
 
 
 def _vault_read(rpc: BaseSepoliaRpc, vault: str, signature: str, token: str | None = None) -> str:
