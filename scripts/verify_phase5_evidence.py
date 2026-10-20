@@ -98,7 +98,7 @@ def validate_phase5_evidence(
     evidence = testnet.get("evidence")
     configuration = testnet.get("vault_configuration")
     if not isinstance(evidence, dict) or not isinstance(configuration, dict):
-        raise ValueError("Evidence bundle is missing transaction or vault configuration evidence")
+        raise TypeError("Evidence bundle transaction and vault configuration evidence must be JSON objects")
     if evidence.get("chain_id") != _CHAIN_ID or configuration.get("chain_id") != _CHAIN_ID:
         raise ValueError("Transfer bundle must identify Base Sepolia (chain ID 84532)")
 
