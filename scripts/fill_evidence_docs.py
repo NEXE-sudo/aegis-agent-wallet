@@ -18,6 +18,8 @@ from scripts.verify_phase5_evidence import validate_phase5_evidence
 
 START = "<!-- LIVE_EVIDENCE_START -->"
 END = "<!-- LIVE_EVIDENCE_END -->"
+PROVENANCE_START = "<!-- SUBMISSION_PROVENANCE_START -->"
+PROVENANCE_END = "<!-- SUBMISSION_PROVENANCE_END -->"
 REQUIRED_FILES = (
     "deployment-verification.json",
     "success/aegis-evidence-bundle.json",
@@ -123,6 +125,25 @@ def _render_block(evidence: dict[str, Any]) -> str:
     ])
 
 
+def _render_provenance(revision: str, python_ci_url: str | None, foundry_ci_url: str | None) -> str:
+    def checked(value: str | None, label: str) -> str:
+        if not value:
+            return f"Pending: attach the {label} run URL for this exact source revision."
+        if not value.startswith("https://github.com/") or "/actions/runs/" not in value:
+            raise EvidenceDocsError(f"{label} URL must be a GitHub Actions run URL.")
+        return f"[Observed {label} CI run]({value}) — operator must confirm it tested this exact source revision."
+    return "\\n".join([
+        PROVENANCE_START,
+        "## Final source and CI provenance",
+        "",
+        f"- Source commit at documentation fill time: **{revision}**",
+        f"- Python CI: {checked(python_ci_url, 'Python')}",
+        f"- Foundry CI: {checked(foundry_ci_url, 'Foundry')}",
+        "- CI links are references, not cryptographic attestations; check each run's tested SHA before submission.",
+        PROVENANCE_END,
+    ])
+
+
 def _replace_block(document: str, block: str, path: str) -> str:
     if document.count(START) != 1 or document.count(END) != 1:
         raise EvidenceDocsError(f"{path} must contain exactly one evidence marker pair.")
@@ -146,7 +167,8 @@ def _git_revision(root: Path) -> str:
     return revision
 
 
-def fill_documents(root: Path, live_dir: Path) -> list[Path]:
+def fill_documents(root: Path, live_dir: Path, *, python_ci_url: str | None = None,
+                   foundry_ci_url: str | None = None) -> list[Path]:
     """Validate all evidence and all target files before writing any of them."""
     root = root.resolve()
     live = live_dir if live_dir.is_absolute() else root / live_dir
@@ -154,6 +176,7 @@ def fill_documents(root: Path, live_dir: Path) -> list[Path]:
     revision = _git_revision(root)
     evidence["source_revision"] = revision
     block = _render_block(evidence)
+    provenance_block = _render_provenance(revision, python_ci_url, foundry_ci_url)
     replacements: dict[Path, str] = {}
     for relative in DOCS:
         path = root / relative
@@ -161,7 +184,13 @@ def fill_documents(root: Path, live_dir: Path) -> list[Path]:
             original = path.read_text(encoding="utf-8")
         except (OSError, UnicodeError) as exc:
             raise EvidenceDocsError(f"Cannot read {relative}; no documentation was changed.") from exc
-        replacements[path] = _replace_block(original, block, relative)
+        updated = _replace_block(original, block, relative)
+        if updated.count(PROVENANCE_START) != 1 or updated.count(PROVENANCE_END) != 1:
+            raise EvidenceDocsError(f"{relative} must contain exactly one provenance marker pair.")
+        provenance_start = updated.index(PROVENANCE_START)
+        provenance_end = updated.index(PROVENANCE_END) + len(PROVENANCE_END)
+        updated = updated[:provenance_start] + provenance_block + updated[provenance_end:]
+        replacements[path] = updated
     # Write temporary siblings first; validation above prevents partial writes from malformed evidence.
     temporaries: list[tuple[Path, Path]] = []
     try:
@@ -182,9 +211,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Fill live-evidence fields only from verified reports/live bundles.")
     parser.add_argument("--root", type=Path, default=Path("."))
     parser.add_argument("--live-dir", type=Path, default=Path("reports/live"))
+    parser.add_argument("--python-ci-url", help="observed GitHub Actions Python run URL for the source revision")
+    parser.add_argument("--foundry-ci-url", help="observed GitHub Actions Foundry run URL for the source revision")
     args = parser.parse_args(argv)
     try:
-        paths = fill_documents(args.root, args.live_dir)
+        paths = fill_documents(args.root, args.live_dir, python_ci_url=args.python_ci_url,
+                               foundry_ci_url=args.foundry_ci_url)
     except (EvidenceDocsError, OSError, ValueError, TypeError, KeyError) as exc:
         print(f"Evidence documentation update refused: {exc}", file=sys.stderr)
         return 1
