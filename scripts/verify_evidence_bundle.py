@@ -80,7 +80,7 @@ def validate_bundle(bundle: object) -> dict[str, Any]:
                     raise ValueError("Successful-transfer evidence must pass its audit cross-check")
             elif mode == "reverted_vault_call":
                 if schema not in {"aegis-evidence-bundle/v5", "aegis-evidence-bundle/v6"}:
-                    raise ValueError("Reverted-call evidence requires schema v5")
+                    raise ValueError("Reverted-call evidence requires schema v5 or v6")
                 if evidence.get("receipt_status") != "failed":
                     raise ValueError("Reverted-call evidence must have a failed receipt")
                 if "audit_record_matches" in checks:
@@ -157,7 +157,10 @@ def validate_bundle(bundle: object) -> dict[str, Any]:
                 ):
                     if type(policy.get(cap)) is not int or policy[cap] < 0:
                         raise ValueError("Vault configuration snapshot has invalid token policy caps")
-                if policy["per_transaction_cap_base_units"] == 0 or policy["daily_cap_base_units"] == 0:
+                if (
+                    policy["per_transaction_cap_base_units"] == 0
+                    or policy["daily_cap_base_units"] == 0
+                ):
                     raise ValueError("Vault configuration snapshot has zero spending caps")
                 if configuration.get("issues") != []:
                     raise ValueError("Structurally valid vault configuration must have no issues")
