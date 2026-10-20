@@ -359,6 +359,19 @@ class GovernanceStore:
                 db.rollback()
                 raise
 
+    def get_decision_for_transaction(self, transaction_id: str) -> dict[str, Any] | None:
+        with closing(self._connect()) as db:
+            rows = db.execute(
+                "SELECT decision_json, payload_hash FROM governance_decisions ORDER BY sequence DESC"
+            ).fetchall()
+        for row in rows:
+            decision = json.loads(row["decision_json"])
+            if payload_hash(decision) != row["payload_hash"]:
+                raise GovernanceDataError("Stored decision hash does not match its payload")
+            if decision.get("transaction_id") == transaction_id:
+                return decision
+        return None
+
     def monthly_proposed_spend(self, year_month: str) -> int:
         total = 0
         with closing(self._connect()) as db:
@@ -583,6 +596,7 @@ def evaluate_pending_tasks(store: GovernanceStore, *, now: datetime | None = Non
             "evidence_refs": evidence_refs,
             "mandate_id": mandate.mandate_id,
             "mandate_hash": mandate_record["payload_hash"],
+            "payee_hash": current_payee_hash,
             "task": task,
         })
     return results
