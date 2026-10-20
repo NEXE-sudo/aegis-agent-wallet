@@ -210,6 +210,10 @@ async def run_evaluation(output_dir: Path) -> dict[str, Any]:
                 )
             )
     passed_count = sum(result["passed"] for result in results)
+    failure_reason_counts: dict[str, int] = {}
+    for result in results:
+        for reason in result["failure_reasons"]:
+            failure_reason_counts[reason] = failure_reason_counts.get(reason, 0) + 1
     report = {
         "generated_at": datetime.now(UTC).isoformat(),
         "agent_mode": "deterministic_offline",
@@ -221,6 +225,7 @@ async def run_evaluation(output_dir: Path) -> dict[str, Any]:
             "failed_scenarios": len(results) - passed_count,
             "pass_rate": passed_count / len(results) if results else 1.0,
             "failed_names": [result["name"] for result in results if not result["passed"]],
+            "failure_reason_counts": dict(sorted(failure_reason_counts.items())),
         },
         "scenarios": results,
     }
@@ -243,6 +248,16 @@ async def run_evaluation(output_dir: Path) -> dict[str, Any]:
             f"- Scenario summary: {report['summary']['passed_scenarios']} passed, "
             f"{report['summary']['failed_scenarios']} failed "
             f"({report['summary']['pass_rate']:.1%} pass rate)"
+        ),
+        (
+            "- Failure reasons: "
+            + (
+                ", ".join(
+                    f"{reason}: {count}"
+                    for reason, count in report["summary"]["failure_reason_counts"].items()
+                )
+                or "none"
+            )
         ),
         "",
         "| Scenario | Result | Failure reasons | Expected | Observed |",
