@@ -1,5 +1,6 @@
 """Regression tests for read-only AegisVault deployment verification."""
 import hashlib
+import json
 
 import pytest
 
@@ -200,9 +201,6 @@ def test_cli_returns_failure_without_claiming_success(monkeypatch, capsys):
 def test_cli_writes_machine_readable_evidence_with_integrity_digest(
     monkeypatch, tmp_path, capsys
 ):
-    import hashlib
-    import json
-
     output_path = tmp_path / "deployment" / "evidence.json"
     monkeypatch.setattr(deployment, "BaseSepoliaRpc", lambda: FakeRpc())
 
