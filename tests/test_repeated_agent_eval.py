@@ -57,3 +57,93 @@ def test_summarise_runs_counts_each_scenario_across_runs():
 def test_summarise_runs_rejects_empty_input():
     with pytest.raises(ValueError, match="At least one"):
         summarise_runs([])
+
+
+
+@pytest.mark.parametrize(
+    ("reports", "message"),
+    [
+        (
+            [
+                {
+                    "passed": True,
+                    "scenario_count": 1,
+                    "scenarios": [{"name": "valid", "passed": True}],
+                },
+                {
+                    "passed": True,
+                    "scenario_count": 0,
+                    "scenarios": [],
+                },
+            ],
+            "at least one scenario",
+        ),
+        (
+            [
+                {
+                    "passed": True,
+                    "scenario_count": 1,
+                    "scenarios": [{"name": "valid", "passed": True}],
+                },
+                {
+                    "passed": True,
+                    "scenario_count": 1,
+                    "scenarios": [{"name": "missing-case", "passed": True}],
+                },
+            ],
+            "inventory differs",
+        ),
+        (
+            [
+                {
+                    "passed": True,
+                    "scenario_count": 2,
+                    "scenarios": [
+                        {"name": "valid", "passed": True},
+                        {"name": "valid", "passed": False},
+                    ],
+                }
+            ],
+            "duplicate scenario",
+        ),
+        (
+            [
+                {
+                    "passed": True,
+                    "scenario_count": 2,
+                    "scenarios": [{"name": "valid", "passed": True}],
+                }
+            ],
+            "scenario_count does not match",
+        ),
+    ],
+)
+def test_summarise_runs_rejects_incomplete_or_inconsistent_evidence(reports, message):
+    with pytest.raises(ValueError, match=message):
+        summarise_runs(reports)
+
+
+
+@pytest.mark.parametrize(
+    "report",
+    [
+        None,
+        {"passed": "yes", "scenarios": [{"name": "valid", "passed": True}]},
+    ],
+)
+def test_summarise_runs_raises_type_error_for_invalid_report_types(report):
+    with pytest.raises(TypeError):
+        summarise_runs([report])
+
+
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        None,
+        {"name": "valid", "passed": "yes"},
+    ],
+)
+def test_summarise_runs_raises_type_error_for_invalid_scenario_types(scenario):
+    report = {"passed": True, "scenario_count": 1, "scenarios": [scenario]}
+    with pytest.raises(TypeError):
+        summarise_runs([report])

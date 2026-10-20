@@ -6,6 +6,8 @@
 - Add owner-facing mandate, payee and structured-task controls, persisted decision review, and JSON/CSV governance exports with CSV formula neutralisation and explicit audit-integrity limitations.
 - Add operational and governance export regression tests; keep simulated execution as the default and Base Sepolia as the only supported on-chain target.
 - Add repeatable offline agent evaluation with per-scenario pass rates and a guided owner-governed end-to-end demo.
+- Expand offline policy/injection scenarios and opt-in LLM prompt-injection cases; reject inconsistent repeated-evaluation evidence instead of silently aggregating missing or malformed scenarios.
+- Document adversarial coverage, reproducible commands, evidence interpretation, and limits without claiming general prompt-injection resistance.
 
 ## 1.12.0 (unreleased)
 

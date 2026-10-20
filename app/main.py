@@ -911,6 +911,16 @@ def get_agent_transaction_status(
     )
 
 
+def _current_governance_store() -> GovernanceStore:
+    """Return governance storage aligned with the active workflow database."""
+    workflow_path = str(store.db_path)
+    governance = getattr(app.state, "governance_store", None)
+    if governance is None or str(getattr(governance, "db_path", "")) != workflow_path:
+        governance = GovernanceStore(workflow_path)
+        app.state.governance_store = governance
+    return governance
+
+
 def _require_current_governance_for_transaction(transaction_id: str) -> None:
     """Block governance-created proposals when their governing records have changed."""
     record = store.get(transaction_id)
@@ -918,7 +928,7 @@ def _require_current_governance_for_transaction(transaction_id: str) -> None:
         "blocked", "cancelled", "rejected", "executed_simulated", "submitted_onchain"
     }:
         return
-    governance = app.state.governance_store
+    governance = _current_governance_store()
     try:
         decision = governance.get_decision_for_transaction(transaction_id)
     except GovernanceDataError as exc:

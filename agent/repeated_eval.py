@@ -13,14 +13,48 @@ from agent.eval import run_evaluation
 
 
 def summarise_runs(reports: list[dict[str, Any]]) -> dict[str, Any]:
-    """Aggregate independent evaluation runs without hiding individual failures."""
+    """Aggregate runs while rejecting incomplete or structurally inconsistent evidence."""
     if not reports:
         raise ValueError("At least one evaluation report is required")
 
     scenario_results: dict[str, list[bool]] = defaultdict(list)
-    for report in reports:
-        for scenario in report.get("scenarios", []):
-            scenario_results[scenario["name"]].append(bool(scenario["passed"]))
+    expected_names: set[str] | None = None
+    for report_index, report in enumerate(reports, start=1):
+        if not isinstance(report, dict):
+            raise TypeError(f"Run {report_index} must be an evaluation report object")
+        if not isinstance(report.get("passed"), bool):
+            raise TypeError(f"Run {report_index} must contain a boolean passed field")
+        scenarios = report.get("scenarios")
+        if not isinstance(scenarios, list) or not scenarios:
+            raise ValueError(f"Run {report_index} must contain at least one scenario")
+        names: set[str] = set()
+        for scenario in scenarios:
+            if not isinstance(scenario, dict):
+                raise TypeError(f"Run {report_index} contains an invalid scenario record")
+            name = scenario.get("name")
+            passed = scenario.get("passed")
+            if not isinstance(name, str) or not name.strip():
+                raise ValueError(f"Run {report_index} contains a scenario without a name")
+            if name in names:
+                raise ValueError(f"Run {report_index} contains duplicate scenario {name!r}")
+            if not isinstance(passed, bool):
+                raise TypeError(
+                    f"Run {report_index} scenario {name!r} must have a boolean passed field"
+                )
+            names.add(name)
+            scenario_results[name].append(passed)
+        declared_count = report.get("scenario_count")
+        if declared_count is not None and declared_count != len(scenarios):
+            raise ValueError(f"Run {report_index} scenario_count does not match its records")
+        if expected_names is None:
+            expected_names = names
+        elif names != expected_names:
+            missing = sorted(expected_names - names)
+            unexpected = sorted(names - expected_names)
+            raise ValueError(
+                f"Run {report_index} scenario inventory differs "
+                f"(missing={missing}, unexpected={unexpected})"
+            )
 
     scenario_summary = []
     for name in sorted(scenario_results):
@@ -39,7 +73,7 @@ def summarise_runs(reports: list[dict[str, Any]]) -> dict[str, Any]:
     total_observed = sum(item["runs_observed"] for item in scenario_summary)
     return {
         "run_count": len(reports),
-        "all_runs_passed": all(report.get("passed", False) for report in reports),
+        "all_runs_passed": all(report["passed"] for report in reports),
         "scenario_names": len(scenario_summary),
         "scenario_observations": total_observed,
         "passed_observations": total_passed,
@@ -49,8 +83,8 @@ def summarise_runs(reports: list[dict[str, Any]]) -> dict[str, Any]:
         "runs": [
             {
                 "run": index + 1,
-                "passed": report.get("passed", False),
-                "scenario_count": report.get("scenario_count", 0),
+                "passed": report["passed"],
+                "scenario_count": report.get("scenario_count", len(report["scenarios"])),
                 "failed_names": report.get("summary", {}).get("failed_names", []),
             }
             for index, report in enumerate(reports)
@@ -102,15 +136,25 @@ async def run_repeated_evaluation(run_count: int, output_dir: Path) -> dict[str,
             f"{scenario['runs_observed']} | {scenario['failed_runs']} | "
             f"{scenario['pass_rate']:.1%} |"
         )
-    lines.extend(["", "## Run-by-run results", "", "| Run | Result | Failed scenarios |", "| ---: | --- | --- |"])
+    lines.extend(
+        [
+            "",
+            "## Run-by-run results",
+            "",
+            "| Run | Result | Failed scenarios |",
+            "| ---: | --- | --- |",
+        ]
+    )
     for run in aggregate["runs"]:
         failed = ", ".join(run["failed_names"]) or "—"
         lines.append(f"| {run['run']} | {'PASS' if run['passed'] else 'FAIL'} | {failed} |")
     lines.extend(
         [
             "",
-            ("This report measures repeatability of the deterministic fallback. "
-             "It does not measure live LLM quality, chain execution, or real payment outcomes."),
+            (
+                "This report measures repeatability of the deterministic fallback. "
+                "It does not measure live LLM quality, chain execution, or real payment outcomes."
+            ),
             "",
         ]
     )

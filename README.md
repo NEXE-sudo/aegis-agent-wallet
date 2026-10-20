@@ -42,7 +42,7 @@ The owner-authenticated endpoints are `PUT /governance/mandate`, `PUT /governanc
 
 The agent processes only owner-created tasks using `POST /agent/governance/decide-pending` or runner mode `{"mode":"governance_queue"}`. In this mode the caller supplies no payment fields: the task amount comes from the owner-created structured task, and recipient/token/chain metadata comes from the owner-managed payee registry. A proposed transaction still goes through the existing policy/risk gateway and can be blocked or require owner approval. Tasks are bound to the mandate and payee versions present when queued, and governance-created proposals cannot be approved or executed after those records change or integrity verification fails. The agent does not approve or execute it.
 
-Important limitations: mandates currently support one token per budget to avoid mixing incompatible token base units. The mandate's `available_balance_base_units` is an owner-maintained planning value, not a live chain balance. Proposed amounts are conservatively retained in governance budget history even if the downstream proposal is later blocked or cancelled. The governance queue is deterministic; the existing optional LLM tool loop has not yet been integrated as a reasoner over this persisted queue.
+Important limitations: mandates currently support one token per budget to avoid mixing incompatible token base units. The mandate's `available_balance_base_units` is an owner-maintained planning value, not a live chain balance. Proposed amounts are conservatively retained in governance budget history even if the downstream proposal is later blocked or cancelled. The governance queue is deterministic; the existing optional LLM tool loop has not yet been integrated as a reasoner over this persisted queue. Offline evaluation covers injected task descriptions, unverified payees, and mandate/payee drift, but does not yet reconcile cancelled or blocked proposals out of governance budget history.
 
 ## Local frontend control centre
 
@@ -140,6 +140,7 @@ This remains a local prototype. Use simulated mode or the unaudited vault integr
 - [Threat model](docs/threat-model.md) — security goals, assets, trust boundaries, and threats.
 - [Runtime configuration](docs/runtime-configuration.md) — environment variables, local binding, and operational troubleshooting.
 - [Agent and evaluation guide](docs/agent.md) — agent tools, trusted payment inputs, and evaluation.
+- [Adversarial evaluation matrix](docs/adversarial-evaluation.md) — attack families, reproducible commands, report-integrity checks, and evaluation limits.
 - [Workflow state transitions](docs/workflow-state-transitions.md) — workflow statuses and state changes.
 - [Reproducible demo scenario](docs/demo-scenario.md) — API walkthrough and expected outcomes.
 - [End-to-end demo](docs/end-to-end-demo.md) — local owner-governed workflow and repeatable offline evaluation evidence.
