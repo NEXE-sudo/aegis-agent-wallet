@@ -7,7 +7,7 @@ supply token and amount values. Decisions are proposals, never approvals.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 Action = Literal["propose", "skip", "escalate"]
@@ -71,7 +71,7 @@ class Decision:
 def _utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         raise ValueError("Task timestamps must include a timezone")
-    return value.astimezone(timezone.utc)
+    return value.astimezone(UTC)
 
 
 def decide_payments(
