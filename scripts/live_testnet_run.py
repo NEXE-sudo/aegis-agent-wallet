@@ -199,9 +199,10 @@ def _run_step(
 
 
 def _command_result(command: list[str], *, root: Path, env: dict[str, str],
-                    report_dir: Path, label: str, timeout: int = 300) -> str:
+                    report_dir: Path, label: str, timeout: int = 300,
+                    cwd: Path | None = None) -> str:
     try:
-        result = _run_command(command, cwd=root, env=env, timeout=timeout)
+        result = _run_command(command, cwd=cwd or root, env=env, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise LiveRunError(f"{label} could not be completed; inspect {report_dir / 'partial-report.json'}.") from exc
     output = redact((result.stdout or "") + (result.stderr or ""), env)
@@ -371,10 +372,10 @@ def run_live(args: argparse.Namespace, *, root: Path | None = None,
         if not state["values"].get("vault_address"):
             def deploy() -> dict[str, Any]:
                 output = _command_result(
-                    ["forge", "script", "contracts/script/Deploy.s.sol:Deploy",
+                    ["forge", "script", "script/Deploy.s.sol:Deploy",
                      "--account", values["OWNER_KEYSTORE_ACCOUNT"], "--sender", public["owner"], "--broadcast"],
                     root=root, env=_cast_env(values, values["OWNER_KEYSTORE_ACCOUNT"]),
-                    report_dir=report_dir, label="deploy-vault", timeout=300)
+                    report_dir=report_dir, label="deploy-vault", timeout=300, cwd=root / "contracts")
                 address_match = re.search(r"AegisVault deployed at\s+(0x[0-9a-fA-F]{40})", output, re.I)
                 if not address_match:
                     raise LiveRunError("Forge output did not contain the deployed vault address; inspect deploy-vault.log.")
@@ -414,6 +415,24 @@ def run_live(args: argparse.Namespace, *, root: Path | None = None,
                 action=lambda: {"transaction_hash": _cast_send(root, values, report_dir, "fund-vault",
                     public["token"], "transfer(address,uint256)", [vault, str(args.fund_amount_base_units)], account)},
                 broadcast=True)
+
+        def check_vault_balance() -> dict[str, Any]:
+            output = _command_result(["cast", "call", public["token"], "balanceOf(address)(uint256)", vault,
+                "--chain", "84532"], root=root, env=_cast_env(values, account),
+                report_dir=report_dir, label="check-vault-usdc-balance", timeout=60)
+            raw = output.strip().splitlines()[-1].strip()
+            try:
+                balance = int(raw, 0)
+            except ValueError as exc:
+                raise LiveRunError("Could not parse the vault USDC balance returned by cast.") from exc
+            if balance < args.amount_base_units:
+                raise LiveRunError(
+                    f"Vault USDC balance is {balance} base units, below the proposed amount "
+                    f"{args.amount_base_units}. Fund the vault with demo USDC and rerun before creating a proposal."
+                )
+            return {"balance_base_units": balance, "required_base_units": args.amount_base_units}
+        _run_step("check-vault-usdc-balance", state=state, state_path=state_path, report_dir=report_dir,
+                  action=check_vault_balance, broadcast=False)
 
         # Start an isolated local API with the just-deployed vault address and a dedicated SQLite database.
         base_url = values.get("AEGIS_API_URL", "http://127.0.0.1:8000")
@@ -629,6 +648,19 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if result.get("result", "PASS") == "PASS" or result.get("mode") == "dry_run" else 1
     except (LiveRunError, OSError, ValueError, TypeError, KeyError, subprocess.TimeoutExpired) as exc:
         print(f"Live testnet runner stopped: {redact(str(exc))}", file=sys.stderr)
+        report_dir = Path(args.output_dir)
+        if not report_dir.is_absolute():
+            report_dir = Path(__file__).resolve().parents[1] / report_dir
+        report_dir.mkdir(parents=True, exist_ok=True)
+        partial_path = report_dir / "partial-report.json"
+        if not partial_path.exists():
+            _write_json(partial_path, {
+                "mode": "broadcast" if args.broadcast else "dry_run",
+                "result": "INCOMPLETE",
+                "error": redact(str(exc)),
+                "note": "No claim of live execution is made by this partial report.",
+            })
+        print(f"Partial report: {partial_path}", file=sys.stderr)
         return 1
 
 
