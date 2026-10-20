@@ -106,6 +106,7 @@ def decide_payments(
     )
     seen_invoice_ids: set[tuple[str, str]] = set()
     projected_monthly = reserved_monthly_spend
+    available_remaining = available_balance
     projected_daily: dict[str, int] = {}
     decisions: list[Decision] = []
 
@@ -214,7 +215,7 @@ def decide_payments(
                 tuple(evidence + ["budget:monthly_exhausted"]),
             ))
             continue
-        if available_balance - task.amount < mandate.treasury_buffer:
+        if available_remaining - task.amount < mandate.treasury_buffer:
             decisions.append(Decision(
                 "skip", task.task_id, payee.payee_id, None,
                 "Payment would breach the required treasury buffer.", 0.98,
@@ -230,6 +231,7 @@ def decide_payments(
             continue
 
         projected_monthly += task.amount
+        available_remaining -= task.amount
         projected_daily[payee.payee_id] = projected_daily.get(payee.payee_id, 0) + task.amount
         decisions.append(Decision(
             "propose", task.task_id, payee.payee_id, task.amount,
