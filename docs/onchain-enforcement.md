@@ -7,14 +7,20 @@
 ## Design
 
 `AegisVault` holds ERC-20 tokens and allows one configured agent address to call
-`transferToken`. The owner is initialized at deployment and uses OpenZeppelin
+`transferToken`. Each agent session has an on-chain expiry. The two-argument
+`setAgent(address,uint256)` selector sets an explicit expiry up to 30 days away;
+the retained one-argument selector sets a bounded 30-day session for compatibility.
+Expired sessions cannot transfer until the owner renews or rotates the agent. The owner is initialized at deployment and uses OpenZeppelin
 `Ownable2Step` for ownership transfers. The owner can rotate or revoke the one
 agent, configure per-token limits, manage recipient allowlisting and exact
 transfer approvals, pause the agent path, and make an emergency withdrawal even
 while paused.
 
 Each enabled token has a per-transaction cap, a daily cap, and an optional
-approval threshold, all measured in token base units. A transfer requires an
+approval threshold, all measured in token base units. The owner may additionally
+configure an optional per-recipient per-transfer and daily cap for each token;
+these stricter limits are tracked independently per recipient and never replace
+the token-wide caps. Disabling a recipient cap leaves the token-wide limits active. A transfer requires an
 owner approval if the recipient is not allowlisted or if a nonzero threshold is
 met or exceeded. That approval is bound to the exact token, recipient, amount,
 and `bytes32` reference, expires within at most seven days, and is consumed on
@@ -30,12 +36,12 @@ those checks are rejected.
 
 ## Invariants enforced by the contract
 
-- Only the current nonzero agent can call `transferToken`; owner functions are
+- Only the current nonzero, unexpired agent session can call `transferToken`; owner functions are
   restricted to the owner, and ownership transfer is two-step.
 - Transfers are disabled while paused. Emergency withdrawal remains owner-only
   and available while paused.
-- A token must be explicitly allowed; zero amounts, per-transaction overages,
-  and daily-cap overages always revert, regardless of approval.
+- A token must be explicitly allowed; zero amounts, token-wide per-transaction and daily-cap overages, and configured recipient-specific cap overages always revert, regardless of approval.
+- Agent sessions expire on-chain after at most 30 days; an expired agent cannot transfer until the owner renews or rotates it.
 - A destination must be allowlisted or have a valid approval for the exact
   `(token, recipient, amount, ref)` tuple, unless a configured threshold also
   requires approval. An approval is removed on successful use.
@@ -193,10 +199,15 @@ Set the Aegis demo USDC policy. Values are in USDC base units (six decimals):
 50 USDC:
 
 ```bash
+# Give the agent a bounded session. The example expires 30 days from now.
 cast send "$VAULT" \
-  "setAgent(address)" "$AGENT_ADDRESS" \
+  "setAgent(address,uint256)" "$AGENT_ADDRESS" "$(( $(date +%s) + 2592000 ))" \
   --rpc-url "$BASE_SEPOLIA_RPC_URL" --chain 84532 \
   --account "$OWNER_KEYSTORE_ACCOUNT"
+
+# Confirm the on-chain session deadline.
+cast call "$VAULT" "agentValidUntil()(uint256)" \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL"
 
 cast send "$VAULT" \
   "setTokenPolicy(address,bool,uint256,uint256,uint256)" \
@@ -218,6 +229,33 @@ cast send "$VAULT" \
 The two addresses above are the checked-in demo policy recipients, not verified
 real-world identities. Only allow recipients you intentionally control or have
 independently checked.
+
+### Configure an optional per-recipient cap
+
+A recipient cap adds a stricter limit on top of the token-wide policy. This example
+limits one recipient to 20 USDC per transfer and 40 USDC per UTC day:
+
+```bash
+cast send "$VAULT" \
+  "setRecipientCap(address,address,bool,uint256,uint256)" \
+  "$USDC" "0x2222222222222222222222222222222222222222" true 20000000 40000000 \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL" --chain 84532 \
+  --account "$OWNER_KEYSTORE_ACCOUNT"
+
+cast call "$VAULT" \
+  "recipientPolicy(address,address)((bool,uint256,uint256))" \
+  "$USDC" "0x2222222222222222222222222222222222222222" \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL"
+
+cast call "$VAULT" \
+  "recipientTodaySpend(address,address)(uint256)" \
+  "$USDC" "0x2222222222222222222222222222222222222222" \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL"
+```
+
+The configured recipient cap is optional and owner-managed. It does not replace
+the token-wide per-transaction or daily cap, and the daily counters use UTC-aligned
+day buckets rather than a rolling 24-hour window.
 
 ### Deposit test USDC and read state back
 

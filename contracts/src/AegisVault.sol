@@ -16,6 +16,8 @@ contract AegisVault is Ownable2Step, Pausable, ReentrancyGuard {
 
     /// @notice Maximum lifetime for an owner-approved transfer.
     uint256 public constant MAX_APPROVAL_LIFETIME = 7 days;
+    /// @notice Maximum lifetime for an agent session; agents must be rotated or renewed.
+    uint256 public constant MAX_AGENT_SESSION_LIFETIME = 30 days;
 
     struct TokenPolicy {
         bool allowed;
@@ -24,9 +26,17 @@ contract AegisVault is Ownable2Step, Pausable, ReentrancyGuard {
         uint256 approvalThreshold;
     }
 
+    struct RecipientPolicy {
+        bool enabled;
+        uint256 perTxCap;
+        uint256 dailyCap;
+    }
+
     error UnauthorizedAgent();
     error AgentAddressZero();
     error AgentCannotBeOwner();
+    error AgentSessionExpired(uint256 validUntil);
+    error InvalidAgentSessionExpiry();
     error TokenAddressZero();
     error RecipientAddressInvalid();
     error TokenNotAllowed(address token);
@@ -34,6 +44,8 @@ contract AegisVault is Ownable2Step, Pausable, ReentrancyGuard {
     error ZeroAmount();
     error PerTransactionCapExceeded(uint256 amount, uint256 cap);
     error DailyCapExceeded(uint256 spent, uint256 amount, uint256 cap);
+    error RecipientPerTransactionCapExceeded(uint256 amount, uint256 cap);
+    error RecipientDailyCapExceeded(uint256 spent, uint256 amount, uint256 cap);
     error TransferApprovalRequired(address token, address recipient, uint256 amount, bytes32 ref);
     error TransferApprovalExpired(uint256 expiry);
     error ApprovalDoesNotExist();
@@ -43,6 +55,11 @@ contract AegisVault is Ownable2Step, Pausable, ReentrancyGuard {
     error UnexpectedTokenBalanceChange();
 
     event AgentChanged(address indexed previousAgent, address indexed newAgent);
+    event AgentSessionExpiryChanged(address indexed agent, uint256 validUntil);
+    event RecipientCapChanged(
+        address indexed token, address indexed recipient, bool enabled,
+        uint256 perTxCap, uint256 dailyCap
+    );
     event TokenPolicyChanged(
         address indexed token,
         bool allowed,
@@ -79,7 +96,11 @@ contract AegisVault is Ownable2Step, Pausable, ReentrancyGuard {
 
     /// @notice The single address authorized to call transferToken, or zero when revoked.
     address public agent;
+    /// @notice Timestamp at which the current agent session expires; zero means no active session.
+    uint256 public agentValidUntil;
     mapping(address token => TokenPolicy policy) private _tokenPolicies;
+    mapping(address token => mapping(address recipient => RecipientPolicy policy)) private _recipientPolicies;
+    mapping(address token => mapping(address recipient => mapping(uint256 day => uint256 amount))) private _recipientDailySpend;
     /// @notice Whether each destination is allowlisted by the owner.
     mapping(address recipient => bool allowed) public recipients;
     mapping(address token => mapping(uint256 day => uint256 amount)) private _dailySpend;
@@ -92,12 +113,29 @@ contract AegisVault is Ownable2Step, Pausable, ReentrancyGuard {
     /// @notice Set or rotate the single agent address.
     /// @dev The agent can only call transferToken; it receives no owner permissions.
     /// @param newAgent Nonzero address of the agent session key.
+    /// @notice Set or rotate the agent with a bounded default 30-day session.
+    /// @dev The legacy one-argument selector is retained for integrations, but is never perpetual.
     function setAgent(address newAgent) external onlyOwner {
+        _setAgent(newAgent, block.timestamp + MAX_AGENT_SESSION_LIFETIME);
+    }
+
+    /// @notice Set or rotate the agent with an explicit expiry no more than 30 days away.
+    function setAgent(address newAgent, uint256 validUntil) external onlyOwner {
+        if (
+            validUntil <= block.timestamp
+                || validUntil > block.timestamp + MAX_AGENT_SESSION_LIFETIME
+        ) revert InvalidAgentSessionExpiry();
+        _setAgent(newAgent, validUntil);
+    }
+
+    function _setAgent(address newAgent, uint256 validUntil) private {
         if (newAgent == address(0)) revert AgentAddressZero();
         if (newAgent == owner()) revert AgentCannotBeOwner();
         address previousAgent = agent;
         agent = newAgent;
+        agentValidUntil = validUntil;
         emit AgentChanged(previousAgent, newAgent);
+        emit AgentSessionExpiryChanged(newAgent, validUntil);
     }
 
     /// @notice Accept a two-step ownership transfer unless it would merge owner and agent powers.
@@ -112,7 +150,9 @@ contract AegisVault is Ownable2Step, Pausable, ReentrancyGuard {
         address previousAgent = agent;
         if (previousAgent == address(0)) revert AgentAddressZero();
         agent = address(0);
+        agentValidUntil = 0;
         emit AgentChanged(previousAgent, address(0));
+        emit AgentSessionExpiryChanged(address(0), 0);
     }
 
     /// @notice Configure whether a token may be transferred and its on-chain limits.
@@ -148,6 +188,46 @@ contract AegisVault is Ownable2Step, Pausable, ReentrancyGuard {
         }
         recipients[recipient] = allowed;
         emit RecipientChanged(recipient, allowed);
+    }
+
+    /// @notice Configure an optional stricter per-recipient transfer and daily cap for a token.
+    /// @dev A disabled policy leaves the token-wide caps authoritative. Daily spend uses UTC-day buckets.
+    function setRecipientCap(
+        address token,
+        address recipient,
+        bool enabled,
+        uint256 perTxCap,
+        uint256 dailyCap
+    ) external onlyOwner {
+        if (token == address(0)) revert TokenAddressZero();
+        if (recipient == address(0) || recipient == address(this)) {
+            revert RecipientAddressInvalid();
+        }
+        if (enabled && (perTxCap == 0 || dailyCap == 0)) revert InvalidTokenPolicy();
+        _recipientPolicies[token][recipient] = RecipientPolicy({
+            enabled: enabled,
+            perTxCap: perTxCap,
+            dailyCap: dailyCap
+        });
+        emit RecipientCapChanged(token, recipient, enabled, perTxCap, dailyCap);
+    }
+
+    /// @notice Read the configured optional cap for one token and recipient.
+    function recipientPolicy(address token, address recipient)
+        external
+        view
+        returns (RecipientPolicy memory policy)
+    {
+        return _recipientPolicies[token][recipient];
+    }
+
+    /// @notice Read successful spend for one token and recipient in today's UTC bucket.
+    function recipientTodaySpend(address token, address recipient)
+        external
+        view
+        returns (uint256 amount)
+    {
+        return _recipientDailySpend[token][recipient][block.timestamp / 1 days];
     }
 
     /// @notice Approve one exact token, recipient, amount, and reference tuple.
@@ -214,6 +294,7 @@ contract AegisVault is Ownable2Step, Pausable, ReentrancyGuard {
         nonReentrant
     {
         if (agent == address(0) || msg.sender != agent) revert UnauthorizedAgent();
+        if (block.timestamp >= agentValidUntil) revert AgentSessionExpired(agentValidUntil);
         if (paused()) revert EnforcedPause();
         if (token == address(0)) revert TokenAddressZero();
         if (to == address(0) || to == address(this)) revert RecipientAddressInvalid();
@@ -231,6 +312,22 @@ contract AegisVault is Ownable2Step, Pausable, ReentrancyGuard {
             revert DailyCapExceeded(spent, amount, policy.dailyCap);
         }
 
+        RecipientPolicy memory recipientPolicy_ = _recipientPolicies[token][to];
+        uint256 recipientSpent = _recipientDailySpend[token][to][day];
+        if (recipientPolicy_.enabled) {
+            if (amount > recipientPolicy_.perTxCap) {
+                revert RecipientPerTransactionCapExceeded(amount, recipientPolicy_.perTxCap);
+            }
+            if (
+                recipientSpent > recipientPolicy_.dailyCap
+                    || amount > recipientPolicy_.dailyCap - recipientSpent
+            ) {
+                revert RecipientDailyCapExceeded(
+                    recipientSpent, amount, recipientPolicy_.dailyCap
+                );
+            }
+        }
+
         bool approvalRequired =
             !recipients[to] || (policy.approvalThreshold != 0 && amount >= policy.approvalThreshold);
         if (approvalRequired) {
@@ -245,6 +342,9 @@ contract AegisVault is Ownable2Step, Pausable, ReentrancyGuard {
         }
 
         _dailySpend[token][day] = spent + amount;
+        if (recipientPolicy_.enabled) {
+            _recipientDailySpend[token][to][day] = recipientSpent + amount;
+        }
         IERC20 asset = IERC20(token);
         uint256 vaultBalanceBefore = asset.balanceOf(address(this));
         uint256 recipientBalanceBefore = asset.balanceOf(to);

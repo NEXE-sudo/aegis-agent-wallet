@@ -380,6 +380,67 @@ contract AegisVaultTest is Test {
             assertEq(vault.todaySpend(address(token)), actualPriorSpend + amount);
         }
     }
+
+    function testAgentSessionExpiresAndCanBeRenewed() public {
+        uint256 expiry = block.timestamp + 2 days;
+        vault.setAgent(AGENT, expiry);
+        assertEq(vault.agentValidUntil(), expiry);
+
+        vm.warp(expiry);
+        vm.expectRevert(abi.encodeWithSelector(AegisVault.AgentSessionExpired.selector, expiry));
+        vm.prank(AGENT);
+        vault.transferToken(address(token), RECIPIENT, 1, REF);
+
+        vault.setAgent(AGENT, block.timestamp + 1 days);
+        _transfer(RECIPIENT, 1, bytes32("renewed-session"));
+        assertEq(token.balanceOf(RECIPIENT), 1);
+    }
+
+    function testAgentSessionExpiryMustBeWithinThirtyDays() public {
+        vm.expectRevert(AegisVault.InvalidAgentSessionExpiry.selector);
+        vault.setAgent(AGENT, block.timestamp);
+
+        vm.expectRevert(AegisVault.InvalidAgentSessionExpiry.selector);
+        vault.setAgent(AGENT, block.timestamp + 30 days + 1);
+    }
+
+    function testRecipientSpecificPerTransactionAndDailyCaps() public {
+        vault.setRecipientCap(address(token), RECIPIENT, true, 40, 60);
+        _transfer(RECIPIENT, 40, bytes32("recipient-first"));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AegisVault.RecipientPerTransactionCapExceeded.selector, 41, 40
+            )
+        );
+        vm.prank(AGENT);
+        vault.transferToken(address(token), RECIPIENT, 41, bytes32("recipient-over-tx"));
+
+        _transfer(RECIPIENT, 20, bytes32("recipient-daily-full"));
+        assertEq(vault.recipientTodaySpend(address(token), RECIPIENT), 60);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AegisVault.RecipientDailyCapExceeded.selector, 60, 1, 60
+            )
+        );
+        vm.prank(AGENT);
+        vault.transferToken(address(token), RECIPIENT, 1, bytes32("recipient-over-day"));
+    }
+
+    function testRecipientCapIsIndependentAcrossRecipientsAndTokenWideCapStillApplies() public {
+        address otherRecipient = address(0xDADA);
+        vault.setRecipient(otherRecipient, true);
+        vault.setRecipientCap(address(token), RECIPIENT, true, 20, 20);
+        vault.setRecipientCap(address(token), otherRecipient, true, 30, 30);
+
+        _transfer(RECIPIENT, 20, bytes32("recipient-a"));
+        _transfer(otherRecipient, 30, bytes32("recipient-b"));
+        assertEq(vault.recipientTodaySpend(address(token), RECIPIENT), 20);
+        assertEq(vault.recipientTodaySpend(address(token), otherRecipient), 30);
+        assertEq(vault.todaySpend(address(token)), 50);
+    }
+
 }
 
 contract AgentActor {
