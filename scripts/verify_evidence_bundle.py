@@ -16,6 +16,7 @@ SUPPORTED_SCHEMAS = {
     "aegis-evidence-bundle/v6",
 }
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
+_ADDRESS_RE = re.compile(r"0x[0-9a-f]{40}")
 
 
 def _canonical_json(value: dict[str, Any]) -> str:
@@ -117,6 +118,49 @@ def validate_bundle(bundle: object) -> dict[str, Any]:
                     configuration["bytecode_sha256"].removeprefix("0x")
                 ) is None:
                     raise ValueError("Vault configuration snapshot has a malformed bytecode hash")
+
+                required_configuration_fields = {
+                    "chain_id",
+                    "vault_address",
+                    "bytecode_sha256",
+                    "owner",
+                    "agent",
+                    "paused",
+                    "token_address",
+                    "token_policy",
+                    "configuration_structurally_valid",
+                    "issues",
+                }
+                if not required_configuration_fields.issubset(configuration):
+                    raise ValueError("Vault configuration snapshot is incomplete")
+                owner = configuration.get("owner")
+                agent = configuration.get("agent")
+                if (
+                    not isinstance(owner, str)
+                    or _ADDRESS_RE.fullmatch(owner) is None
+                    or not isinstance(agent, str)
+                    or _ADDRESS_RE.fullmatch(agent) is None
+                    or owner == "0x" + "0" * 40
+                    or agent == "0x" + "0" * 40
+                    or owner == agent
+                ):
+                    raise ValueError("Vault configuration snapshot has invalid owner/agent identity")
+                if type(configuration.get("paused")) is not bool:
+                    raise ValueError("Vault configuration snapshot has an invalid pause state")
+                policy = configuration.get("token_policy")
+                if not isinstance(policy, dict) or policy.get("allowed") is not True:
+                    raise ValueError("Vault configuration snapshot has an invalid token policy")
+                for cap in (
+                    "per_transaction_cap_base_units",
+                    "daily_cap_base_units",
+                    "approval_threshold_base_units",
+                ):
+                    if type(policy.get(cap)) is not int or policy[cap] < 0:
+                        raise ValueError("Vault configuration snapshot has invalid token policy caps")
+                if policy["per_transaction_cap_base_units"] == 0 or policy["daily_cap_base_units"] == 0:
+                    raise ValueError("Vault configuration snapshot has zero spending caps")
+                if configuration.get("issues") != []:
+                    raise ValueError("Structurally valid vault configuration must have no issues")
 
     if bundle["passed"] is not expected_overall:
         raise ValueError("Overall passed result is inconsistent with the component results")
