@@ -546,7 +546,7 @@ def test_browser_receipt_rpc_error_is_visible_without_fabricating_a_receipt(page
         "created_at": "2026-10-15T10:00:00Z",
         "updated_at": "2026-10-15T10:00:00Z",
     }]
-    calls = _mock_api(page, transactions=transactions)
+    _mock_api(page, transactions=transactions)
     page.route("**/transactions/*/receipt", lambda route: route.fulfill(status=503, content_type="application/json", body=json.dumps({"detail": "receipt provider unavailable"})))
     page.goto(frontend_url)
     _connect(page, "agent-token", "owner-token")
