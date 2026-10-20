@@ -60,6 +60,14 @@ def verify_evidence(
     block_number = receipt["block_number"]
     if not isinstance(block_number, int):
         raise RpcRequestError("RPC returned a receipt without a block number")
+    receipt_block_hash = receipt["block_hash"]
+    if not isinstance(receipt_block_hash, str):
+        raise RpcRequestError("RPC returned a receipt without a block hash")
+    canonical_block_hash = rpc.block_hash_by_number(block_number)
+    if receipt_block_hash.lower() != canonical_block_hash:
+        raise ValueError(
+            "Receipt block hash does not match the canonical block at the reported height"
+        )
     latest_block_number = rpc.block_number()
     if latest_block_number < block_number:
         raise RpcRequestError("RPC latest block is behind the receipt block")
@@ -104,6 +112,8 @@ def verify_evidence(
         "chain_id": chain_id,
         "receipt_status": str(receipt["status"]),
         "block_number": block_number,
+        "receipt_block_hash": receipt_block_hash.lower(),
+        "canonical_block_hash": canonical_block_hash,
         "latest_block_number": latest_block_number,
         "confirmations_observed": confirmations_observed,
         "token_contract": token_contract,
@@ -399,6 +409,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     print(f"Receipt status: {evidence['receipt_status']}")
     print(f"Block number: {evidence['block_number']}")
+    print(f"Receipt block hash: {evidence['receipt_block_hash']}")
+    print(f"Canonical block hash at verification: {evidence['canonical_block_hash']}")
     print(f"Latest observed block: {evidence['latest_block_number']}")
     print(
         f"Confirmations observed: {evidence['confirmations_observed']} "
