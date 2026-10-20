@@ -10,6 +10,7 @@ import pytest
 
 from scripts.live_testnet_run import (
     LiveRunError,
+    _cast_env,
     _command_result,
     _run_step,
     redact,
@@ -148,15 +149,16 @@ def test_subprocess_mock_receives_rpc_url_only_in_environment(monkeypatch: pytes
         return subprocess.CompletedProcess(command, 0, stdout="transaction hash: 0x" + "b" * 64, stderr="")
 
     monkeypatch.setattr("scripts.live_testnet_run._run_command", fake_run)
+    safe_env = _cast_env(env, "fixture-owner-keystore")
     output = _command_result(
         ["cast", "send", "0x" + "22" * 20],
         root=tmp_path,
-        env=env,
+        env=safe_env,
         report_dir=tmp_path,
         label="mock-cast",
     )
     assert "BASE_SEPOLIA_RPC_URL" not in seen["command"]
     assert env["BASE_SEPOLIA_RPC_URL"] not in seen["command"]
-    assert seen["env"]["ETH_RPC_URL"] if "ETH_RPC_URL" in seen["env"] else True
+    assert seen["env"]["ETH_RPC_URL"] == env["BASE_SEPOLIA_RPC_URL"]
     assert "fixture-secret" not in output
     assert "0x" + "b" * 64 in output
