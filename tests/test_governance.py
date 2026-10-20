@@ -290,7 +290,7 @@ def test_governance_runner_rejects_caller_supplied_payment_fields():
                 "authorized_payment": {"recipient": "0x" + "b" * 40},
             })
 
-    asyncio.run(exercise())
+    run_async_in_thread(exercise())
 
 
 def test_task_escalates_if_mandate_or_payee_changes_after_creation(monkeypatch, tmp_path):
