@@ -54,6 +54,23 @@ def test_chain_id_reads_base_sepolia():
     assert rpc.chain_id() == BASE_SEPOLIA_CHAIN_ID
 
 
+def test_latest_block_number_is_parsed_as_a_rpc_quantity():
+    rpc = BaseSepoliaRpc(
+        "https://rpc.invalid",
+        transport=_rpc_transport({"eth_blockNumber": "0x130"}),
+    )
+    assert rpc.block_number() == 304
+
+
+def test_latest_block_number_rejects_malformed_result():
+    rpc = BaseSepoliaRpc(
+        "https://rpc.invalid",
+        transport=_rpc_transport({"eth_blockNumber": "304"}),
+    )
+    with pytest.raises(RpcRequestError, match="latest block number"):
+        rpc.block_number()
+
+
 def test_sender_calls_and_balance_reads_are_strictly_validated():
     calls = []
 

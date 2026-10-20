@@ -20,7 +20,7 @@ from app.chain.base_sepolia import (
 )
 from scripts.verify_testnet_evidence import verify_audit_record, verify_evidence
 
-BUNDLE_SCHEMA = "aegis-evidence-bundle/v1"
+BUNDLE_SCHEMA = "aegis-evidence-bundle/v2"
 
 
 def _canonical_json(value: dict[str, Any]) -> str:
@@ -69,6 +69,12 @@ def _render_markdown(bundle: dict[str, Any]) -> str:
                     f"({evidence.get('explorer_url', 'no explorer link')})"
                 ),
                 f"- Block: {evidence.get('block_number', 'not supplied')}",
+                f"- Latest observed block: {evidence.get('latest_block_number', 'not supplied')}",
+                (
+                    "- Confirmations observed: "
+                    f"{evidence.get('confirmations_observed', 'not supplied')} "
+                    f"(minimum required: {onchain.get('minimum_confirmations_required', 1)})"
+                ),
                 f"- Vault: {evidence.get('vault_address', 'not supplied')}",
                 f"- Token: {evidence.get('token_contract', 'not supplied')}",
                 f"- Recipient: {evidence.get('recipient', 'not supplied')}",
@@ -120,8 +126,11 @@ async def build_evidence_bundle(
     expected_sender: str | None = None,
     audit_db: str | Path | None = None,
     vault: str | None = None,
+    min_confirmations: int = 1,
 ) -> dict[str, Any]:
     """Generate a portable report; testnet verification is opt-in and read-only."""
+    if type(min_confirmations) is not int or min_confirmations < 1:
+        raise ValueError("Minimum confirmations must be at least 1")
     with tempfile.TemporaryDirectory(prefix="aegis-bundle-eval-") as temporary:
         offline = await run_evaluation(Path(temporary))
 
@@ -131,6 +140,7 @@ async def build_evidence_bundle(
         "checks": {},
         "evidence": None,
         "audit_transaction_id": None,
+        "minimum_confirmations_required": min_confirmations,
         "error": None,
     }
     if transaction_hash is not None:
@@ -139,6 +149,7 @@ async def build_evidence_bundle(
             "expected_sender_matches": False,
             "audit_record_matches": False,
             "receipt_succeeded": False,
+            "minimum_confirmations_met": False,
         }
         try:
             if expected_sender is None or audit_db is None or vault is None:
@@ -161,6 +172,16 @@ async def build_evidence_bundle(
             testnet["checks"]["receipt_succeeded"] = evidence["receipt_status"] == "success"
             if not testnet["checks"]["receipt_succeeded"]:
                 raise ValueError("Transaction receipt status is not success")
+            testnet["checks"]["minimum_confirmations_met"] = (
+                type(evidence.get("confirmations_observed")) is int
+                and evidence["confirmations_observed"] >= min_confirmations
+            )
+            if not testnet["checks"]["minimum_confirmations_met"]:
+                observed = evidence.get("confirmations_observed", "unavailable")
+                raise ValueError(
+                    f"Observed {observed} confirmations, fewer than the "
+                    f"{min_confirmations} required"
+                )
             testnet["passed"] = all(testnet["checks"].values())
         except (OSError, RpcConfigurationError, RpcRequestError, TypeError, ValueError) as exc:
             testnet["error"] = str(exc)
@@ -205,7 +226,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--expected-sender", help="expected public address of the agent wallet")
     parser.add_argument("--audit-db", help="read-only Aegis SQLite database to cross-check")
     parser.add_argument("--vault", help="deployed AegisVault address")
+    parser.add_argument(
+        "--min-confirmations",
+        type=int,
+        default=1,
+        help="minimum observed block confirmations required for success (default: 1)",
+    )
     args = parser.parse_args(argv)
+    if args.min_confirmations < 1:
+        parser.error("--min-confirmations must be at least 1")
 
     supplied = (args.expected_sender is not None, args.audit_db is not None, args.vault is not None)
     if args.transaction_hash is None and any(supplied):
@@ -221,6 +250,7 @@ def main(argv: list[str] | None = None) -> int:
                 expected_sender=args.expected_sender,
                 audit_db=args.audit_db,
                 vault=args.vault,
+                min_confirmations=args.min_confirmations,
             )
         )
     except (OSError, ValueError) as exc:

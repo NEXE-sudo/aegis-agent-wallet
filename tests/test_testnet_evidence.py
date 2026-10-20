@@ -150,9 +150,11 @@ def _results(
     receipt_status="0x1",
     receipt=True,
     logs=None,
+    latest_block_number="0x130",
 ):
     return {
         "eth_chainId": chain_id,
+        "eth_blockNumber": latest_block_number,
         "eth_getTransactionByHash": (
             _transaction() if transaction is _USE_DEFAULT_TRANSACTION else transaction
         ),
@@ -177,6 +179,8 @@ def test_verifies_successful_base_sepolia_transfer():
         "chain_id": 84532,
         "receipt_status": "success",
         "block_number": 0x123,
+        "latest_block_number": 0x130,
+        "confirmations_observed": 0x130 - 0x123 + 1,
         "token_contract": BASE_SEPOLIA_USDC_ADDRESS,
         "sender": SENDER,
         "recipient": RECIPIENT,
@@ -229,6 +233,8 @@ def test_cli_prints_transfer_evidence(monkeypatch, capsys):
     assert f"Sender: {SENDER}" in captured.out
     assert "Receipt status: success" in captured.out
     assert "Block number: 291" in captured.out
+    assert "Latest observed block: 304" in captured.out
+    assert "Confirmations observed: 14 (minimum required: 1)" in captured.out
     assert f"Token contract: {BASE_SEPOLIA_USDC_ADDRESS}" in captured.out
     assert f"Recipient: {RECIPIENT}" in captured.out
     assert f"Amount (base units): {AMOUNT_BASE_UNITS}" in captured.out
@@ -284,6 +290,25 @@ def test_cli_requires_sender_choice(monkeypatch):
     _patch_rpc(monkeypatch, _results())
     with pytest.raises(SystemExit) as exc_info:
         evidence_script.main([TRANSACTION_HASH])
+    assert exc_info.value.code == 2
+
+
+def test_cli_fails_when_confirmation_depth_is_below_requested_minimum(monkeypatch, capsys):
+    _patch_rpc(monkeypatch, _results())
+    assert evidence_script.main(
+        [TRANSACTION_HASH, "--expected-sender", SENDER, "--min-confirmations", "15"]
+    ) == 1
+    captured = capsys.readouterr()
+    assert "Confirmations observed: 14 (minimum required: 15)" in captured.out
+    assert "fewer than the 15 required" in captured.err
+
+
+def test_cli_rejects_zero_minimum_confirmations(monkeypatch):
+    _patch_rpc(monkeypatch, _results())
+    with pytest.raises(SystemExit) as exc_info:
+        evidence_script.main(
+            [TRANSACTION_HASH, "--expected-sender", SENDER, "--min-confirmations", "0"]
+        )
     assert exc_info.value.code == 2
 
 
@@ -597,6 +622,14 @@ def test_audit_cross_check_rejects_inconsistent_record(
 def test_rejects_rpc_endpoint_on_wrong_chain():
     with _rpc(_results(chain_id="0x1")) as rpc, pytest.raises(
         ValueError, match="not Base Sepolia"
+    ):
+        evidence_script.verify_evidence(TRANSACTION_HASH, rpc)
+
+
+def test_rejects_latest_block_behind_receipt():
+    with (
+        _rpc(_results(latest_block_number="0x122")) as rpc,
+        pytest.raises(RpcRequestError, match="latest block is behind"),
     ):
         evidence_script.verify_evidence(TRANSACTION_HASH, rpc)
 

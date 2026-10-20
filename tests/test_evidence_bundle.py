@@ -34,7 +34,7 @@ def test_offline_bundle_is_portable_and_explicitly_not_onchain(monkeypatch, tmp_
 
     bundle = asyncio.run(bundle_script.build_evidence_bundle(tmp_path / "bundle"))
 
-    assert bundle["schema"] == "aegis-evidence-bundle/v1"
+    assert bundle["schema"] == "aegis-evidence-bundle/v2"
     assert bundle["passed"] is True
     assert bundle["testnet_evidence"]["requested"] is False
     assert bundle["testnet_evidence"]["passed"] is None
@@ -79,6 +79,8 @@ def test_successful_testnet_bundle_links_chain_and_audit(monkeypatch, tmp_path):
         "chain_id": 84532,
         "receipt_status": "success",
         "block_number": 123,
+        "latest_block_number": 136,
+        "confirmations_observed": 14,
         "token_contract": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
         "sender": "0x1111111111111111111111111111111111111111",
         "recipient": "0x2222222222222222222222222222222222222222",
@@ -108,8 +110,58 @@ def test_successful_testnet_bundle_links_chain_and_audit(monkeypatch, tmp_path):
         "expected_sender_matches": True,
         "audit_record_matches": True,
         "receipt_succeeded": True,
+        "minimum_confirmations_met": True,
     }
     assert bundle["testnet_evidence"]["audit_transaction_id"] == "txn-123"
+
+
+def test_testnet_bundle_fails_when_confirmation_depth_is_too_low(monkeypatch, tmp_path):
+    _install_offline_eval(monkeypatch)
+
+    class FakeRpc:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return None
+
+    evidence = {
+        "chain_id": 84532,
+        "receipt_status": "success",
+        "block_number": 123,
+        "latest_block_number": 124,
+        "confirmations_observed": 2,
+        "token_contract": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+        "sender": "0x1111111111111111111111111111111111111111",
+        "recipient": "0x2222222222222222222222222222222222222222",
+        "amount_base_units": 2_500_000,
+        "transaction_hash": "0x" + "a" * 64,
+        "explorer_url": "https://sepolia.basescan.org/tx/0x" + "a" * 64,
+        "vault_address": "0x4444444444444444444444444444444444444444",
+        "proposal_reference": "0x" + "b" * 64,
+    }
+    monkeypatch.setattr(bundle_script, "BaseSepoliaRpc", FakeRpc)
+    monkeypatch.setattr(bundle_script, "verify_evidence", lambda *_args: evidence)
+    monkeypatch.setattr(bundle_script, "verify_audit_record", lambda *_args: "txn-123")
+
+    bundle = asyncio.run(
+        bundle_script.build_evidence_bundle(
+            tmp_path / "bundle",
+            transaction_hash=evidence["transaction_hash"],
+            expected_sender=evidence["sender"],
+            audit_db=tmp_path / "workflow.sqlite3",
+            vault=evidence["vault_address"],
+            min_confirmations=3,
+        )
+    )
+
+    assert bundle["passed"] is False
+    assert bundle["testnet_evidence"]["checks"]["minimum_confirmations_met"] is False
+    assert "Observed 2 confirmations, fewer than the 3 required" in (
+        bundle["testnet_evidence"]["error"]
+    )
+    report = (tmp_path / "bundle" / "aegis-evidence-bundle.md").read_text()
+    assert "Confirmations observed: 2 (minimum required: 3)" in report
 
 
 def test_testnet_bundle_fails_closed_on_wrong_sender(monkeypatch, tmp_path):
