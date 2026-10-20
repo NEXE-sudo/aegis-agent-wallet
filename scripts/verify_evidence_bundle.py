@@ -88,10 +88,10 @@ def validate_bundle(bundle: object) -> dict[str, Any]:
                 raise ValueError(f"Unsupported testnet evidence mode: {mode!r}")
 
             if (
-                schema == "aegis-evidence-bundle/v5"
+                schema in {"aegis-evidence-bundle/v5", "aegis-evidence-bundle/v6"}
                 and checks.get("receipt_status_matches_expectation") is not True
             ):
-                raise ValueError("Schema v5 evidence must verify the expected receipt status")
+                raise ValueError("Schema v5/v6 evidence must verify the expected receipt status")
 
             if schema == "aegis-evidence-bundle/v6":
                 configuration = testnet.get("vault_configuration")
