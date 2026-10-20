@@ -21,5 +21,8 @@ line-length = 100
 target-version = "py311"
 exclude = ["contracts/lib/**"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["agent", "app", "scripts"]
+
 [tool.setuptools.packages.find]
 include = ["app*", "agent*"]
