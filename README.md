@@ -120,6 +120,7 @@ This remains a local prototype. Use simulated mode or the unaudited vault integr
 - [Chatbot handoff](docs/chatbot-handoff.md) — current project state, required PR workflow, and phased roadmap.
 - [Security self-assessment](docs/security-self-assessment.md) — implementation-based security assessment and residual risks.
 - [AegisVault on-chain enforcement](docs/onchain-enforcement.md) — vault design, runbook, and evidence placeholders.
+- [Deployment verification](docs/deployment-verification.md) — read-only verification of a mined Base Sepolia AegisVault deployment receipt, owner, bytecode and confirmation depth.
 - [Threat model](docs/threat-model.md) — security goals, assets, trust boundaries, and threats.
 - [Runtime configuration](docs/runtime-configuration.md) — environment variables, local binding, and operational troubleshooting.
 - [Agent and evaluation guide](docs/agent.md) — agent tools, trusted payment inputs, and evaluation.
