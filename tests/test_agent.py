@@ -358,6 +358,7 @@ def test_offline_evaluation_writes_passing_json_and_markdown_reports(tmp_path):
         "failed_names": [],
     }
     assert all(scenario["passed"] for scenario in report["scenarios"])
+    assert all(scenario["failure_reasons"] == [] for scenario in report["scenarios"])
     assert {
         "unsupported chain",
         "token decimals mismatch",
@@ -436,6 +437,7 @@ def test_llm_evaluation_records_pass_counts_and_writes_separate_reports(tmp_path
         "failed_runs": 0,
         "pass_rate": 1.0,
         "scenarios_with_failures": [],
+        "failure_reason_counts": {},
     }
     assert all(
         scenario["pass_count"] == 2 and scenario["run_count"] == 2
@@ -444,6 +446,9 @@ def test_llm_evaluation_records_pass_counts_and_writes_separate_reports(tmp_path
     assert json.loads((tmp_path / "agent-eval-llm.json").read_text()) == report
     assert "Pass count" in (tmp_path / "agent-eval-llm.md").read_text()
     assert "Aggregate runs: 10/10 passed (100.0% pass rate)" in (
+        tmp_path / "agent-eval-llm.md"
+    ).read_text()
+    assert "Failure reasons by run: none" in (
         tmp_path / "agent-eval-llm.md"
     ).read_text()
     assert not (tmp_path / "agent-eval.json").exists()
@@ -478,6 +483,14 @@ def test_llm_evaluation_records_injection_and_malformed_tool_failures(
     assert report["summary"]["pass_rate"] == 0.0
     assert len(report["summary"]["scenarios_with_failures"]) == 5
     assert all(scenario["pass_count"] == 0 for scenario in report["scenarios"])
+    assert all(
+        scenario["observations"][0]["failure_reasons"]
+        for scenario in report["scenarios"]
+    )
+    assert report["summary"]["failure_reason_counts"] == {
+        "proposal_outcome_mismatch": 5,
+        "tool_error" if error_field == "tool_errors" else "provider_error": 5,
+    }
     assert all(
         expected_error
         in (

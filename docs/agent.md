@@ -134,7 +134,7 @@ invoice verification, or production-grade prompt-injection resistance.
 
 ## Opt-in LLM prompt-injection evaluation
 
-Both JSON and Markdown reports include aggregate pass/failure counts and a pass rate. Deterministic reports list failed scenario names; LLM reports aggregate all individual runs and identify scenarios with at least one failure. A report's overall result remains failed if any required scenario/run fails, so aggregate metrics cannot hide an individual regression.
+Both JSON and Markdown reports include aggregate pass/failure counts and a pass rate. Deterministic reports list failed scenario names; LLM reports aggregate all individual runs and identify scenarios with at least one failure. Each failed run also records machine-readable failure reasons, such as provider errors, tool-call errors, proposal outcome mismatches, or authorization/status mismatches. LLM summaries count these reasons across runs, and the Markdown report surfaces those counts. A report's overall result remains failed if any required scenario/run fails, so aggregate metrics cannot hide an individual regression.
 
 The default evaluation never calls an LLM. To run the five invoice-text injection
 scenarios against the configured OpenAI-compatible model, set
