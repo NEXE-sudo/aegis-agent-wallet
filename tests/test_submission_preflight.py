@@ -91,7 +91,7 @@ def _make_fixture(root: Path, monkeypatch) -> tuple[Path, Path, Path, Path]:
 def test_preflight_accepts_consistent_offline_submission_artifacts(tmp_path, monkeypatch) -> None:
     paths = _make_fixture(tmp_path, monkeypatch)
 
-    notes = scripts.submission_preflight.run_preflight(tmp_path, *paths)
+    notes = scripts.scripts.submission_preflight.run_preflight(tmp_path, *paths)
 
     assert any("Manifest and selected artifact hashes: PASS" in note for note in notes)
     assert any("NOT SUPPLIED" in note for note in notes)
@@ -102,7 +102,7 @@ def test_preflight_rejects_manifest_from_another_revision(tmp_path, monkeypatch)
     monkeypatch.setattr(scripts.submission_preflight, "_current_revision", lambda _root: "b" * 40)
 
     with pytest.raises(ValueError, match="source_revision does not match"):
-        scripts.submission_preflight.run_preflight(tmp_path, *paths)
+        scripts.scripts.submission_preflight.run_preflight(tmp_path, *paths)
 
 
 def test_preflight_rejects_failed_repeated_evaluation(tmp_path, monkeypatch) -> None:
@@ -127,14 +127,14 @@ def test_preflight_rejects_failed_repeated_evaluation(tmp_path, monkeypatch) -> 
     _write_json(tmp_path / manifest, refreshed)
 
     with pytest.raises(ValueError, match="contains failures"):
-        scripts.submission_preflight.run_preflight(tmp_path, manifest, agent_eval, repeated, bundle)
+        scripts.scripts.submission_preflight.run_preflight(tmp_path, manifest, agent_eval, repeated, bundle)
 
 
 def test_preflight_can_require_genuine_testnet_evidence(tmp_path, monkeypatch) -> None:
     paths = _make_fixture(tmp_path, monkeypatch)
 
     with pytest.raises(ValueError, match="Base Sepolia evidence was required"):
-        submission_preflight.run_preflight(tmp_path, *paths, require_testnet=True)
+        scripts.submission_preflight.run_preflight(tmp_path, *paths, require_testnet=True)
 
 
 def test_preflight_rejects_missing_manifest_artifact(tmp_path, monkeypatch) -> None:
@@ -147,4 +147,4 @@ def test_preflight_rejects_missing_manifest_artifact(tmp_path, monkeypatch) -> N
     _write_json(tmp_path / manifest_path, manifest)
 
     with pytest.raises(ValueError, match="does not include selected artifact"):
-        submission_preflight.run_preflight(tmp_path, manifest_path, agent_eval, repeated, bundle)
+        scripts.submission_preflight.run_preflight(tmp_path, manifest_path, agent_eval, repeated, bundle)
