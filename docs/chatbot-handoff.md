@@ -64,8 +64,8 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 - Gather Foundry and testnet deployment/transfer/revert evidence, including transaction hashes where available.
 - The read-only verifier supports `--expect-revert` for mined failed AegisVault calls; it checks the failed receipt and call shape without claiming to decode the revert reason.
 - The evidence bundle has a separate `--expect-revert` mode that packages this verification with offline evaluation, sender and confirmation checks, provenance, and a bundle digest; reverted-call mode does not require a successful-transfer SQLite audit record.
-- The next Phase 5 increment adds a standalone verifier for saved JSON bundles, checks SHA-256 integrity and internal result consistency, and corrects the documented schema version.
-- Validate saved evidence-bundle integrity and internal consistency without RPC access; keep the SHA-256 digest explicitly separate from signatures/authorship proof.
+- PR #214 added a standalone verifier for saved JSON bundles, checking SHA-256 integrity and internal result consistency without RPC access; it supports schema v4/v5 and documents the digest as integrity checking, not authorship proof.
+- The current increment adds a separate read-only re-verification command that re-queries Base Sepolia for passing bundle evidence, compares stable transaction/receipt fields with the saved report, enforces the confirmation threshold, checks the expected public sender, and cross-checks the SQLite audit record for successful transfers. Reverted-call mode does not require a successful-transfer audit record.
 - Document remaining security limitations and residual risks.
 
 ### Explicitly separate scope decisions
@@ -76,7 +76,7 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 ## Recently completed transaction-history and contract-hardening batch
 
 - The receipt visibility and error-state work, history scope/limit validation, offset pagination, Activity Previous/Next controls, exact approval-expiry boundary, and fail-closed balance RPC regression tests were incorporated before PR #202.
-- PRs #203–#208 are merged, including portable evidence bundles, confirmation-depth checks, evaluation metrics/diagnostics, provenance, and canonical receipt-block hash checks. The current branch adds automated Foundry contract testing. Always query GitHub before assuming there are no open pull requests.
+- PRs #203–#208 and #212–#214 are merged, including portable evidence bundles, confirmation-depth checks, evaluation metrics/diagnostics, provenance, canonical receipt-block hash checks, reverted-call evidence, and standalone bundle validation. The current increment rechecks saved passing testnet evidence against the configured RPC. Always query GitHub before assuming there are no open pull requests.
 
 ## Required PR workflow
 
