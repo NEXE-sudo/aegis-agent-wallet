@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
 
 from app import main
-from app.governance import GovernanceStore
 from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
+from app.governance import GovernanceStore
 from app.workflow.controller import TransactionController
 from app.workflow.store import WorkflowStore
 
@@ -57,6 +57,8 @@ def test_metrics_exposes_bounded_route_counters():
 
 
 def test_mutating_requests_are_rate_limited_and_retry_after_is_set(monkeypatch):
+    monkeypatch.setenv("AEGIS_AGENT_TOKEN", "operations-test-agent-token")
+    monkeypatch.setenv("AEGIS_APPROVAL_TOKEN", "operations-test-owner-token")
     client = TestClient(main.app)
     with main._rate_lock:
         main._rate_windows.clear()
