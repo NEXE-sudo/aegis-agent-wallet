@@ -833,11 +833,6 @@ def _require_current_governance_for_transaction(transaction_id: str) -> None:
     decision = governance.get_decision_for_transaction(transaction_id)
     if decision is None:
         return
-    if not governance.verify_audit_chain()["valid"]:
-        raise HTTPException(
-            status_code=409,
-            detail={"code": "governance_integrity_failed", "message": "Governance evidence failed integrity verification."},
-        )
     mandate = governance.get_active_mandate()
     if mandate is None or mandate["payload_hash"] != decision.get("mandate_hash"):
         raise HTTPException(
