@@ -35,6 +35,7 @@ Last updated: 20 October 2026
 - Backend read surfaces now include public-address Base Sepolia ETH/demo-USDC balances, active policy configuration, and UTC-day local workflow spending summaries.
 - Frontend surfaces now include read-only wallet balances, active policy settings/allowlists, daily spending/remaining budget, the owner-authenticated RPC-reported network status panel, and the configured vault status comparison.
 - The Activity view now keeps owner-requested Base Sepolia receipt hash, chain, status, and block visible in the loaded page session. Receipt checks remain point-in-time RPC observations, not proof of finality.
+- The owner-authenticated transaction-history API accepts limits from 1 to 100; boundary regression coverage checks rejection below 1 and above 100 and acceptance at 100.
 - Current task (branch `feat/inline-receipt-status`): Keep Base Sepolia receipt details visible in Activity and add browser coverage; PR details will be recorded by automation.
 - Next: review remaining workflow history limitations and receipt error-state visibility without implying complete lifetime history or transaction finality.
 - Clearly distinguish local configuration/database values from state verified on-chain; fail clearly when values are unavailable or configuration is missing/mismatched.
