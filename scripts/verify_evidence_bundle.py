@@ -21,7 +21,7 @@ def _canonical_json(value: dict[str, Any]) -> str:
 def validate_bundle(bundle: object) -> dict[str, Any]:
     """Validate the digest and cross-field consistency without contacting an RPC."""
     if not isinstance(bundle, dict):
-        raise ValueError("Evidence bundle must be a JSON object")
+        raise TypeError("Evidence bundle must be a JSON object")
 
     digest = bundle.get("bundle_sha256")
     if not isinstance(digest, str) or _SHA256_RE.fullmatch(digest) is None:
@@ -83,8 +83,10 @@ def validate_bundle(bundle: object) -> dict[str, Any]:
             else:
                 raise ValueError(f"Unsupported testnet evidence mode: {mode!r}")
 
-            if schema == "aegis-evidence-bundle/v5":
-                if checks.get("receipt_status_matches_expectation") is not True:
+            if (
+                schema == "aegis-evidence-bundle/v5"
+                and checks.get("receipt_status_matches_expectation") is not True
+            ):
                     raise ValueError("Schema v5 evidence must verify the expected receipt status")
 
     if bundle["passed"] is not expected_overall:
@@ -103,7 +105,7 @@ def main(argv: list[str] | None = None) -> int:
         with args.bundle_path.open("r", encoding="utf-8") as stream:
             bundle = json.load(stream)
         validate_bundle(bundle)
-    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+    except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
         print(f"Evidence bundle verification failed: {exc}", file=sys.stderr)
         return 2
 

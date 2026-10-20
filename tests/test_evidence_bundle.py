@@ -456,3 +456,10 @@ def test_saved_evidence_bundle_verifier_accepts_legacy_v4_success_bundle():
     bundle = _seal_bundle(bundle)
 
     assert verify_evidence_bundle.validate_bundle(bundle) == bundle
+
+
+def test_saved_evidence_bundle_verifier_raises_type_error_for_non_object():
+    from scripts import verify_evidence_bundle
+
+    with pytest.raises(TypeError, match="must be a JSON object"):
+        verify_evidence_bundle.validate_bundle([])
