@@ -28,17 +28,17 @@ Completion estimates are planning estimates, not CI results, audits, or producti
 
 | Workstream | Merged baseline | Remaining milestones |
 | --- | --- | --- |
-| WS1 — Agent autonomy | Deterministic mandate-bounded decisions and persisted task queue with policy-gateway proposals. | Add optional LLM reasoning over persisted structured tasks, explicit provenance, at least 30 adversarial scenarios, repeated-run metrics, and a measured evaluation report. |
-| WS2 — Persistent governance | Owner-managed mandate/payee/task persistence, payload hashes, hash-linked audit records, and stale-record fail-closed checks. | PR #223 adds control-centre forms, decision review and JSON/CSV export; later improve role separation/token rotation and export verification workflow as time permits. |
+| WS1 — Agent autonomy | Deterministic mandate-bounded decisions and persisted task queue with policy-gateway proposals. | The expanded evaluation now covers 18 direct policy/task cases, one reservation-lifecycle case, three persisted-governance cases, and ten opt-in LLM injection cases; repeated-run aggregation rejects incomplete or inconsistent scenario inventories. Still outstanding: LLM reasoning over persisted tasks, stronger adversarial diversity, provider-run evidence, and explicit source provenance. |
+| WS2 — Persistent governance | Owner-managed mandate/payee/task persistence, payload hashes, hash-linked audit records, and stale-record fail-closed checks. | PR #223 adds control-centre forms, decision review and JSON/CSV export; remaining work includes proposal lifecycle/budget reconciliation, role separation/token rotation, and export verification workflow. |
 | WS3 — AegisVault v2 | Owner controls, exact approvals, global token caps, bounded agent sessions, optional per-recipient caps, Foundry unit/fuzz/invariant tests. | ABI/calldata/configuration drift checks and operator-run deployment/transfer evidence. |
 | WS4 — Operations | FastAPI/SQLite, separate bearer-token roles, request metadata logging and CI. | PR #223 adds request IDs, process-local mutating-request rate limit, readiness and request metrics. Remaining: signer adapter boundaries, packaging, backup/restore and deployment runbook as feasible. |
 | WS5 — Frontend | Dependency-free local control centre and Playwright coverage for core workflow. | PR #223 adds governance, persisted decision review and exports; verify browser accessibility, error states and responsive behaviour in tests. |
-| WS6 — Demo/submission | Demo scenario, evidence bundles, deployment verification and contract-hardening runbook. | Guided end-to-end demo, measured evaluation report, verified operator evidence, final threat model/security summary, demo video script, ten-minute presentation and WeBank business case. |
+| WS6 — Demo/submission | Demo scenario, evidence bundles, deployment verification and contract-hardening runbook. | The local evaluation now exercises the persisted governance queue and reports failure reasons; still required are freshly generated reports, verified operator evidence, final threat model/security summary, demo video script, ten-minute presentation and WeBank business case. |
 
 ## Next priorities
 
 1. **Finish PR #223 safely:** check UI/route wiring, CSV formula neutralisation, rate-limit behaviour, request-ID propagation, readiness semantics, and CI. Merge only after the user reports local Ruff/pytest checks passed and CI is green.
-2. **Consolidated evaluation/demo PR:** connect the existing evaluation harness to 30+ adversarial scenarios and repeated-run metrics; add a guided demo command and produce reports only from actual test/evaluation runs.
+2. **Evidence close-out:** run the expanded 22-scenario deterministic suite and repeated evaluator from the exact submission commit; inspect generated reports and separately verify any claimed Base Sepolia deployment, success, or revert evidence.
 3. **Submission close-out:** improve evidence-bundle usability, final security/threat-model and README material, Mermaid architecture/data-flow diagrams, a ten-minute talk track, video script, and one-page business case.
 4. Keep the number of PRs low and the feature scope substantial, comparable in breadth to PR #221. Combine implementation, relevant tests, docs, changelog, version and handoff changes when they belong together.
 
