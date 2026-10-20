@@ -167,8 +167,12 @@ def _mock_api(
                 "transaction_id": parsed.path.split("/")[-2],
                 "transaction_hash": "0x" + "a" * 64,
                 "chain_id": 84532,
-                "status": "success",
+                "status": "confirmed",
                 "block_number": 123456,
+                "block_hash": "0x" + "b" * 64,
+                "confirmations_observed": 12,
+                "minimum_confirmations_required": 12,
+                "canonical_block_match": True,
             })
         elif parsed.path.startswith("/market-data/"):
             fulfill(route, 502, {"detail": "provider temporarily unavailable"})
