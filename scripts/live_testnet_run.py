@@ -318,7 +318,8 @@ def run_live(args: argparse.Namespace, *, root: Path | None = None,
     report_dir.mkdir(parents=True, exist_ok=True)
     state_path = report_dir / "run-state.json"
     public_inputs = {
-        "owner": public["owner"], "recipient": public["recipient"], "token": public["token"],
+        "owner": public["owner"], "agent": Account.from_key(values["AEGIS_TESTNET_PRIVATE_KEY"]).address.lower(),
+        "recipient": public["recipient"], "token": public["token"],
         "amount_base_units": args.amount_base_units,
         "fund_amount_base_units": args.fund_amount_base_units,
         "min_confirmations": args.min_confirmations,
@@ -530,7 +531,7 @@ def run_live(args: argparse.Namespace, *, root: Path | None = None,
                 "--output-dir", str(revert_dir)],
                 root=root, env=values, report_dir=report_dir, label="build-revert-evidence", timeout=300)
                 and {"path": str(revert_dir / "aegis-evidence-bundle.json")}), broadcast=False)
-        for name, bundle_dir, audit in (("verify-success-bundle", success_dir, None), ("verify-revert-bundle", revert_dir, None)):
+        for name, bundle_dir in (("verify-success-bundle", success_dir), ("verify-revert-bundle", revert_dir)):
             _run_step(name, state=state, state_path=state_path, report_dir=report_dir,
                 action=lambda n=name, d=bundle_dir: (_command_result(["uv", "run", "--locked", "python", "-m",
                     "scripts.verify_evidence_bundle", str(d / "aegis-evidence-bundle.json")],
