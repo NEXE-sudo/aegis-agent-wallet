@@ -4,6 +4,7 @@ import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from eth_utils import keccak
+from eth_account import Account
 
 from app.auth import require_chain_owner
 from app.chain.base_sepolia import (
@@ -126,7 +127,11 @@ def inspect_vault_configuration(address: str, token_address: str) -> dict:
             owner = "0x" + f"{owner_word:040x}"
             agent = "0x" + f"{agent_word:040x}"
             configured_vault = os.environ.get("AEGIS_VAULT_ADDRESS", "").strip()
+            configured_owner = os.environ.get("AEGIS_VAULT_OWNER_ADDRESS", "").strip()
+            agent_private_key = os.environ.get("AEGIS_TESTNET_PRIVATE_KEY", "").strip()
             local_match = None
+            owner_match = None
+            agent_key_match = None
             configuration_issues = []
             issues = []
             if configured_vault:
@@ -140,7 +145,36 @@ def inspect_vault_configuration(address: str, token_address: str) -> dict:
                     )
             else:
                 configuration_issues.append(
-                    "AEGIS_VAULT_ADDRESS is not configured; local execution settings were not compared."
+                    "AEGIS_VAULT_ADDRESS is not configured; local vault matching was not performed."
+                )
+
+            if configured_owner:
+                try:
+                    owner_match = validate_address(configured_owner) == owner
+                except ValueError:
+                    owner_match = False
+                if not owner_match:
+                    configuration_issues.append(
+                        "The on-chain owner does not match AEGIS_VAULT_OWNER_ADDRESS."
+                    )
+            else:
+                configuration_issues.append(
+                    "AEGIS_VAULT_OWNER_ADDRESS is not configured; owner identity was not compared."
+                )
+
+            if agent_private_key:
+                try:
+                    expected_agent = validate_address(Account.from_key(agent_private_key).address)
+                    agent_key_match = expected_agent == agent
+                except (TypeError, ValueError):
+                    agent_key_match = False
+                if not agent_key_match:
+                    configuration_issues.append(
+                        "The on-chain agent does not match the address derived from AEGIS_TESTNET_PRIVATE_KEY."
+                    )
+            else:
+                configuration_issues.append(
+                    "AEGIS_TESTNET_PRIVATE_KEY is not configured; agent signer identity was not compared."
                 )
 
             if owner == _ZERO_ADDRESS:
@@ -170,6 +204,8 @@ def inspect_vault_configuration(address: str, token_address: str) -> dict:
                     "approval_threshold_base_units": words[3],
                 },
                 "configured_vault_matches": local_match,
+                "configured_owner_matches": owner_match,
+                "configured_agent_key_matches": agent_key_match,
                 "configuration_structurally_valid": not issues,
                 "issues": issues,
                 "configuration_issues": configuration_issues,
