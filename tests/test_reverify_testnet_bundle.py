@@ -113,7 +113,9 @@ def test_v6_reverification_confirms_unchanged_vault_configuration(monkeypatch):
     bundle = _as_v6_bundle(_bundle())
     evidence = bundle["testnet_evidence"]["evidence"]
     _install_chain(monkeypatch, evidence)
-    monkeypatch.setattr(reverify, "capture_vault_configuration", lambda *_args: _configuration())
+    monkeypatch.setattr(
+        reverify, "capture_vault_configuration", lambda *_args: _configuration()
+    )
     monkeypatch.setattr(reverify, "verify_audit_record", lambda *_args: "txn-123")
 
     result = reverify.reverify_testnet_evidence(
