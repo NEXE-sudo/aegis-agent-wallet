@@ -132,7 +132,7 @@ def _render_provenance(revision: str, python_ci_url: str | None, foundry_ci_url:
         if not value.startswith("https://github.com/") or "/actions/runs/" not in value:
             raise EvidenceDocsError(f"{label} URL must be a GitHub Actions run URL.")
         return f"[Observed {label} CI run]({value}) — operator must confirm it tested this exact source revision."
-    return "\\n".join([
+    return "\n".join([
         PROVENANCE_START,
         "## Final source and CI provenance",
         "",
