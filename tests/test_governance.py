@@ -231,6 +231,22 @@ def test_payee_token_metadata_must_match_wallet_policy(monkeypatch, tmp_path):
 def test_audit_chain_detects_tampering(monkeypatch, tmp_path):
     governance = setup_isolated(monkeypatch, tmp_path)
     client.put("/governance/mandate", headers=OWNER_HEADERS, json=mandate_payload())
+    client.put(
+        "/governance/payees/power-company",
+        headers=OWNER_HEADERS,
+        json=payee_payload(),
+    )
+    client.post(
+        "/governance/tasks",
+        headers=OWNER_HEADERS,
+        json={
+            "task_id": "invoice-audit-tamper",
+            "invoice_id": "invoice-audit-tamper",
+            "payee_id": "power-company",
+            "token_symbol": "USDC",
+            "amount_base_units": 1_000_000,
+        },
+    )
     assert governance.verify_audit_chain()["valid"] is True
 
     with sqlite3.connect(governance.db_path) as db:
@@ -238,6 +254,9 @@ def test_audit_chain_detects_tampering(monkeypatch, tmp_path):
         db.execute("UPDATE governance_audit SET entity_id = 'tampered' WHERE sequence = 1")
 
     assert governance.verify_audit_chain()["valid"] is False
+    response = client.post("/agent/governance/decide-pending", headers=AGENT_HEADERS)
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "governance_integrity_failed"
 
 
 def test_governance_runner_rejects_caller_supplied_payment_fields():
