@@ -1,4 +1,5 @@
 """Tests for independently re-verifying saved testnet evidence."""
+
 import hashlib
 import json
 
