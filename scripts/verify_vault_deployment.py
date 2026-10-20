@@ -210,7 +210,7 @@ def main(argv: list[str] | None = None) -> int:
 
     canonical = json.dumps(result, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     result["deployment_evidence_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-    rendered = json.dumps(result, indent=2, sort_keys=True) + "\\n"
+    rendered = json.dumps(result, indent=2, sort_keys=True) + "\n"
     if args.output is not None:
         try:
             args.output.parent.mkdir(parents=True, exist_ok=True)
