@@ -239,7 +239,7 @@ contract AegisVault is Ownable2Step, Pausable, ReentrancyGuard {
             if (expiry == 0) {
                 revert TransferApprovalRequired(token, to, amount, ref);
             }
-            if (expiry < block.timestamp) revert TransferApprovalExpired(expiry);
+            if (expiry <= block.timestamp) revert TransferApprovalExpired(expiry);
             delete _approvalExpiries[id];
             emit TransferApprovalConsumed(id, token, to, amount, ref, msg.sender);
         }
