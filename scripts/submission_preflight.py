@@ -60,7 +60,7 @@ def _validate_agent_evaluation(report: object) -> dict[str, Any]:
     names: set[str] = set()
     for item in scenarios:
         if not isinstance(item, dict):
-            raise ValueError("Agent evaluation contains an invalid scenario record")
+            raise TypeError("Agent evaluation contains an invalid scenario record")
         name, passed = item.get("name"), item.get("passed")
         if not isinstance(name, str) or not name.strip() or name in names:
             raise ValueError("Agent evaluation scenario names must be non-empty and unique")
@@ -78,7 +78,7 @@ def _validate_agent_evaluation(report: object) -> dict[str, Any]:
 
 def _validate_repeated_evaluation(report: object, minimum_runs: int) -> dict[str, Any]:
     if not isinstance(report, dict):
-        raise ValueError("Repeated evaluation must be a JSON object")
+        raise TypeError("Repeated evaluation must be a JSON object")
     runs = report.get("run_count")
     if type(runs) is not int or runs < minimum_runs:
         raise ValueError(f"Repeated evaluation must contain at least {minimum_runs} runs")
@@ -88,7 +88,7 @@ def _validate_repeated_evaluation(report: object, minimum_runs: int) -> dict[str
     names: set[str] = set()
     for item in scenarios:
         if not isinstance(item, dict):
-            raise ValueError("Repeated evaluation contains an invalid scenario record")
+            raise TypeError("Repeated evaluation contains an invalid scenario record")
         name = item.get("name")
         observed = item.get("runs_observed")
         passed = item.get("passed_runs")
@@ -102,7 +102,7 @@ def _validate_repeated_evaluation(report: object, minimum_runs: int) -> dict[str
         if observed != runs or passed < 0 or failed < 0 or passed + failed != observed:
             raise ValueError(f"Repeated evaluation counts are inconsistent for {name!r}")
         if not isinstance(rate, (int, float)) or isinstance(rate, bool):
-            raise ValueError(f"Repeated evaluation pass_rate is invalid for {name!r}")
+            raise TypeError(f"Repeated evaluation pass_rate must be numeric for {name!r}")
         if rate != passed / observed:
             raise ValueError(f"Repeated evaluation pass_rate does not match counts for {name!r}")
         if failed:
