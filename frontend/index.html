@@ -1692,6 +1692,236 @@ const changeTransactionPage = async (direction) => {
   await refreshTransactions();
 };
 
+const renderGovernance = () => {
+  const g = state.governance;
+  const mandateTarget = document.getElementById('governance-mandate-summary');
+  const payeeTarget = document.getElementById('governance-payee-list');
+  const taskTarget = document.getElementById('governance-task-list');
+  const integrityTitle = document.getElementById('governance-integrity-title');
+  const integrityCopy = document.getElementById('governance-integrity-copy');
+  if (!state.tokens.owner) {
+    mandateTarget.innerHTML = '<div class="empty-state">Connect with an owner token to inspect the active mandate.</div>';
+    payeeTarget.innerHTML = '<div class="empty-state">Connect with an owner token to inspect registered payees.</div>';
+    taskTarget.innerHTML = '<div class="empty-state">Connect with an owner token to inspect queued tasks.</div>';
+    integrityTitle.textContent = 'Owner connection required';
+    integrityCopy.textContent = 'Governance data is not available until the owner token is connected.';
+    return;
+  }
+  if (g.error) {
+    integrityTitle.textContent = 'Governance data unavailable';
+    integrityCopy.textContent = g.error;
+  } else if (g.integrity && g.integrity.valid) {
+    integrityTitle.textContent = 'Governance audit chain valid';
+    integrityCopy.textContent = String(g.integrity.events_checked || 0) + ' audit events checked. Hash-chain verification is tamper-evident, not a digital signature.';
+  } else if (g.integrity) {
+    integrityTitle.textContent = 'Governance integrity check failed';
+    integrityCopy.textContent = 'Only ' + String(g.integrity.events_checked || 0) + ' events were checked before the verification failure. Do not process the queue until the issue is investigated.';
+  } else {
+    integrityTitle.textContent = 'Governance integrity not checked';
+    integrityCopy.textContent = 'Use Refresh to read the owner-managed records and verify the audit chain.';
+  }
+
+  const mandate = g.mandate;
+  mandateTarget.innerHTML = mandate
+    ? '<div class="meta-grid">' +
+      '<div class="meta-card"><small>Mandate ID</small><strong>' + esc(mandate.mandate_id) + '</strong></div>' +
+      '<div class="meta-card"><small>Allowed categories</small><strong>' + esc((mandate.allowed_categories || []).join(', ')) + '</strong></div>' +
+      '<div class="meta-card"><small>Allowed token</small><strong>' + esc((mandate.allowed_tokens || []).join(', ')) + '</strong></div>' +
+      '<div class="meta-card"><small>Monthly budget · base units</small><strong>' + esc(mandate.monthly_budget_base_units) + '</strong></div>' +
+      '<div class="meta-card"><small>Per-payment limit · base units</small><strong>' + esc(mandate.per_payment_limit_base_units) + '</strong></div>' +
+      '<div class="meta-card"><small>Approval threshold · base units</small><strong>' + esc(mandate.approval_threshold_base_units) + '</strong></div>' +
+      '<div class="meta-card"><small>Treasury buffer · base units</small><strong>' + esc(mandate.treasury_buffer_base_units) + '</strong></div>' +
+      '<div class="meta-card"><small>Planning balance · base units</small><strong>' + esc(mandate.available_balance_base_units) + '</strong></div>' +
+      '<div class="meta-card"><small>Payload hash</small><span class="small-mono">' + esc(mandate.payload_hash || 'not returned') + '</span></div></div>'
+    : '<div class="empty-state"><strong>No active mandate</strong><div>Save a mandate below before queueing payment tasks.</div></div>';
+
+  payeeTarget.innerHTML = g.payees.length ? g.payees.map((payee) =>
+    '<article class="approval-card"><div class="approval-head"><div><h3>' + esc(payee.name) +
+    '</h3><small>' + esc(payee.payee_id) + ' · ' + esc(payee.category) + '</small></div><span class="tag">' +
+    (payee.verified ? 'OWNER-ATTESTED' : 'UNVERIFIED') + '</span></div><div class="event-meta">' +
+    '<div><strong>Address</strong><span class="small-mono">' + esc(payee.address) + '</span></div>' +
+    '<div><strong>Token</strong>' + esc(payee.token_symbol) + ' · chain ' + esc(payee.chain_id) + '</div>' +
+    '<div><strong>Per transaction cap</strong>' + esc(payee.per_tx_limit_base_units) + ' base units</div>' +
+    '<div><strong>Daily cap</strong>' + esc(payee.daily_limit_base_units) + ' base units</div></div>' +
+    '<div class="fingerprint">Registry hash · ' + esc(payee.payload_hash || 'not returned') + '</div></article>'
+  ).join('') : '<div class="empty-state"><strong>No registered payees</strong><div>Add a payee after checking its address and token details.</div></div>';
+
+  const decisionByTask = new Map((g.decisions || []).map((item) => [item.task_id, item.decision || {}]));
+  taskTarget.innerHTML = g.tasks.length ? g.tasks.slice().reverse().map((task) => {
+    const decision = decisionByTask.get(task.task_id) || {};
+    const action = decision.action || 'not processed';
+    return '<article class="approval-card"><div class="approval-head"><div><h3>' + esc(task.invoice_id || task.task_id) +
+      '</h3><small>' + esc(task.task_id) + ' · payee ' + esc(task.payee_id) + '</small></div><span class="tag">' +
+      esc(String(task.status || 'unknown').toUpperCase()) + '</span></div><div class="event-meta">' +
+      '<div><strong>Amount</strong>' + esc(task.amount_base_units) + ' ' + esc(task.token_symbol) + ' base units</div>' +
+      '<div><strong>Agent action</strong>' + esc(action) + '</div><div><strong>Due</strong>' + esc(task.due_at || 'Not specified') + '</div>' +
+      '<div><strong>Linked proposal</strong><span class="small-mono">' + esc(decision.transaction_id || 'None') + '</span></div></div>' +
+      (decision.rationale ? '<p>' + esc(decision.rationale) + '</p>' : '') +
+      ((decision.evidence_refs || []).length ? '<div class="fingerprint">Evidence · ' + esc(decision.evidence_refs.join(', ')) + '</div>' : '') +
+      '<p class="muted" style="font-size:10px">Description: ' + esc(task.description || 'None') + '</p></article>';
+  }).join('') : '<div class="empty-state"><strong>No queued tasks</strong><div>Create an owner-authenticated structured task above.</div></div>';
+
+  const payeeSelect = document.getElementById('governance-task-payee');
+  const currentValue = payeeSelect.value;
+  payeeSelect.innerHTML = '<option value="">Select registered payee</option>' + g.payees.map((payee) =>
+    '<option value="' + esc(payee.payee_id) + '">' + esc(payee.name) + ' (' + esc(payee.payee_id) + ')</option>'
+  ).join('');
+  if (g.payees.some((payee) => payee.payee_id === currentValue)) payeeSelect.value = currentValue;
+};
+
+const refreshGovernance = async () => {
+  if (!state.tokens.owner) { renderGovernance(); return; }
+  state.governance.error = '';
+  renderGovernance();
+  const sessionVersion = state.sessionVersion;
+  const results = await Promise.allSettled([
+    api('/governance/mandate', { method: 'GET' }, 'owner'),
+    api('/governance/payees', { method: 'GET' }, 'owner'),
+    api('/governance/tasks', { method: 'GET' }, 'owner'),
+    api('/governance/audit/verify', { method: 'GET' }, 'owner'),
+    api('/governance/decisions', { method: 'GET' }, 'owner')
+  ]);
+  if (sessionVersion !== state.sessionVersion) return;
+  const [mandate, payees, tasks, integrity, decisions] = results;
+  state.governance.mandate = mandate.status === 'fulfilled' ? mandate.value :
+    mandate.reason && mandate.reason.status === 404 ? null : state.governance.mandate;
+  state.governance.payees = payees.status === 'fulfilled' ? payees.value : [];
+  state.governance.tasks = tasks.status === 'fulfilled' ? tasks.value : [];
+  state.governance.integrity = integrity.status === 'fulfilled' ? integrity.value : null;
+  state.governance.decisions = decisions.status === 'fulfilled' ? decisions.value : [];
+  if (results.slice(1).some((result) => result.status === 'rejected')) {
+    state.governance.error = 'One or more governance reads failed. Refresh after checking owner authentication and database readiness.';
+  }
+  renderGovernance();
+};
+
+const governanceInteger = (formData, key) => {
+  const raw = formData.get(key);
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < 0 || String(raw).trim() === '') {
+    throw new Error(key + ' must be a whole number within JavaScript safe integer range.');
+  }
+  return value;
+};
+
+const submitGovernanceMandate = async (event) => {
+  event.preventDefault();
+  if (!state.tokens.owner) return notify('Connect with an owner token first.', 'error');
+  const data = new FormData(event.currentTarget);
+  try {
+    const payload = {
+      mandate_id: String(data.get('mandate_id')).trim(),
+      allowed_categories: String(data.get('allowed_categories')).split(',').map((item) => item.trim().toLowerCase()).filter(Boolean),
+      allowed_tokens: [state.policyConfig && state.policyConfig.allowed_token_symbols && state.policyConfig.allowed_token_symbols[0] || 'USDC'],
+      monthly_budget_base_units: governanceInteger(data, 'monthly_budget_base_units'),
+      per_payment_limit_base_units: governanceInteger(data, 'per_payment_limit_base_units'),
+      approval_threshold_base_units: governanceInteger(data, 'approval_threshold_base_units'),
+      treasury_buffer_base_units: governanceInteger(data, 'treasury_buffer_base_units'),
+      available_balance_base_units: governanceInteger(data, 'available_balance_base_units')
+    };
+    await api('/governance/mandate', { method: 'PUT', body: JSON.stringify(payload) }, 'owner');
+    notify('Mandate saved by the backend.', 'success');
+    await refreshGovernance();
+  } catch (error) { notify('Mandate was not saved: ' + error.message, 'error'); }
+};
+
+const submitGovernancePayee = async (event) => {
+  event.preventDefault();
+  if (!state.tokens.owner) return notify('Connect with an owner token first.', 'error');
+  const form = event.currentTarget;
+  const data = new FormData(form);
+  try {
+    if (!state.policyConfig) await refreshPolicyConfig();
+    const token = state.policyConfig && state.policyConfig.allowed_tokens &&
+      state.policyConfig.allowed_tokens.find((item) => item.chain_id === 84532);
+    if (!token) throw new Error('The policy API did not return a trusted Base Sepolia token.');
+    const payload = {
+      payee_id: String(data.get('payee_id')).trim(),
+      name: String(data.get('name')).trim(),
+      address: String(data.get('address')).trim(),
+      chain_id: 84532,
+      token_address: token.address,
+      token_symbol: token.symbol,
+      token_decimals: token.decimals,
+      category: String(data.get('category')).trim().toLowerCase(),
+      per_tx_limit_base_units: governanceInteger(data, 'per_tx_limit_base_units'),
+      daily_limit_base_units: governanceInteger(data, 'daily_limit_base_units'),
+      verified: data.get('verified') === 'true'
+    };
+    await api('/governance/payees/' + encodeURIComponent(payload.payee_id), {
+      method: 'PUT', body: JSON.stringify(payload)
+    }, 'owner');
+    notify('Payee record saved. Owner attestation is not independent identity verification.', 'success');
+    form.reset();
+    await refreshGovernance();
+  } catch (error) { notify('Payee was not saved: ' + error.message, 'error'); }
+};
+
+const submitGovernanceTask = async (event) => {
+  event.preventDefault();
+  if (!state.tokens.owner) return notify('Connect with an owner token first.', 'error');
+  const form = event.currentTarget;
+  const data = new FormData(form);
+  try {
+    const payeeId = String(data.get('payee_id') || '');
+    const payee = state.governance.payees.find((item) => item.payee_id === payeeId);
+    if (!payee) throw new Error('Select a payee from the owner-managed registry.');
+    const payload = {
+      invoice_id: String(data.get('invoice_id')).trim(),
+      payee_id: payee.payee_id,
+      token_symbol: payee.token_symbol,
+      amount_base_units: governanceInteger(data, 'amount_base_units'),
+      description: String(data.get('description') || '').trim()
+    };
+    const dueAt = String(data.get('due_at') || '');
+    if (dueAt) {
+      const date = new Date(dueAt);
+      if (Number.isNaN(date.getTime())) throw new Error('Due date is invalid.');
+      payload.due_at = date.toISOString();
+    }
+    await api('/governance/tasks', { method: 'POST', body: JSON.stringify(payload) }, 'owner');
+    notify('Structured task queued. The agent has not approved or executed a payment.', 'success');
+    form.reset();
+    await refreshGovernance();
+  } catch (error) { notify('Task was not queued: ' + error.message, 'error'); }
+};
+
+const processGovernanceQueue = async () => {
+  if (!state.tokens.agent) return notify('Connect with an agent token before processing the queue.', 'error');
+  if (!state.governance.integrity || !state.governance.integrity.valid) {
+    return notify('The governance audit chain must verify before processing tasks.', 'error');
+  }
+  if (!window.confirm('Process owner-created pending tasks? The agent can propose or escalate only; it cannot approve or execute payments.')) return;
+  const button = document.getElementById('governance-process-queue');
+  button.disabled = true;
+  try {
+    const result = await api('/agent/governance/decide-pending', { method: 'POST' }, 'agent');
+    notify('Agent processed ' + result.processed + ' task(s). Review decisions and any resulting proposal.', 'success');
+    await Promise.all([refreshGovernance(), refreshTransactions()]);
+  } catch (error) { notify('Queue processing was not confirmed: ' + error.message, 'error'); }
+  finally { button.disabled = false; }
+};
+
+const downloadGovernanceExport = async (format) => {
+  if (!state.tokens.owner) return notify('Connect with an owner token first.', 'error');
+  try {
+    const response = await fetch('/governance/export?format=' + encodeURIComponent(format), {
+      headers: { Authorization: 'Bearer ' + state.tokens.owner }
+    });
+    if (!response.ok) throw new Error('Export request failed (HTTP ' + response.status + ').');
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = format === 'csv' ? 'aegis-governance-export.csv' : 'aegis-governance-export.json';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    notify(format.toUpperCase() + ' export generated. Check its integrity field before relying on it.', 'success');
+  } catch (error) { notify('Governance export was not confirmed: ' + error.message, 'error'); }
+};
+
 const renderAll = () => {
   renderOverview();
   renderApprovals();
@@ -2248,6 +2478,13 @@ document.querySelectorAll('[data-target]').forEach((button) => {
 });
 
 document.getElementById('refresh-chain-status').addEventListener('click', refreshChainStatus);
+document.getElementById('governance-refresh').addEventListener('click', () => void refreshGovernance());
+document.getElementById('governance-mandate-form').addEventListener('submit', submitGovernanceMandate);
+document.getElementById('governance-payee-form').addEventListener('submit', submitGovernancePayee);
+document.getElementById('governance-task-form').addEventListener('submit', submitGovernanceTask);
+document.getElementById('governance-process-queue').addEventListener('click', processGovernanceQueue);
+document.getElementById('governance-export-json').addEventListener('click', () => downloadGovernanceExport('json'));
+document.getElementById('governance-export-csv').addEventListener('click', () => downloadGovernanceExport('csv'));
 document.getElementById('refresh-vault-status').addEventListener('click', refreshVaultStatus);
 
 document.getElementById('wallet-balance-form').addEventListener('submit', async (event) => {
