@@ -2,6 +2,8 @@
 
 ## 1.13.0 (unreleased)
 
+- Add consistent SQLite backup, integrity verification, guarded staged restore utilities, and offline structural checks for governance JSON/CSV exports.
+
 - Add an offline submission preflight that cross-checks source revision, manifest membership and hashes, deterministic and repeated evaluation results, and evidence-bundle integrity while clearly separating optional live Base Sepolia evidence.
 
 - Add a submission close-out kit with architecture/data-flow diagram, security summary, presentation talk track, demo video script, business case, and source-grounded evidence checklist.
