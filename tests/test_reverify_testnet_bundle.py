@@ -79,6 +79,67 @@ def _install_chain(monkeypatch, evidence):
     monkeypatch.setattr(reverify, "verify_evidence", lambda *_args, **_kwargs: evidence)
 
 
+def _configuration(**overrides):
+    configuration = {
+        "chain_id": 84532,
+        "vault_address": VAULT,
+        "bytecode_sha256": "0x" + "d" * 64,
+        "owner": "0x5555555555555555555555555555555555555555",
+        "agent": SENDER,
+        "paused": False,
+        "token_address": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+        "token_policy": {
+            "allowed": True,
+            "per_transaction_cap_base_units": 100,
+            "daily_cap_base_units": 500,
+            "approval_threshold_base_units": 80,
+        },
+        "configuration_structurally_valid": True,
+        "issues": [],
+    }
+    configuration.update(overrides)
+    return configuration
+
+
+def _as_v6_bundle(bundle):
+    payload = {key: value for key, value in bundle.items() if key != "bundle_sha256"}
+    payload["schema"] = "aegis-evidence-bundle/v6"
+    payload["testnet_evidence"]["vault_configuration"] = _configuration()
+    payload["testnet_evidence"]["checks"]["vault_configuration_valid"] = True
+    return _seal(payload)
+
+
+def test_v6_reverification_confirms_unchanged_vault_configuration(monkeypatch):
+    bundle = _as_v6_bundle(_bundle())
+    evidence = bundle["testnet_evidence"]["evidence"]
+    _install_chain(monkeypatch, evidence)
+    monkeypatch.setattr(reverify, "capture_vault_configuration", lambda *_args: _configuration())
+    monkeypatch.setattr(reverify, "verify_audit_record", lambda *_args: "txn-123")
+
+    result = reverify.reverify_testnet_evidence(
+        bundle, expected_sender=SENDER, audit_db="aegis.sqlite3"
+    )
+
+    assert result["vault_configuration_reverified"] is True
+    assert result["vault_configuration"] == bundle["testnet_evidence"]["vault_configuration"]
+
+
+def test_v6_reverification_fails_if_vault_configuration_changed(monkeypatch):
+    bundle = _as_v6_bundle(_bundle())
+    evidence = bundle["testnet_evidence"]["evidence"]
+    _install_chain(monkeypatch, evidence)
+    monkeypatch.setattr(
+        reverify,
+        "capture_vault_configuration",
+        lambda *_args: _configuration(paused=True),
+    )
+
+    with pytest.raises(ValueError, match="differs from bundle field: paused"):
+        reverify.reverify_testnet_evidence(
+            bundle, expected_sender=SENDER, audit_db="aegis.sqlite3"
+        )
+
+
 def test_reverifies_successful_transfer_and_audit_record(monkeypatch):
     bundle = _bundle()
     evidence = bundle["testnet_evidence"]["evidence"]
