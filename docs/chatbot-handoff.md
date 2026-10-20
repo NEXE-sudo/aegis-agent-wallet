@@ -35,9 +35,10 @@ Last updated: 20 October 2026
 - Backend read surfaces now include public-address Base Sepolia ETH/demo-USDC balances, active policy configuration, and UTC-day local workflow spending summaries.
 - Frontend surfaces now include read-only wallet balances, active policy settings/allowlists, daily spending/remaining budget, the owner-authenticated RPC-reported network status panel, and the configured vault status comparison.
 - The Activity view now keeps owner-requested Base Sepolia receipt hash, chain, status, and block visible in the loaded page session. Receipt checks remain point-in-time RPC observations, not proof of finality.
-- The owner-authenticated `GET /transactions` API supports deterministic offset-based pages (`limit` 1–100, `offset` 0 or greater); the frontend still requests only the latest 50 records, so older records are not yet browsable there.
+- The owner-authenticated `GET /transactions` API supports deterministic offset-based pages (`limit` 1–100, `offset` 0 or greater); the Activity UI requests 50 records at a time and exposes Previous/Next controls. Search is scoped to the currently loaded page, and the API does not expose a total count.
 - Current open manual PR batch: #192–#197 covers workflow restoration, receipt failure visibility, Activity history scope, and transaction-history limit regression coverage; keep all unmerged until the user approves the batch.
-- Next: connect the new history pagination API to the Activity UI and continue verifying wallet configuration states without implying transaction finality.
+- Current pagination UI PR is dependent on the transaction-history offset API PR; its browser test covers the 50-record page boundary, navigation in both directions, and offset query parameters.
+- Next: continue verifying wallet configuration states without implying transaction finality.
 - Clearly distinguish local configuration/database values from state verified on-chain; fail clearly when values are unavailable or configuration is missing/mismatched.
 - Inspect existing routes, service boundaries, frontend data flow, and tests before choosing the next smallest coherent slice. Avoid duplicate endpoints and never expose secrets/private keys.
 
