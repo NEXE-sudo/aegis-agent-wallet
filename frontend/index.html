@@ -1646,8 +1646,9 @@ const renderActivity = () => {
         ? `<div class="receipt-result" aria-live="polite">
           <strong>Base Sepolia receipt · ${esc(receipt.status)}</strong>
           <span>Chain ID ${esc(receipt.chain_id)} · Block ${esc(receipt.block_number ?? 'not reported')}</span>
+          <span>Confirmations ${esc(receipt.confirmations_observed ?? 'not reported')} / ${esc(receipt.minimum_confirmations_required ?? 'not reported')} · Canonical block match: ${esc(receipt.canonical_block_match ?? 'not checked')}</span>
           <span class="small-mono">Transaction hash · ${esc(receipt.transaction_hash)}</span>
-          <span>Point-in-time RPC result; not proof of transaction finality.</span>
+          <span>Point-in-time RPC result; confirmations are not a guarantee of finality.</span>
         </div>`
         : receiptError
           ? `<div class="receipt-error" role="status">Receipt status is unavailable: ${esc(receiptError)}</div>`
