@@ -1604,7 +1604,7 @@ const renderActivity = () => {
       <td class="small-mono">${esc(tx.transaction_id || 'Unknown ID')}</td>
       <td>${esc(formatMoney(tx.proposal?.amount_base_units, tx.proposal?.token_symbol || 'USDC', tx.proposal?.token_decimals ?? 6))}</td>
       <td class="small-mono">${esc(tx.proposal?.recipient || '—')}</td>
-      <td><span class="status-badge ${kindClass(tx.status)}">${esc(statusLabel(tx.status))}</span></td>
+      <td><span class="status-badge ${kindClass(tx.status)}">${esc(statusLabel(tx.status))}</span>${tx.status === 'approved' && tx.approval_expires_at ? `<small class="approval-expiry ${new Date(tx.approval_expires_at).getTime() <= Date.now() ? 'expired' : ''}">Approval ${new Date(tx.approval_expires_at).getTime() <= Date.now() ? 'expired' : 'expires'} · ${esc(humanTime(tx.approval_expires_at))}</small>` : ''}</td>
       <td><span class="risk-badge ${riskClass(tx.risk_level)}">${esc(tx.risk_score ?? '—')}/100 · ${esc(tx.risk_level || 'Unavailable')}</span></td>
       <td class="small-mono">${esc(humanTime(tx.updated_at || tx.created_at))}</td>
       <td>${action}</td>
