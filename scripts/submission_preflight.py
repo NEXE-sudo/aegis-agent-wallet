@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from agent.repeated_eval import summarise_runs
 from scripts.submission_manifest import verify_manifest
 from scripts.verify_evidence_bundle import validate_bundle
 
@@ -156,12 +155,13 @@ def run_preflight(
     if missing:
         raise ValueError(f"Manifest does not include selected artifact(s): {', '.join(missing)}")
 
-    agent_eval = _validate_agent_evaluation(
-        _read_json(root / agent_eval_path if not agent_eval_path.is_absolute() else agent_eval_path, "agent evaluation")
+    agent_eval_file = root / agent_eval_path if not agent_eval_path.is_absolute() else agent_eval_path
+    agent_eval = _validate_agent_evaluation(_read_json(agent_eval_file, "agent evaluation"))
+    repeated_eval_file = (
+        root / repeated_eval_path if not repeated_eval_path.is_absolute() else repeated_eval_path
     )
     repeated_eval = _validate_repeated_evaluation(
-        _read_json(root / repeated_eval_path if not repeated_eval_path.is_absolute() else repeated_eval_path, "repeated evaluation"),
-        minimum_runs,
+        _read_json(repeated_eval_file, "repeated evaluation"), minimum_runs
     )
     bundle_path = root / evidence_bundle_path if not evidence_bundle_path.is_absolute() else evidence_bundle_path
     bundle = validate_bundle(_read_json(bundle_path, "evidence bundle"))
@@ -196,10 +196,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", type=Path, default=Path("."))
     parser.add_argument("--manifest", type=Path, default=Path("reports/submission/submission-manifest.json"))
     parser.add_argument("--agent-eval", type=Path, default=Path("reports/submission/agent-eval/agent-eval.json"))
-    parser.add_argument("--repeated-eval", type=Path, default=Path("reports/submission/repeated-eval/agent-repeat-eval.json"))
-    parser.add_argument("--evidence-bundle", type=Path, default=Path("reports/submission/evidence/aegis-evidence-bundle.json"))
+    parser.add_argument(
+        "--repeated-eval",
+        type=Path,
+        default=Path("reports/submission/repeated-eval/agent-repeat-eval.json"),
+    )
+    parser.add_argument(
+        "--evidence-bundle",
+        type=Path,
+        default=Path("reports/submission/evidence/aegis-evidence-bundle.json"),
+    )
     parser.add_argument("--minimum-runs", type=int, default=5)
-    parser.add_argument("--require-testnet", action="store_true", help="fail unless verified passing Base Sepolia evidence is included")
+    parser.add_argument(
+        "--require-testnet",
+        action="store_true",
+        help="fail unless verified passing Base Sepolia evidence is included",
+    )
     args = parser.parse_args(argv)
 
     try:
