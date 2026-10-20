@@ -39,6 +39,8 @@ def verify_evidence(
     transaction_hash: str,
     rpc: BaseSepoliaRpc,
     vault_address: str | None = None,
+    *,
+    expect_revert: bool = False,
 ) -> dict[str, Any]:
     chain_id = rpc.chain_id()
     if chain_id != BASE_SEPOLIA_CHAIN_ID:
@@ -51,6 +53,8 @@ def verify_evidence(
     if transaction is None:
         raise ValueError("Transaction was not found on Base Sepolia")
     normalized_vault = validate_address(vault_address) if vault_address else None
+    if expect_revert and normalized_vault is None:
+        raise ValueError("--expect-revert requires --vault")
     if normalized_vault is not None and validate_address(transaction["to"]) != normalized_vault:
         raise ValueError("Transaction destination does not match --vault")
 
@@ -98,15 +102,19 @@ def verify_evidence(
         recipient = validate_address("0x" + recipient_word[24:])
         amount_base_units = int(calldata[138:202], 16)
         reference = "0x" + calldata[202:266].lower()
-        _verify_vault_receipt_logs(
-            receipt["logs"],
-            vault=normalized_vault,
-            token=token_contract,
-            recipient=recipient,
-            amount=amount_base_units,
-            reference=reference,
-            agent=validate_address(transaction["from"]),
-        )
+        if expect_revert:
+            if receipt["status"] != "failed":
+                raise ValueError("--expect-revert requires a failed transaction receipt")
+        else:
+            _verify_vault_receipt_logs(
+                receipt["logs"],
+                vault=normalized_vault,
+                token=token_contract,
+                recipient=recipient,
+                amount=amount_base_units,
+                reference=reference,
+                agent=validate_address(transaction["from"]),
+            )
 
     evidence: dict[str, Any] = {
         "chain_id": chain_id,
@@ -366,7 +374,16 @@ def main(argv: list[str] | None = None) -> int:
         "--vault",
         help="verify an AegisVault transferToken call and its vault/token receipt events",
     )
+    parser.add_argument(
+        "--expect-revert",
+        action="store_true",
+        help="verify a mined reverted AegisVault call instead of a successful transfer",
+    )
     args = parser.parse_args(argv)
+    if args.expect_revert and args.vault is None:
+        parser.error("--expect-revert requires --vault")
+    if args.expect_revert and args.audit_db is not None:
+        parser.error("--audit-db cannot be used with --expect-revert because reverted calls do not create a submitted transfer record")
 
     if args.min_confirmations < 1:
         parser.error("--min-confirmations must be at least 1")
@@ -387,7 +404,12 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         with BaseSepoliaRpc() as rpc:
-            evidence = verify_evidence(args.transaction_hash, rpc, vault_address)
+            evidence = verify_evidence(
+                args.transaction_hash,
+                rpc,
+                vault_address,
+                expect_revert=args.expect_revert,
+            )
         if expected_sender is not None and evidence["sender"] != expected_sender:
             raise ValueError("Transaction sender does not match --expected-sender")
         transaction_id = (
@@ -427,7 +449,12 @@ def main(argv: list[str] | None = None) -> int:
         print("Audit cross-check: not performed")
     else:
         print(f"Audit cross-check: OK (transaction {transaction_id})")
-    if evidence["receipt_status"] != "success":
+    if args.expect_revert:
+        if evidence["receipt_status"] != "failed":
+            print("Verification failed: the transaction did not revert.", file=sys.stderr)
+            return 1
+        print("Reverted vault call: receipt confirms the transaction failed; revert reason is not inferred.")
+    elif evidence["receipt_status"] != "success":
         print("Verification failed: the transaction receipt status is not success.", file=sys.stderr)
         return 1
     if evidence["confirmations_observed"] < args.min_confirmations:

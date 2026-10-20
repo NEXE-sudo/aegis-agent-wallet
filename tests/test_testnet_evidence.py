@@ -225,6 +225,68 @@ def test_cli_reports_failed_receipt_as_failure(monkeypatch, capsys):
     assert "receipt status is not success" in captured.err
 
 
+def test_verifies_reverted_vault_call_without_success_transfer_events():
+    with _rpc(_results(transaction=_vault_transaction(), receipt_status="0x0")) as rpc:
+        evidence = evidence_script.verify_evidence(
+            TRANSACTION_HASH, rpc, VAULT, expect_revert=True
+        )
+
+    assert evidence["receipt_status"] == "failed"
+    assert evidence["vault_address"] == VAULT
+    assert evidence["token_contract"] == BASE_SEPOLIA_USDC_ADDRESS
+    assert evidence["recipient"] == RECIPIENT
+    assert evidence["amount_base_units"] == AMOUNT_BASE_UNITS
+
+
+def test_reverted_vault_verification_rejects_successful_receipt():
+    with (
+        _rpc(_results(transaction=_vault_transaction(), receipt_status="0x1")) as rpc,
+        pytest.raises(ValueError, match="requires a failed transaction receipt"),
+    ):
+        evidence_script.verify_evidence(
+            TRANSACTION_HASH, rpc, VAULT, expect_revert=True
+        )
+
+
+def test_reverted_vault_verification_requires_vault_address():
+    with (
+        _rpc(_results()) as rpc,
+        pytest.raises(ValueError, match="requires --vault"),
+    ):
+        evidence_script.verify_evidence(
+            TRANSACTION_HASH, rpc, expect_revert=True
+        )
+
+
+def test_cli_verifies_reverted_vault_call(monkeypatch, capsys):
+    _patch_rpc(
+        monkeypatch,
+        _results(transaction=_vault_transaction(), receipt_status="0x0"),
+    )
+    assert evidence_script.main([
+        TRANSACTION_HASH,
+        "--expected-sender", SENDER,
+        "--vault", VAULT,
+        "--expect-revert",
+    ]) == 0
+    captured = capsys.readouterr()
+    assert "Receipt status: failed" in captured.out
+    assert "Reverted vault call: receipt confirms the transaction failed" in captured.out
+
+
+def test_cli_rejects_audit_db_with_reverted_vault_mode(monkeypatch):
+    _patch_rpc(monkeypatch, _results(transaction=_vault_transaction(), receipt_status="0x0"))
+    with pytest.raises(SystemExit) as exc_info:
+        evidence_script.main([
+            TRANSACTION_HASH,
+            "--expected-sender", SENDER,
+            "--vault", VAULT,
+            "--expect-revert",
+            "--audit-db", "aegis.sqlite3",
+        ])
+    assert exc_info.value.code == 2
+
+
 def test_cli_prints_transfer_evidence(monkeypatch, capsys):
     class MockRpc:
         def __enter__(self):
