@@ -4,9 +4,10 @@ Last updated: 20 October 2026
 
 ## Current work in progress
 
-- PR #226 — [Reconcile governance budget with workflow outcomes](https://github.com/NEXE-sudo/aegis-agent-wallet/pull/226) — was squash-merged as `3f4260e7b099425b3672117b608ed674fbe9c01f`. The user confirmed post-merge checks passed and deleted the feature branch.
-- **Current PR in preparation** — branch `feat/reproducible-submission-manifest`. It adds a hash manifest for selected submission artifacts, offline verification of manifest and artifact hashes, regression tests, and a submission evidence guide. Do not mark it complete until local checks and CI are confirmed.
-- PR #225 — [Expand adversarial evaluation and governance evidence](https://github.com/NEXE-sudo/aegis-agent-wallet/pull/225) — was squash-merged as `1e0b5f0b90020ffb2fb0d06c141275bef9e925fa`. The user confirmed 110/110 scenario observations passed across five repeated runs, post-merge checks passed, and the branch was deleted.
+- PR #227 — [Prepare reproducible submission evidence](https://github.com/NEXE-sudo/aegis-agent-wallet/pull/227) — squash-merged as `ce5351d254ae1934055c2f4e3adec502fcd7ed60`; the user confirmed post-merge lint, tests, evaluation, repeated evaluation, and evidence-bundle verification passed, then deleted the feature branch.
+- **Current PR in preparation** — branch `docs/submission-closeout-kit`. It adds a consolidated submission kit covering architecture/data flow, security boundaries and non-claims, a ten-minute talk track, a 90-second video script, a WeBank-oriented business case, and a checklist for automated and optional live testnet evidence.
+- PR #226 — [Reconcile governance budget with workflow outcomes](https://github.com/NEXE-sudo/aegis-agent-wallet/pull/226) — squash-merged as `3f4260e7b099425b3672117b608ed674fbe9c01f`; post-merge checks passed and branch deleted.
+- PR #225 — [Expand adversarial evaluation and governance evidence](https://github.com/NEXE-sudo/aegis-agent-wallet/pull/225) — squash-merged as `1e0b5f0b90020ffb2fb0d06c141275bef9e925fa`; user reported 110/110 scenario observations passed across five repeated runs, post-merge checks passed, and branch deleted.
 - PR #224 added repeatable evaluation and a demo guide; PR #223 added governance controls and operational hardening; PR #222 added expiring agent sessions and recipient caps; PR #221 persisted governance and integrated deterministic queue decisions.
 - Keep the number of PRs low and feature scope substantial, comparable in breadth to PR #221. Do not claim local checks passed unless the user reports the result.
 
@@ -33,14 +34,15 @@ Completion estimates are planning estimates, not CI results, audits, or producti
 | WS3 — AegisVault v2 | Owner controls, exact approvals, global token caps, bounded agent sessions, optional per-recipient caps, Foundry unit/fuzz/invariant tests. | ABI/calldata/configuration drift checks and operator-run deployment/transfer evidence. |
 | WS4 — Operations | FastAPI/SQLite, separate bearer-token roles, request metadata logging and CI. | PR #223 added request IDs, process-local mutating-request rate limit, readiness and request metrics. Remaining: signer adapter boundaries, packaging, backup/restore and deployment runbook as feasible. |
 | WS5 — Frontend | Dependency-free local control centre and Playwright coverage for core workflow. | PR #223 added governance, persisted decision review and exports; verify browser accessibility, error states and responsive behaviour in tests. |
-| WS6 — Demo/submission | Demo scenario, evidence bundles, deployment verification and contract-hardening runbook. | The local evaluation now exercises the persisted governance queue and reports failure reasons; still required are freshly generated reports, verified operator evidence, final threat model/security summary, demo video script, ten-minute presentation and WeBank business case. |
+| WS6 — Demo/submission | Demo scenario, evidence bundles, deployment verification and contract-hardening runbook. | PR #227 added artifact-manifest build/verification; the submission close-out kit now consolidates the architecture, security summary, presentation/video scripts, business case and evidence checklist. Fresh operator-generated reports and genuine Base Sepolia evidence remain necessary if live execution is claimed. |
 
 ## Next priorities
 
-1. **Submission evidence reproducibility:** generate evaluation outputs from the exact intended source revision, manifest the selected JSON/Markdown artifacts, and verify the manifest and evidence bundle before packaging.
-2. **Live testnet evidence:** separately verify operator-run Base Sepolia deployment, successful transfer, and reverted-call evidence where available; never substitute fixtures or simulated results.
-3. **Submission close-out:** finalise the threat model/security summary, architecture/data-flow diagrams, ten-minute talk track, video script, and one-page WeBank business case.
-4. Keep the number of PRs low and the feature scope substantial, comparable in breadth to PR #221. Combine implementation, relevant tests, docs, changelog, version and handoff changes when they belong together.
+1. **Submission close-out kit:** complete review and merge of `docs/submission-closeout-kit.md`, then rehearse the demo and talk track against the exact source revision.
+2. **Fresh reproducible reports:** run deterministic evaluation, repeated evaluation, evidence-bundle verification, and submission-manifest verification on the final intended revision.
+3. **Live testnet evidence:** separately verify operator-run Base Sepolia deployment, successful transfer, and reverted-call evidence where available; never substitute fixtures or simulated results.
+4. **Remaining engineering gaps:** consider source provenance, role separation/token rotation, signer adapter boundaries, backup/restore, and chain receipt/finality reconciliation as future work, without overstating the current implementation.
+5. Keep the number of PRs low and the feature scope substantial, comparable in breadth to PR #221. Combine implementation, relevant tests, docs, changelog, version and handoff changes when they belong together.
 
 ## PR workflow — mandatory
 
