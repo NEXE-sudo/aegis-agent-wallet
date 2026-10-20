@@ -343,25 +343,19 @@ Inspect each real transaction result before continuing. Do not treat an
 unconfirmed or failed transaction as completed configuration.
 ## Submission evidence
 
-No deployment or transfer evidence is claimed yet. Keep each value as `TODO`
-until it is supplied by the operator from a real Base Sepolia run. Do not fill
-these fields with test fixtures or invented values.
+<!-- LIVE_EVIDENCE_START -->
+## Verified Base Sepolia execution evidence
 
-- **Vault address:** `TODO: provide the deployed AegisVault address`
-  - Verify deployment receipt and compare its `contractAddress` with this value:
-    `cast receipt "<DEPLOYMENT_TX_HASH>" --rpc-url "$BASE_SEPOLIA_RPC_URL"`
-- **Deployment transaction hash:** `TODO: provide the real Base Sepolia deployment transaction hash`
-  - Verify receipt:
-    `cast receipt "<DEPLOYMENT_TX_HASH>" --rpc-url "$BASE_SEPOLIA_RPC_URL"`
-- **Executed `transferToken` transaction hash:** `TODO: provide the real successful transfer hash`
-  - Verify vault destination, calldata, vault/token events, agent sender, and
-    (when available) the stored proposal fingerprint:
-    `uv run python scripts/verify_testnet_evidence.py "<TRANSFER_TX_HASH>" --vault "<VAULT_ADDRESS>" --expected-sender "<AGENT_ADDRESS>" --audit-db "<AEGIS_DB_PATH>"`
-- **Blocked bypass transaction hash:** `TODO: provide a real reverted bypass hash`
-  - Inspect the transaction and its receipt; the receipt status must be `0x0`,
-    and the transaction's `to` and calldata must identify the intended vault
-    bypass attempt:
-    `cast tx "<BLOCKED_BYPASS_TX_HASH>" --rpc-url "$BASE_SEPOLIA_RPC_URL" && cast receipt "<BLOCKED_BYPASS_TX_HASH>" --rpc-url "$BASE_SEPOLIA_RPC_URL"`
+Pending operator evidence: this section is populated only after deployment, successful-transfer, and reverted-call bundles pass the offline integrity and cross-artifact verifiers.
+<!-- LIVE_EVIDENCE_END -->
+
+<!-- SUBMISSION_PROVENANCE_START -->
+## Final source and CI provenance
+
+- Source commit at documentation fill time: pending script fill.
+- Python CI run: pending run URL for the exact final source revision.
+- Foundry CI run: pending run URL for the exact final source revision.
+<!-- SUBMISSION_PROVENANCE_END -->
 
 For a mined reverted vault call, the read-only verifier can validate the Base
 Sepolia chain, transaction destination, sender, `transferToken` calldata, receipt
