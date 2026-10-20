@@ -774,6 +774,18 @@ def verify_governance_audit(request: Request) -> dict[str, Any]:
     return request.app.state.governance_store.verify_audit_chain()
 
 
+@router.get("/governance/decisions", dependencies=[Depends(require_owner)])
+def read_governance_decisions(request: Request) -> list[dict[str, Any]]:
+    """Return persisted decision payloads for tasks that have been processed."""
+    governance = request.app.state.governance_store
+    decisions = []
+    for task in governance.list_tasks():
+        decision = governance.get_decision(task["task_id"])
+        if decision is not None:
+            decisions.append({"task_id": task["task_id"], "decision": decision})
+    return decisions
+
+
 def _csv_safe(value: Any) -> str:
     """Neutralise spreadsheet formula prefixes in owner-exported CSV cells."""
     if value is None:
@@ -821,8 +833,10 @@ def export_governance(request: Request, format: Literal["json", "csv"] = "json")
     writer.writeheader()
     for task in exported_tasks:
         decision_record = task.get("decision") or {}
-        decision = decision_record.get("decision") if isinstance(decision_record, dict) else {}
-        decision = decision if isinstance(decision, dict) else {}
+        nested_decision = decision_record.get("decision") if isinstance(decision_record, dict) else None
+        decision = nested_decision if isinstance(nested_decision, dict) else (
+            decision_record if isinstance(decision_record, dict) else {}
+        )
         writer.writerow({
             "task_id": _csv_safe(task.get("task_id")),
             "invoice_id": _csv_safe(task.get("invoice_id")),
