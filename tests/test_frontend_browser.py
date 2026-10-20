@@ -551,7 +551,11 @@ def test_browser_receipt_rpc_error_remains_visible_in_activity(page: Page, front
     page.goto(frontend_url)
     _connect(page, "agent-token", "owner-token")
     page.locator('nav [data-view="activity"]').click()
-    page.get_by_role("button", name="Check receipt").click()
+    with page.expect_request(
+        lambda request: request.url.endswith("/transactions/" + transaction_id + "/receipt")
+        and request.headers.get("authorization") == "Bearer owner-token"
+    ):
+        page.get_by_role("button", name="Check receipt").click()
     expect(page.locator("#global-feedback")).to_contain_text("Receipt status is unavailable")
     expect(page.locator("#activity-rows .receipt-result")).to_have_count(0)
     expect(page.locator("#activity-rows .receipt-error")).to_contain_text("API or workflow database is unavailable")
