@@ -709,6 +709,7 @@ const state = {
   tokens: {agent: '', owner: ''},
   transactions: [],
   receiptResults: {},
+  receiptErrors: {},
   auditSummary: [],
   auditSelectedId: '',
   marketQuotes: {},
@@ -1568,6 +1569,7 @@ const renderActivity = () => {
         || (state.executionMode === 'base_sepolia_vault' && tx.status === 'submitting_onchain');
       const canCancel = ['ready', 'awaiting_approval', 'approved'].includes(tx.status);
       const receipt = state.receiptResults[tx.transaction_id];
+      const receiptError = state.receiptErrors[tx.transaction_id];
       const receiptDetails = receipt
         ? `<div class="receipt-result" aria-live="polite">
           <strong>Base Sepolia receipt · ${esc(receipt.status)}</strong>
@@ -1575,7 +1577,9 @@ const renderActivity = () => {
           <span class="small-mono">Transaction hash · ${esc(receipt.transaction_hash)}</span>
           <span>Point-in-time RPC result; not proof of transaction finality.</span>
         </div>`
-        : '';
+        : receiptError
+          ? `<div class="receipt-error" role="status">Receipt status is unavailable: ${esc(receiptError)}</div>`
+          : '';
       const action = `<div style="display:flex;align-items:center;gap:7px">
         <button class="btn secondary" type="button" data-action="inspect" data-id="${esc(tx.transaction_id)}">Inspect</button>
         ${canCancel
@@ -1842,6 +1846,7 @@ const clearSessionData = () => {
   state.vaultStatusError = '';
   state.transactions = [];
   state.receiptResults = {};
+  state.receiptErrors = {};
   state.transactionsLoaded = false;
   state.transactionError = '';
   state.spendingSummary = null;
@@ -2043,6 +2048,7 @@ const handleExecute = async (transactionId) => {
     : 'Request a simulation only? No transaction will be signed or broadcast.';
   if (!window.confirm(confirmation)) return;
   delete state.receiptResults[transactionId];
+  delete state.receiptErrors[transactionId];
   state.busyActions.add(transactionId);
   const sessionVersion = state.sessionVersion;
   renderActivity();
@@ -2093,6 +2099,7 @@ const handleReceipt = async (transactionId) => {
     );
     if (sessionVersion !== state.sessionVersion) return;
     state.receiptResults[transactionId] = receipt;
+    delete state.receiptErrors[transactionId];
     const block = receipt.block_number === null ? '' : ` in block ${receipt.block_number}`;
     notify(
       `Base Sepolia receipt: ${receipt.status}${block}. Receipt status is not finality.`,
@@ -2100,6 +2107,7 @@ const handleReceipt = async (transactionId) => {
     );
   } catch (error) {
     if (sessionVersion !== state.sessionVersion) return;
+    state.receiptErrors[transactionId] = error.message;
     notify(`Receipt status is unavailable: ${error.message}`, 'error');
   } finally {
     if (sessionVersion === state.sessionVersion) {

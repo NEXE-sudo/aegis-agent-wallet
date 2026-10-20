@@ -383,7 +383,7 @@ def test_market_failure_is_unavailable_and_action_failures_are_not_success():
 const assert = require('node:assert/strict');
 const state = {
   sessionVersion: 1, executionMode: 'simulated', transactions: [],
-  receiptResults: {},
+  receiptResults: {}, receiptErrors: {},
   marketRequestId: 0, marketQuoteRequestIds: new Map(),
   marketSelected: {assetClass: 'crypto', symbol: 'BTC'},
   marketQuotes: {}, tokens: {owner: 'owner-token'}, busyActions: new Set()

@@ -537,7 +537,6 @@ def test_browser_policy_configuration_is_owner_read_only(page: Page, frontend_ur
     )
 
 
-
 def test_browser_activity_history_paginates_with_offset_and_keeps_search_page_scoped(page: Page, frontend_url: str):
     transactions = [{
         "transaction_id": f"workflow-{index:03d}",
@@ -582,7 +581,7 @@ def test_browser_activity_history_paginates_with_offset_and_keeps_search_page_sc
     assert any(call["path"] == "/transactions" and call["query"] == "limit=50&offset=0" for call in calls)
 
 
-def test_browser_receipt_rpc_error_is_visible_without_fabricating_a_receipt(page: Page, frontend_url: str):
+def test_browser_receipt_rpc_error_remains_visible_in_activity(page: Page, frontend_url: str):
     transaction_id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
     transactions = [{
         "transaction_id": transaction_id,
@@ -623,3 +622,7 @@ def test_browser_receipt_rpc_error_is_visible_without_fabricating_a_receipt(page
         page.get_by_role("button", name="Check receipt").click()
     expect(page.locator("#global-feedback")).to_contain_text("Receipt status is unavailable")
     expect(page.locator("#activity-rows .receipt-result")).to_have_count(0)
+    expect(page.locator("#activity-rows .receipt-error")).to_contain_text("API or workflow database is unavailable")
+    page.locator('nav [data-view="settings"]').click()
+    page.get_by_role("button", name="Disconnect").click()
+    expect(page.locator("#activity-rows .receipt-error")).to_have_count(0)
