@@ -554,7 +554,7 @@ def test_browser_receipt_rpc_error_remains_visible_in_activity(page: Page, front
     page.get_by_role("button", name="Check receipt").click()
     expect(page.locator("#global-feedback")).to_contain_text("Receipt status is unavailable")
     expect(page.locator("#activity-rows .receipt-result")).to_have_count(0)
-    expect(page.locator("#activity-rows .receipt-error")).to_contain_text("receipt provider unavailable")
+    expect(page.locator("#activity-rows .receipt-error")).to_contain_text("API or workflow database is unavailable")
     page.locator('nav [data-view="settings"]').click()
     page.get_by_role("button", name="Disconnect").click()
     expect(page.locator("#activity-rows .receipt-error")).to_have_count(0)
