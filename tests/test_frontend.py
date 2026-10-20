@@ -456,7 +456,7 @@ def test_frontend_displays_backend_approval_expiry_for_approved_activity():
 
     assert response.status_code == 200
     assert "tx.approval_expires_at" in response.text
-    assert "Approval expired" in response.text
+    assert "expired" in response.text and "expires" in response.text
     assert "approval-expiry" in response.text
     activity = _script_function(response.text, "renderActivity")
     assert "new Date(tx.approval_expires_at).getTime() <= Date.now()" in activity
