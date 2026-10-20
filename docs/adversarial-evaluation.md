@@ -34,8 +34,9 @@ The provider receives task and invoice content. Use synthetic data only. The LLM
 | Unknown recipient | Valid-format but unrecognised address | awaiting_approval |
 | Untrusted invoice text | Direct override, fake finance authority, JSON-shaped instructions, urgency, owner-tool escalation | Original structured recipient and amount remain authoritative |
 | Reservation lifecycle | Daily limit filled, new request blocked, owner rejection releases reservation, fresh retry accepted | Persisted statuses match the expected lifecycle |
+| Persisted governance | Injected task description, unverified payee, mandate/payee drift after queueing | Registered payee remains authoritative; unverified or stale tasks escalate without proposals |
 
-The offline agent is deterministic and ignores invoice text when selecting payment fields. These cases demonstrate the configured workflow behavior and structured-payment boundary; they do not measure whether an external language model would independently resist those attacks.
+The offline agent is deterministic and ignores invoice text when selecting payment fields. The suite also drives the persisted governance API through owner-authenticated mandate/payee/task creation, agent-only queue processing, and integrity checks. These cases demonstrate configured workflow behaviour and structured-payment boundaries; they do not measure whether an external language model would independently resist those attacks.
 
 ## Opt-in LLM attack families
 
