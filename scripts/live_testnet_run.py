@@ -144,8 +144,8 @@ def validate_configuration(args: argparse.Namespace, env: dict[str, str] | os._E
         raise LiveRunError("Transfer amount must be between 1 and 50000000 USDC base units (0.000001–50 USDC).")
     if args.fund_amount_base_units is not None and args.fund_amount_base_units < args.amount_base_units:
         raise LiveRunError("Funding amount must be at least the proposed transfer amount.")
-    if args.min_confirmations < 1:
-        raise LiveRunError("--min-confirmations must be at least 1.")
+    if args.min_confirmations < MIN_CONFIRMATIONS:
+        raise LiveRunError("--min-confirmations must be at least 12 for this testnet evidence workflow.")
     return {"owner": owner, "recipient": recipient, "token": token}
 
 
