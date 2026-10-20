@@ -75,6 +75,22 @@ def _validate_live_evidence(live_dir: Path) -> dict[str, Any]:
         raise EvidenceDocsError("The success bundle does not identify a successful transfer.")
     if reverted.get("testnet_evidence", {}).get("mode") != "reverted_vault_call":
         raise EvidenceDocsError("The revert bundle does not identify a reverted vault call.")
+    for label, bundle, path in (
+        ("success", success, live_dir / "reverify-success.log"),
+        ("revert", reverted, live_dir / "reverify-revert.log"),
+    ):
+        try:
+            reverify_log = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            raise EvidenceDocsError(f"Missing {label} live RPC reverification log; no documentation was changed.") from exc
+        expected_tx = bundle.get("testnet_evidence", {}).get("evidence", {}).get("transaction_hash")
+        if (
+            "Testnet evidence re-verification: PASS" not in reverify_log
+            or not isinstance(expected_tx, str)
+            or f"Transaction hash: {expected_tx}" not in reverify_log
+            or "Vault deployment/configuration snapshot: MATCH" not in reverify_log
+        ):
+            raise EvidenceDocsError(f"{label} live RPC reverification log is missing or does not match its bundle.")
     success_check = validate_phase5_evidence(deployment, success)
     revert_check = validate_phase5_evidence(deployment, reverted)
     if success_check.get("result") != "PASS" or revert_check.get("result") != "PASS":
