@@ -360,6 +360,8 @@ class GovernanceStore:
                 raise
 
     def get_decision_for_transaction(self, transaction_id: str) -> dict[str, Any] | None:
+        if not self.verify_audit_chain()["valid"]:
+            raise GovernanceDataError("Governance evidence failed integrity verification")
         with closing(self._connect()) as db:
             rows = db.execute(
                 "SELECT decision_json, payload_hash FROM governance_decisions ORDER BY sequence DESC"
