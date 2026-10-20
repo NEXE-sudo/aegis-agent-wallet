@@ -1,7 +1,7 @@
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from fastapi.testclient import TestClient
@@ -103,7 +103,6 @@ def _mock_api(
             )
         elif parsed.path == "/transactions" and request.method == "GET":
             status = remaining_transaction_statuses.pop(0) if remaining_transaction_statuses else 200
-            from urllib.parse import parse_qs
             query = parse_qs(parsed.query)
             limit = int(query.get("limit", ["50"])[0])
             offset = int(query.get("offset", ["0"])[0])
