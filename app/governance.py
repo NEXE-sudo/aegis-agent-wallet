@@ -377,6 +377,27 @@ class GovernanceStore:
                 return decision
         return None
 
+    @staticmethod
+    def _budget_transaction_statuses(db: sqlite3.Connection) -> dict[str, str]:
+        """Return persisted workflow statuses; missing workflow data stays conservative."""
+        try:
+            rows = db.execute("SELECT transaction_id, status FROM transactions").fetchall()
+        except sqlite3.OperationalError:
+            return {}
+        return {row["transaction_id"]: row["status"] for row in rows}
+
+    @staticmethod
+    def _counts_toward_budget(
+        decision: dict[str, Any], transaction_statuses: dict[str, str]
+    ) -> bool:
+        """Release only reservations whose downstream proposal is definitively inactive."""
+        if decision.get("action") != "propose" or type(decision.get("amount")) is not int:
+            return False
+        transaction_id = decision.get("transaction_id")
+        # Missing IDs/records are counted conservatively for legacy or inconsistent evidence.
+        status = transaction_statuses.get(transaction_id) if isinstance(transaction_id, str) else None
+        return status not in {"blocked", "cancelled", "rejected"}
+
     def monthly_proposed_spend(self, year_month: str) -> int:
         total = 0
         with closing(self._connect()) as db:
@@ -384,9 +405,10 @@ class GovernanceStore:
                 "SELECT decision_json, created_at FROM governance_decisions WHERE substr(created_at, 1, 7) = ?",
                 (year_month,),
             ).fetchall()
+            transaction_statuses = self._budget_transaction_statuses(db)
         for row in rows:
             decision = json.loads(row["decision_json"])
-            if decision.get("action") == "propose" and type(decision.get("amount")) is int:
+            if self._counts_toward_budget(decision, transaction_statuses):
                 total += decision["amount"]
         return total
 
@@ -399,6 +421,7 @@ class GovernanceStore:
                 """SELECT t.payload_json, t.payload_hash, t.status, d.decision_json, d.created_at
                    FROM governance_tasks t LEFT JOIN governance_decisions d ON d.task_id = t.task_id"""
             ).fetchall()
+            transaction_statuses = self._budget_transaction_statuses(db)
         for row in rows:
             task = json.loads(row["payload_json"])
             if payload_hash(task) != row["payload_hash"]:
@@ -410,7 +433,7 @@ class GovernanceStore:
                 continue
             if decision.get("action") in {"propose", "skip"}:
                 invoice_ids.add(task["invoice_id"])
-            if decision.get("action") == "propose" and type(decision.get("amount")) is int:
+            if self._counts_toward_budget(decision, transaction_statuses):
                 recent_amounts.append(decision["amount"])
                 if row["created_at"] and row["created_at"][:10] == day:
                     paid_today += decision["amount"]

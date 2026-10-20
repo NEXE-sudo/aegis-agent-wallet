@@ -35,7 +35,7 @@ The queue is deterministic. The existing optional LLM path remains a separate to
 - Unknown and unverified payees escalate without a proposed amount or address.
 - Amounts, budgets, limits, and balances use integer token base units; no floating-point conversions are used.
 - Governance and decision payloads are stored with SHA-256 hashes and linked audit records. Verification detects payload/hash inconsistencies and chain breaks; it is not a digital signature and does not protect against an attacker who can rewrite the entire SQLite database and recompute every hash.
-- Previously proposed amounts are conservatively counted in mandate/payee budget history. This first iteration does not reconcile cancelled or blocked proposals back out of governance budget history; treat the governance budget as a conservative reservation until that lifecycle integration is completed.
+- Proposed amounts count toward mandate/payee budget history while their downstream workflow transaction is active. Persisted `blocked`, `cancelled`, and `rejected` transaction states release the governance budget reservation; unknown/missing transaction records remain counted conservatively. Invoice IDs remain in duplicate checks after cancellation/rejection so releasing budget does not silently make the same invoice payable again. This is local SQLite reconciliation, not chain-observed settlement or receipt/finality reconciliation.
 - Existing wallet policy revalidation, owner approvals, and on-chain vault caps remain authoritative. Simulated execution is the default; the vault is unaudited and testnet-only.
 
 ## Decision order
@@ -46,4 +46,4 @@ The queue is deterministic. The existing optional LLM path remains a separate to
 4. Skip duplicate invoices, exhausted mandate budgets, and payments that would breach the treasury buffer.
 5. Propose only when the deterministic checks pass; attach rationale, rule evidence references, mandate ID/hash, and the resulting wallet proposal status.
 
-The confidence field is a rule label, not a calibrated probability. The engine is not a validated fraud detector. The offline evaluation now includes persisted-queue cases for injected task descriptions, unverified payees, and mandate/payee drift. This remains bounded regression coverage, not a broad security evaluation. LLM orchestration over the persisted queue, transaction-lifecycle reconciliation, and reconciliation of cancelled/blocked proposals from budget history remain outstanding.
+The confidence field is a rule label, not a calibrated probability. The engine is not a validated fraud detector. The offline evaluation now includes persisted-queue cases for injected task descriptions, unverified payees, and mandate/payee drift. This remains bounded regression coverage, not a broad security evaluation. LLM orchestration over the persisted queue, on-chain settlement/receipt reconciliation and reconciliation for uncertain submission outcomes remain outstanding.

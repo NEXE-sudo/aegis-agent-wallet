@@ -2,6 +2,7 @@ import asyncio
 import json
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 
 import httpx
 import pytest
@@ -445,3 +446,77 @@ def test_governance_proposal_cannot_execute_after_payee_changes(monkeypatch, tmp
 
     assert response.status_code == 409
     assert response.json()["detail"]["code"] == "governance_payee_changed"
+
+
+
+@pytest.mark.parametrize("terminal_action", ["cancel", "reject"])
+def test_inactive_downstream_proposal_releases_governance_budget_history(
+    monkeypatch, tmp_path, terminal_action
+):
+    governance = setup_isolated(monkeypatch, tmp_path)
+    assert client.put(
+        "/governance/mandate", headers=OWNER_HEADERS, json=mandate_payload()
+    ).status_code == 200
+    assert client.put(
+        "/governance/payees/power-company",
+        headers=OWNER_HEADERS,
+        json=payee_payload(),
+    ).status_code == 200
+    task = client.post(
+        "/governance/tasks",
+        headers=OWNER_HEADERS,
+        json={
+            "task_id": f"invoice-reconcile-{terminal_action}",
+            "invoice_id": f"invoice-reconcile-{terminal_action}",
+            "payee_id": "power-company",
+            "token_symbol": "USDC",
+            "amount_base_units": 1_000_000,
+            "description": "Reconciliation regression case.",
+        },
+    )
+    assert task.status_code == 201
+
+    decision_response = client.post(
+        "/agent/governance/decide-pending", headers=AGENT_HEADERS
+    )
+    assert decision_response.status_code == 200
+    decision = decision_response.json()["decisions"][0]["decision"]
+    transaction_id = decision["transaction_id"]
+    assert decision["action"] == "propose"
+    assert decision["transaction_status"] == "ready"
+
+    lifecycle_response = client.post(
+        f"/transactions/{transaction_id}/{terminal_action}", headers=OWNER_HEADERS
+    )
+    assert lifecycle_response.status_code == 200
+    assert lifecycle_response.json()["status"] == (
+        "cancelled" if terminal_action == "cancel" else "rejected"
+    )
+
+    now = datetime.now(UTC)
+    history = governance.history_for_payee(
+        "power-company", day=now.date().isoformat()
+    )
+    assert governance.monthly_proposed_spend(now.strftime("%Y-%m")) == 0
+    assert history.paid_today == 0
+    assert history.recent_amounts == ()
+    # A terminal proposal releases budget, but its invoice remains in duplicate checks.
+    assert f"invoice-reconcile-{terminal_action}" in history.invoice_ids
+
+
+@pytest.mark.parametrize("status", ["blocked", "cancelled", "rejected"])
+def test_budget_eligibility_releases_only_known_inactive_statuses(status):
+    decision = {"action": "propose", "amount": 1_000_000, "transaction_id": "tx-1"}
+
+    assert not GovernanceStore._counts_toward_budget(
+        decision, {"tx-1": status}
+    )
+
+
+def test_budget_eligibility_keeps_unknown_or_missing_status_conservative():
+    decision = {"action": "propose", "amount": 1_000_000, "transaction_id": "missing"}
+
+    assert GovernanceStore._counts_toward_budget(decision, {})
+    assert GovernanceStore._counts_toward_budget(
+        {**decision, "transaction_id": None}, {}
+    )
