@@ -92,7 +92,7 @@ def _make_fixture(root: Path, monkeypatch) -> tuple[Path, Path, Path, Path]:
 def test_preflight_accepts_consistent_offline_submission_artifacts(tmp_path, monkeypatch) -> None:
     paths = _make_fixture(tmp_path, monkeypatch)
 
-    notes = scripts.scripts.submission_preflight.run_preflight(tmp_path, *paths)
+    notes = scripts.submission_preflight.run_preflight(tmp_path, *paths)
 
     assert any("Manifest and selected artifact hashes: PASS" in note for note in notes)
     assert any("NOT SUPPLIED" in note for note in notes)
@@ -103,7 +103,7 @@ def test_preflight_rejects_manifest_from_another_revision(tmp_path, monkeypatch)
     monkeypatch.setattr(scripts.submission_preflight, "_current_revision", lambda _root: "b" * 40)
 
     with pytest.raises(ValueError, match="source_revision does not match"):
-        scripts.scripts.submission_preflight.run_preflight(tmp_path, *paths)
+        scripts.submission_preflight.run_preflight(tmp_path, *paths)
 
 
 def test_preflight_rejects_failed_repeated_evaluation(tmp_path, monkeypatch) -> None:
@@ -128,7 +128,7 @@ def test_preflight_rejects_failed_repeated_evaluation(tmp_path, monkeypatch) -> 
     _write_json(tmp_path / manifest, refreshed)
 
     with pytest.raises(ValueError, match="contains failures"):
-        scripts.scripts.submission_preflight.run_preflight(tmp_path, manifest, agent_eval, repeated, bundle)
+        scripts.submission_preflight.run_preflight(tmp_path, manifest, agent_eval, repeated, bundle)
 
 
 def test_preflight_can_require_genuine_testnet_evidence(tmp_path, monkeypatch) -> None:
