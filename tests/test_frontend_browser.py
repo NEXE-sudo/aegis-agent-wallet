@@ -116,6 +116,33 @@ def _mock_api(
                 "tokens": [{"address": "0x036cbd53842c5426634e7929541ec2318f3dcf7e", "symbol": "USDC", "decimals": 6, "balance_base_units": 12345678, "formatted_balance": "12.345678"}],
                 "read_only": True,
             })
+        elif parsed.path == "/spending/summary" and request.method == "GET":
+            fulfill(route, 200, {
+                "as_of_date_utc": "2026-10-20",
+                "source": "local_workflow_accounting",
+                "tokens": [{
+                    "token_address": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+                    "symbol": "USDC",
+                    "chain_id": 84532,
+                    "decimals": 6,
+                    "spent_base_units": 1234567,
+                    "daily_limit_base_units": 150000000,
+                    "remaining_base_units": 148765433,
+                    "limit_exceeded": False,
+                }],
+            })
+        elif parsed.path == "/chain/base-sepolia/status" and request.method == "GET":
+            fulfill(route, 200, {"chain_id": 84532, "expected_chain_id": 84532})
+        elif parsed.path == "/chain/base-sepolia/vault/status" and request.method == "GET":
+            fulfill(route, 200, {
+                "chain_id": 84532,
+                "vault_address": "0x1111111111111111111111111111111111111111",
+                "owner": "0x2222222222222222222222222222222222222222",
+                "agent": "0x3333333333333333333333333333333333333333",
+                "paused": False,
+                "in_sync": True,
+                "differences": [],
+            })
         elif parsed.path == "/policy/config" and request.method == "GET":
             fulfill(route, 200, policy_config or {
                 "agent_id": "devops-01",
@@ -626,3 +653,70 @@ def test_browser_receipt_rpc_error_remains_visible_in_activity(page: Page, front
     page.locator('nav [data-view="settings"]').click()
     page.get_by_role("button", name="Disconnect").click()
     expect(page.locator("#activity-rows .receipt-error")).to_have_count(0)
+
+def test_browser_wallet_read_configuration_and_approval_expiry_are_end_to_end(page: Page, frontend_url: str):
+    transaction_id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+    transactions = [{
+        "transaction_id": transaction_id,
+        "status": "approved",
+        "fingerprint": "c" * 64,
+        "risk_level": "low",
+        "risk_score": 10,
+        "policy_decision": "allow",
+        "policy_reasons": [],
+        "risk_reasons": [],
+        "proposal": {
+            "recipient": "0x4444444444444444444444444444444444444444",
+            "amount_base_units": 2500000,
+            "token_symbol": "USDC",
+            "token_decimals": 6,
+        },
+        "created_at": "2026-10-20T10:00:00Z",
+        "updated_at": "2026-10-20T10:00:00Z",
+        "approval_expires_at": "2020-01-01T00:00:00Z",
+    }]
+    calls = _mock_api(page, transactions=transactions)
+    page.goto(frontend_url)
+
+    _connect(page, "integration-agent-token", "integration-owner-token")
+    page.wait_for_load_state("networkidle")
+
+    expect(page.locator("#spending-summary")).to_contain_text("USDC")
+    expect(page.locator("#spending-summary")).to_contain_text("Remaining")
+    expect(page.locator("#spending-date")).to_contain_text("2026-10-20")
+
+    page.get_by_role("button", name="Check network").click()
+    expect(page.locator("#chain-status")).to_contain_text("84532")
+    expect(page.locator("#chain-status")).to_contain_text("Base Sepolia")
+
+    page.get_by_role("button", name="Check vault").click()
+    expect(page.locator("#vault-status")).to_contain_text("Policy in sync")
+    expect(page.locator("#vault-status")).to_contain_text("0x1111111111111111111111111111111111111111")
+    expect(page.locator("#vault-status")).to_contain_text("0x3333333333333333333333333333333333333333")
+
+    address = "0x2222222222222222222222222222222222222222"
+    page.get_by_label("Public wallet address").fill(address)
+    page.get_by_role("button", name="Inspect balances").click()
+    expect(page.locator("#wallet-balances")).to_contain_text("1.25 ETH")
+    expect(page.locator("#wallet-balances")).to_contain_text("12.345678 USDC")
+
+    page.locator('nav [data-view="settings"]').click()
+    expect(page.locator("#policy-config-content")).to_contain_text("USDC")
+    expect(page.locator("#policy-config-content")).to_contain_text("84532")
+
+    page.locator('nav [data-view="activity"]').click()
+    expect(page.locator("#activity-rows")).to_contain_text("Approval expired")
+
+    expected_paths = {
+        "/spending/summary",
+        "/chain/base-sepolia/status",
+        "/chain/base-sepolia/vault/status",
+        f"/chain/base-sepolia/address/{address}/balances",
+        "/policy/config",
+    }
+    owner_calls = [
+        call for call in calls
+        if call["authorization"] == "Bearer integration-owner-token"
+    ]
+    assert expected_paths.issubset({call["path"] for call in owner_calls})
+
