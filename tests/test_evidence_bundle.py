@@ -173,8 +173,8 @@ def test_testnet_bundle_fails_when_confirmation_depth_is_too_low(monkeypatch, tm
         bundle["testnet_evidence"]["error"]
     )
     report = (tmp_path / "bundle" / "aegis-evidence-bundle.md").read_text()
-    assert "Receipt block hash: `0x" + "c" * 64 + "`" in report
-    assert "Canonical block hash at verification: `0x" + "c" * 64 + "`" in report
+    assert "Receipt block hash: 0x" + "c" * 64 in report
+    assert "Canonical block hash at verification: 0x" + "c" * 64 in report
     assert "Confirmations observed: 2 (minimum required: 3)" in report
 
 
