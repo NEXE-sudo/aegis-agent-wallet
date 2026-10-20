@@ -34,9 +34,11 @@ def verify_database(path: Path) -> tuple[bool, str]:
 
 def _copy_database(source: Path, temporary: Path) -> None:
     uri = f"file:{quote(str(source.resolve()))}?mode=ro"
-    with closing(sqlite3.connect(uri, uri=True, timeout=10)) as src:
-        with closing(sqlite3.connect(temporary)) as dst:
-            src.backup(dst)
+    with (
+        closing(sqlite3.connect(uri, uri=True, timeout=10)) as src,
+        closing(sqlite3.connect(temporary)) as dst,
+    ):
+        src.backup(dst)
 
 
 def _temporary_path(destination: Path, suffix: str) -> Path:
