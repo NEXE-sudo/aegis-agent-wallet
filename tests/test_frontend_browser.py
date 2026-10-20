@@ -454,6 +454,8 @@ def test_browser_receipt_result_stays_visible_in_activity(page: Page, frontend_u
     _connect(page, "agent-token", "owner-token")
 
     page.locator('nav [data-view="activity"]').click()
+    expect(page.locator("#activity-history-scope")).to_contain_text("latest 50 workflow records")
+    expect(page.locator("#activity-history-scope")).to_contain_text("older records may not be included")
     page.get_by_role("button", name="Check receipt").click()
 
     receipt_result = page.locator("#activity-rows .receipt-result")
