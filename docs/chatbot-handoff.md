@@ -29,7 +29,7 @@ Last updated: 20 October 2026
 
 ## Current implementation priority
 
-PR #203 delivered portable JSON/Markdown evidence bundles, optional read-only Base Sepolia transfer verification, audit cross-checking, and a canonical-payload SHA-256 digest. PR #204 added receipt/latest-block heights, observed confirmation depth, and configurable minimum-confirmation checks. These are point-in-time RPC observations, not finality guarantees.
+PR #209 added a dedicated Foundry GitHub Actions workflow with pinned dependencies and automated Solidity unit, fuzz, and invariant tests. The current increment adds owner-authenticated read-only inspection of a Base Sepolia AegisVault's bytecode, owner/agent, pause state, token policy, and optional comparison with the locally configured vault address. PR #203 delivered portable JSON/Markdown evidence bundles, optional read-only Base Sepolia transfer verification, audit cross-checking, and a canonical-payload SHA-256 digest. PR #204 added receipt/latest-block heights, observed confirmation depth, and configurable minimum-confirmation checks. These are point-in-time RPC observations, not finality guarantees.
 
 PR #205 delivered aggregate pass/failure counts and pass rates for deterministic and opt-in LLM evaluations. PR #206 added machine-readable failure reasons to individual deterministic and LLM runs and aggregates LLM failure types in reports. PR #207 added source revision and Python runtime provenance to the portable evidence bundle, upgraded its schema to v3, and included provenance in the bundle digest; it is merged and the user confirmed post-merge checks and deleted the branch. PR #208 is merged: evidence bundles compare the receipt block hash with the configured RPC's block hash at the receipt height, record both hashes, and use schema v4. The next increment adds a dedicated Foundry GitHub Actions workflow to run the existing Solidity unit, fuzz, and invariant tests with pinned dependencies. Keep the narrow scope explicit: offline scenarios do not prove actual transfers or general LLM safety.
 
@@ -49,9 +49,10 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 - Distinguish local configuration/database values from on-chain state, fail clearly on missing/mismatched configuration, and never expose secrets/private keys.
 
 ### Phase 3 — Wallet lifecycle and configuration verification
-- Additional regression coverage now checks that public-address balance reads refuse to query balances when the configured RPC reports a non-Base-Sepolia chain, and sanitise RPC read errors rather than exposing provider internals.
-- Verify network settings, wallet deployment state, and contract configuration.
-- Fail closed on missing, malformed, or mismatched configuration.
+- Additional regression coverage checks that public-address balance reads refuse to query balances when the configured RPC reports a non-Base-Sepolia chain, and sanitise RPC read errors rather than exposing provider internals.
+- The current increment adds read-only vault inspection for chain identity, bytecode presence, owner/agent separation, pause state, token allowlisting, spending caps, and optional comparison with `AEGIS_VAULT_ADDRESS`. This is a structural check only; expected owner/agent identities still require trusted deployment records.
+- Remaining work: verify deployment state and the expected vault/token/agent against trusted deployment configuration, and cover the inspection flow with additional end-to-end tests.
+- Fail closed on wrong-chain RPCs and malformed configuration responses; inspection data from one RPC is not proof of contract authenticity or finality.
 
 ### Phase 4 — Wallet dashboard and visibility
 - Present identity, network, balances, limits, spending, and transaction status in the existing dependency-free frontend.
@@ -106,7 +107,8 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 - PR #205 added aggregate evaluation metrics. PR #206 added machine-readable failure reasons and aggregate LLM failure diagnostics. Both are merged; the user confirmed post-merge checks and deleted the branch.
 - PR #207 (branch `feat/evidence-provenance`) is merged; it records source revision and Python runtime provenance, uses schema v3, and covers provenance in the canonical digest. The user confirmed post-merge checks and deleted the branch.
 - PR #208 is merged and post-merge local checks passed. Matching receipt/canonical block hashes remain a point-in-time observation from one RPC, not proof of finality.
-- Current work is on `ci/foundry-contract-tests`: add a dedicated GitHub Actions workflow that installs Foundry and pinned OpenZeppelin/forge-std dependencies, runs `forge test -vvv`, and documents the CI coverage. The Python checks remain required; inspect the new Foundry job separately.
+- PR #209 added automated Foundry contract checks and was merged; the user confirmed post-merge checks and deleted the branch.
+- Current work is on `feat/onchain-vault-configuration-inspection`: add an owner-authenticated, read-only AegisVault status endpoint with regression tests and documentation. It must not sign or submit transactions, and it must not present one-RPC inspection as proof of authenticity.
 - The user must run both local Python checks on the PR branch before merge. Then verify the PR head SHA and all CI jobs (including Foundry), squash-merge, ask for post-merge checks on updated `main`, and only then provide branch deletion commands.
 - Continue bundling implementation, tests, and related docs in one coherent PR. Never update `main` directly.
 
@@ -122,4 +124,4 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 ## Development workflow status
 
 - Continue with the manual PR workflow documented above: one focused branch and PR at a time, required checks before squash merge, user-confirmed local checks on the PR and updated `main`, and branch cleanup only after post-merge verification.
-- A dedicated Foundry contract workflow is being added alongside the existing Python workflow; do not treat Python tests as evidence that Solidity tests passed.
+- The dedicated Foundry contract workflow is active alongside the existing Python workflow; do not treat Python tests as evidence that Solidity tests passed. Prefer phase-completion PRs that bundle implementation, tests, and related documentation.
