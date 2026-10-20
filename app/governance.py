@@ -405,7 +405,8 @@ class GovernanceStore:
             decision = json.loads(row["decision_json"]) if row["decision_json"] else None
             if decision is None:
                 continue
-            invoice_ids.add(task["invoice_id"])
+            if decision.get("action") in {"propose", "skip"}:
+                invoice_ids.add(task["invoice_id"])
             if decision.get("action") == "propose" and type(decision.get("amount")) is int:
                 recent_amounts.append(decision["amount"])
                 if row["created_at"] and row["created_at"][:10] == day:
