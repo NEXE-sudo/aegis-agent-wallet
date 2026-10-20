@@ -109,8 +109,8 @@ async def run_repeated_evaluation(run_count: int, output_dir: Path) -> dict[str,
     lines.extend(
         [
             "",
-            "This report measures repeatability of the deterministic fallback. "
-            "It does not measure live LLM quality, chain execution, or real payment outcomes.",
+            ("This report measures repeatability of the deterministic fallback. "
+             "It does not measure live LLM quality, chain execution, or real payment outcomes."),
             "",
         ]
     )
