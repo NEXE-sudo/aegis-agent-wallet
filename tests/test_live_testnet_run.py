@@ -139,6 +139,7 @@ def test_non_broadcast_failure_is_marked_retryable(tmp_path: Path) -> None:
                   broadcast=False)
     assert state["steps"]["read-only"]["status"] == "failed"
 
+
 def test_subprocess_mock_receives_rpc_url_only_in_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     env = env_fixture()
     seen: dict[str, object] = {}
