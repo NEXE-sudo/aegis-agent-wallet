@@ -151,6 +151,9 @@ def _results(
     receipt=True,
     logs=None,
     latest_block_number="0x130",
+    receipt_block_hash="0x" + "c" * 64,
+    canonical_block_hash="0x" + "c" * 64,
+    canonical_block_number="0x123",
 ):
     return {
         "eth_chainId": chain_id,
@@ -163,11 +166,16 @@ def _results(
                 "transactionHash": TRANSACTION_HASH,
                 "status": receipt_status,
                 "blockNumber": "0x123",
+                "blockHash": receipt_block_hash,
                 "logs": [] if logs is None else logs,
             }
             if receipt
             else None
         ),
+        "eth_getBlockByNumber": {
+            "number": canonical_block_number,
+            "hash": canonical_block_hash,
+        },
     }
 
 
@@ -179,6 +187,8 @@ def test_verifies_successful_base_sepolia_transfer():
         "chain_id": 84532,
         "receipt_status": "success",
         "block_number": 0x123,
+        "receipt_block_hash": "0x" + "c" * 64,
+        "canonical_block_hash": "0x" + "c" * 64,
         "latest_block_number": 0x130,
         "confirmations_observed": 0x130 - 0x123 + 1,
         "token_contract": BASE_SEPOLIA_USDC_ADDRESS,
@@ -233,6 +243,8 @@ def test_cli_prints_transfer_evidence(monkeypatch, capsys):
     assert f"Sender: {SENDER}" in captured.out
     assert "Receipt status: success" in captured.out
     assert "Block number: 291" in captured.out
+    assert f"Receipt block hash: {'0x' + 'c' * 64}" in captured.out
+    assert f"Canonical block hash at verification: {'0x' + 'c' * 64}" in captured.out
     assert "Latest observed block: 304" in captured.out
     assert "Confirmations observed: 14 (minimum required: 1)" in captured.out
     assert f"Token contract: {BASE_SEPOLIA_USDC_ADDRESS}" in captured.out
@@ -622,6 +634,22 @@ def test_audit_cross_check_rejects_inconsistent_record(
 def test_rejects_rpc_endpoint_on_wrong_chain():
     with _rpc(_results(chain_id="0x1")) as rpc, pytest.raises(
         ValueError, match="not Base Sepolia"
+    ):
+        evidence_script.verify_evidence(TRANSACTION_HASH, rpc)
+
+
+def test_rejects_receipt_block_hash_that_is_no_longer_canonical():
+    with (
+        _rpc(_results(canonical_block_hash="0x" + "d" * 64)) as rpc,
+        pytest.raises(ValueError, match="does not match the canonical block"),
+    ):
+        evidence_script.verify_evidence(TRANSACTION_HASH, rpc)
+
+
+def test_rejects_rpc_block_with_wrong_height():
+    with (
+        _rpc(_results(canonical_block_number="0x124")) as rpc,
+        pytest.raises(RpcRequestError, match="malformed block"),
     ):
         evidence_script.verify_evidence(TRANSACTION_HASH, rpc)
 
