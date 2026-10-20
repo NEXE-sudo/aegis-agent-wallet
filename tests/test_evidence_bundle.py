@@ -59,7 +59,10 @@ def test_testnet_bundle_requires_all_verification_inputs(monkeypatch, tmp_path):
 
     assert bundle["passed"] is False
     assert bundle["testnet_evidence"]["checks"]["chain_and_transfer_evidence_verified"] is False
-    assert "requires --expected-sender, --audit-db, and --vault" in bundle["testnet_evidence"]["error"]
+    assert (
+        "requires --expected-sender, --audit-db, and --vault"
+        in bundle["testnet_evidence"]["error"]
+    )
 
 
 def test_successful_testnet_bundle_links_chain_and_audit(monkeypatch, tmp_path):

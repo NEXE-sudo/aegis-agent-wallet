@@ -83,9 +83,18 @@ def _render_markdown(bundle: dict[str, Any]) -> str:
     lines.extend([
         "## Interpretation",
         "",
-        "This report records the checks performed by this local tool; it is not an independent audit.",
-        "A successful receipt is an observed inclusion at the reported block, not a guarantee of finality.",
-        "Offline evaluation is policy/workflow evidence only and does not prove LLM safety or real-world invoice verification.",
+        (
+            "This report records the checks performed by this local tool; "
+            "it is not an independent audit."
+        ),
+        (
+            "A successful receipt is an observed inclusion at the reported block, "
+            "not a guarantee of finality."
+        ),
+        (
+            "Offline evaluation is policy/workflow evidence only and does not prove "
+            "LLM safety or real-world invoice verification."
+        ),
         "AegisVault is unaudited and testnet-only. Never use this workflow with mainnet funds.",
         "",
     ])
@@ -175,7 +184,10 @@ async def build_evidence_bundle(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Build a portable Aegis evaluation report and optional Base Sepolia evidence bundle."
+        description=(
+            "Build a portable Aegis evaluation report and optional Base Sepolia "
+            "evidence bundle."
+        ),
     )
     parser.add_argument(
         "--output-dir",
@@ -183,7 +195,10 @@ def main(argv: list[str] | None = None) -> int:
         default=Path("reports/evidence-bundle"),
         help="Output directory (default: reports/evidence-bundle)",
     )
-    parser.add_argument("--transaction-hash", help="optional Base Sepolia transaction hash to verify")
+    parser.add_argument(
+        "--transaction-hash",
+        help="optional Base Sepolia transaction hash to verify",
+    )
     parser.add_argument("--expected-sender", help="expected public address of the agent wallet")
     parser.add_argument("--audit-db", help="read-only Aegis SQLite database to cross-check")
     parser.add_argument("--vault", help="deployed AegisVault address")
