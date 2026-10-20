@@ -163,9 +163,9 @@ def test_cross_check_rejects_bundle_identity_mismatches(change, message):
     deployment = _deployment()
     bundle = _bundle()
     if change == "vault":
-        bundle["testnet_evidence"]["evidence"]["vault_address"] = (
-            "0x5555555555555555555555555555555555555555"
-        )
+        mismatched_vault = "0x5555555555555555555555555555555555555555"
+        bundle["testnet_evidence"]["evidence"]["vault_address"] = mismatched_vault
+        bundle["testnet_evidence"]["vault_configuration"]["vault_address"] = mismatched_vault
     elif change == "owner":
         bundle["testnet_evidence"]["vault_configuration"]["owner"] = (
             "0x5555555555555555555555555555555555555555"
