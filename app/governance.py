@@ -763,18 +763,39 @@ def decide_pending_governance_tasks(request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     results: list[dict[str, Any]] = []
-    payees = {item["payee_id"]: item for item in governance.list_payees()}
     for item in evaluated:
         task = item.pop("task")
         task_id = task["task_id"]
         proposal_record = None
+        current_mandate = governance.get_active_mandate()
+        current_payee = governance.get_payee(task["payee_id"])
+        mandate_stale = (
+            current_mandate is None
+            or current_mandate["payload_hash"] != task.get("mandate_hash_at_creation")
+        )
+        payee_stale = (
+            (current_payee["payload_hash"] if current_payee else None)
+            != task.get("payee_hash_at_creation")
+        )
+        if mandate_stale or payee_stale:
+            item["action"] = "escalate"
+            item["payee_id"] = None
+            item["amount"] = None
+            item["rationale"] = "Mandate or payee registry changed during decision processing; owner review required."
+            evidence = list(item["evidence_refs"])
+            if mandate_stale:
+                evidence.append("policy:mandate_changed_during_decision")
+            if payee_stale:
+                evidence.append("registry:payee_changed_during_decision")
+            item["evidence_refs"] = evidence
         if item["action"] == "propose":
-            payee = payees.get(item["payee_id"])
-            if payee is None:
+            payee = governance.get_payee(item["payee_id"])
+            if payee is None or payee["payload_hash"] != task.get("payee_hash_at_creation"):
                 item["action"] = "escalate"
+                item["payee_id"] = None
                 item["amount"] = None
-                item["rationale"] = "Payee registry changed during evaluation; owner review required."
-                item["evidence_refs"] = list(item["evidence_refs"]) + ["registry:changed_during_evaluation"]
+                item["rationale"] = "Payee registry changed during proposal creation; owner review required."
+                item["evidence_refs"] = list(item["evidence_refs"]) + ["registry:changed_before_proposal"]
             else:
                 proposal = TransactionProposal(
                     agent_id=controller.policy.agent_id,
