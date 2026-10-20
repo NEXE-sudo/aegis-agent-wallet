@@ -66,6 +66,23 @@ uv run --locked python -m scripts.verify_evidence_bundle \
 
 Exit code `0` means the digest and internal consistency checks pass and the bundle's overall result is PASS. Exit code `1` means the bundle is internally consistent but its recorded overall result is FAIL. Exit code `2` means the file, digest, schema, or cross-field consistency is invalid. This checks the saved payload against its own SHA-256 digest and recorded results; it does not authenticate the author, prove the source revision was trusted, or independently re-query the chain.
 
+
+
+## Reverify a bundle against the current chain
+
+After validating the saved JSON locally, a passing testnet bundle can be re-checked against the currently configured Base Sepolia RPC:
+
+```bash
+uv run --locked python -m scripts.reverify_testnet_bundle \
+  reports/evidence-bundle/aegis-evidence-bundle.json \
+  --expected-sender 0xYOUR_PUBLIC_AGENT_ADDRESS \
+  --audit-db ./aegis.sqlite3
+```
+
+For a bundle describing a reverted vault call, omit `--audit-db`; the verifier infers reverted-call mode from the bundle. The saved bundle must be an internally consistent overall PASS with passing testnet evidence. The verifier re-queries the transaction, checks the expected sender and receipt status, compares the transaction's stable evidence fields—including receipt/canonical block hashes—with the saved evidence, enforces the recorded minimum confirmation depth, and cross-checks the read-only SQLite audit record for successful transfers. Use `--min-confirmations N` to override the saved threshold.
+
+A mismatch, missing receipt, changed block hash, insufficient confirmation depth, or audit mismatch fails the re-verification. This is a fresh observation from the configured RPC, not an independent consensus proof or finality guarantee. The command is read-only and never signs or broadcasts transactions. It requires the RPC configuration already used by the Base Sepolia verification tools.
+
 ## Evidence limits
 
 - A matching receipt/canonical block hash only establishes agreement with the configured RPC at verification time; it is not a guarantee of finality or independent consensus.
