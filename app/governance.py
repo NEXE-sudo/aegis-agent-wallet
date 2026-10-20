@@ -771,6 +771,11 @@ def verify_governance_audit(request: Request) -> dict[str, Any]:
 def decide_pending_governance_tasks(request: Request) -> dict[str, Any]:
     governance = request.app.state.governance_store
     controller = request.app.state.controller
+    if not governance.verify_audit_chain()["valid"]:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "governance_integrity_failed", "message": "Governance evidence failed integrity verification."},
+        )
     try:
         evaluated = evaluate_pending_tasks(governance)
     except LookupError as exc:
