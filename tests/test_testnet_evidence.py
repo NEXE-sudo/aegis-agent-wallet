@@ -150,10 +150,11 @@ def _results(
     receipt_status="0x1",
     receipt=True,
     logs=None,
+    latest_block_number="0x130",
 ):
     return {
         "eth_chainId": chain_id,
-        "eth_blockNumber": "0x130",
+        "eth_blockNumber": latest_block_number,
         "eth_getTransactionByHash": (
             _transaction() if transaction is _USE_DEFAULT_TRANSACTION else transaction
         ),
@@ -621,6 +622,14 @@ def test_audit_cross_check_rejects_inconsistent_record(
 def test_rejects_rpc_endpoint_on_wrong_chain():
     with _rpc(_results(chain_id="0x1")) as rpc, pytest.raises(
         ValueError, match="not Base Sepolia"
+    ):
+        evidence_script.verify_evidence(TRANSACTION_HASH, rpc)
+
+
+def test_rejects_latest_block_behind_receipt():
+    with (
+        _rpc(_results(latest_block_number="0x122")) as rpc,
+        pytest.raises(RpcRequestError, match="latest block is behind"),
     ):
         evidence_script.verify_evidence(TRANSACTION_HASH, rpc)
 
