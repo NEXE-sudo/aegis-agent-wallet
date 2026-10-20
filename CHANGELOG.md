@@ -5,6 +5,7 @@
 - Persist owner-managed mandates, verified payees, and structured payment tasks in SQLite with payload hashes and append-only hash-chained governance and decision records.
 - Integrate a deterministic agent queue mode that evaluates owner-created tasks and creates proposals only through the existing wallet policy gateway; owner approval and AegisVault enforcement remain authoritative.
 - Add governance APIs, audit verification, regression coverage, and cumulative treasury-buffer accounting across batches.
+- Enforce bounded on-chain agent sessions and optional per-token/per-recipient transfer and UTC-day spending caps, with Foundry regression tests.
 
 
 ## 1.11.0 (unreleased)
