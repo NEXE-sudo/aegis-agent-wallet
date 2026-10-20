@@ -115,7 +115,18 @@ def test_preflight_rejects_failed_repeated_evaluation(tmp_path, monkeypatch) -> 
     report["scenarios"][0].update(passed_runs=4, failed_runs=1, pass_rate=0.8)
     _write_json(report_path, report)
 
-    with pytest.raises(ValueError, match="SHA-256 mismatch"):
+    refreshed = build_manifest(
+        tmp_path,
+        [agent_eval, repeated, bundle],
+        generated_at="2026-10-20T12:00:00+00:00",
+    )
+    refreshed["source_revision"] = REVISION
+    refreshed["source_tree_clean"] = True
+    refreshed.pop("manifest_sha256")
+    refreshed["manifest_sha256"] = _canonical_digest(refreshed)
+    _write_json(tmp_path / manifest, refreshed)
+
+    with pytest.raises(ValueError, match="contains failures"):
         submission_preflight.run_preflight(tmp_path, manifest, agent_eval, repeated, bundle)
 
 
