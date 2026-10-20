@@ -234,6 +234,11 @@ async def run_evaluation(output_dir: Path) -> dict[str, Any]:
             f"- Result: **{'PASS' if report['passed'] else 'FAIL'}** "
             f"({report['scenario_count']} scenarios)"
         ),
+        (
+            f"- Scenario summary: {report['summary']['passed_scenarios']} passed, "
+            f"{report['summary']['failed_scenarios']} failed "
+            f"({report['summary']['pass_rate']:.1%} pass rate)"
+        ),
         "",
         "| Scenario | Result | Expected | Observed |",
         "| --- | --- | --- | --- |",
@@ -417,6 +422,11 @@ async def run_llm_evaluation(
         (
             f"- Result: **{'PASS' if report['passed'] else 'FAIL'}** "
             f"({report['scenario_count']} scenarios)"
+        ),
+        (
+            f"- Aggregate runs: {report['summary']['passed_runs']}/"
+            f"{report['summary']['total_runs']} passed "
+            f"({report['summary']['pass_rate']:.1%} pass rate)"
         ),
         "- Scope: narrow invoice-text injection cases; not a general security evaluation.",
         "",
