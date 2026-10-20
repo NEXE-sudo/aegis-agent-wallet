@@ -219,6 +219,7 @@ def test_testnet_bundle_fails_closed_on_wrong_sender(monkeypatch, tmp_path):
     evidence = {
         "chain_id": 84532,
         "receipt_status": "success",
+        "token_contract": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
         "sender": "0x1111111111111111111111111111111111111111",
     }
     monkeypatch.setattr(bundle_script, "BaseSepoliaRpc", FakeRpc)
@@ -260,6 +261,7 @@ def test_failed_receipt_does_not_pass_testnet_bundle(monkeypatch, tmp_path):
     evidence = {
         "chain_id": 84532,
         "receipt_status": "failed",
+        "token_contract": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
         "sender": "0x1111111111111111111111111111111111111111",
     }
     monkeypatch.setattr(bundle_script, "BaseSepoliaRpc", FakeRpc)
