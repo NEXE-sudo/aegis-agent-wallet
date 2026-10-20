@@ -50,8 +50,6 @@ def capture_vault_configuration(
     owner_word = _read_word(rpc, vault, "owner()")
     agent_word = _read_word(rpc, vault, "agent()")
     paused_word = _read_word(rpc, vault, "paused()")
-    allowed_word = _read_word(rpc, vault, "tokenPolicy(address)", token)
-    per_tx_cap = _read_word(rpc, vault, "tokenPolicy(address)", token)
     # tokenPolicy(address) returns four ABI words, so read the complete tuple once.
     policy_call = "0x" + keccak(text="tokenPolicy(address)")[:4].hex()
     policy_call += token[2:].rjust(64, "0")
