@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.12.0 (unreleased)
+
+- Persist owner-managed mandates, verified payees, and structured payment tasks in SQLite with payload hashes and append-only hash-chained governance and decision records.
+- Integrate a deterministic agent queue mode that evaluates owner-created tasks and creates proposals only through the existing wallet policy gateway; owner approval and AegisVault enforcement remain authoritative.
+- Add governance APIs, audit verification, regression coverage, and cumulative treasury-buffer accounting across batches.
+
+
 ## 1.11.0 (unreleased)
 
 - Add a deterministic mandate-bounded payment decision engine with registry-ID payee selection, duplicate invoice checks, budget and treasury-buffer controls, approval escalation, and possible split-payment structuring detection.
