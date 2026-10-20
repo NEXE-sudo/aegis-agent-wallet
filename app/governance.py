@@ -77,6 +77,7 @@ class GovernanceStore:
                 CREATE TABLE IF NOT EXISTS governance_tasks (
                     task_id TEXT PRIMARY KEY,
                     payload_json TEXT NOT NULL,
+                    payload_hash TEXT NOT NULL,
                     status TEXT NOT NULL CHECK (status IN ('pending', 'decided')),
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
@@ -128,6 +129,16 @@ class GovernanceStore:
                         (index, row["decision_id"]),
                     )
             db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_governance_decision_sequence ON governance_decisions(sequence)")
+            task_columns = {row["name"] for row in db.execute("PRAGMA table_info(governance_tasks)")}
+            if "payload_hash" not in task_columns:
+                db.execute("ALTER TABLE governance_tasks ADD COLUMN payload_hash TEXT")
+                task_rows = db.execute("SELECT task_id, payload_json FROM governance_tasks").fetchall()
+                for row in task_rows:
+                    task_payload = json.loads(row["payload_json"])
+                    db.execute(
+                        "UPDATE governance_tasks SET payload_hash = ? WHERE task_id = ?",
+                        (payload_hash(task_payload), row["task_id"]),
+                    )
             db.executescript("""
                 CREATE TRIGGER IF NOT EXISTS governance_decisions_no_update
                     BEFORE UPDATE ON governance_decisions
@@ -257,9 +268,9 @@ class GovernanceStore:
             try:
                 db.execute(
                     """INSERT INTO governance_tasks
-                       (task_id, payload_json, status, created_at, updated_at)
-                       VALUES (?, ?, 'pending', ?, ?)""",
-                    (task_id, canonical_json(stored), now, now),
+                       (task_id, payload_json, payload_hash, status, created_at, updated_at)
+                       VALUES (?, ?, ?, 'pending', ?, ?)""",
+                    (task_id, canonical_json(stored), digest, now, now),
                 )
                 self._append_audit(db, "task_created", task_id, digest, now)
                 db.commit()
@@ -270,12 +281,18 @@ class GovernanceStore:
 
     def list_tasks(self, pending_only: bool = False) -> list[dict[str, Any]]:
         with closing(self._connect()) as db:
-            sql = "SELECT task_id, payload_json, status FROM governance_tasks"
+            sql = "SELECT task_id, payload_json, payload_hash, status FROM governance_tasks"
             if pending_only:
                 sql += " WHERE status = 'pending'"
             sql += " ORDER BY created_at, task_id"
             rows = db.execute(sql).fetchall()
-        return [{**json.loads(row["payload_json"]), "status": row["status"]} for row in rows]
+        result = []
+        for row in rows:
+            payload = json.loads(row["payload_json"])
+            if payload_hash(payload) != row["payload_hash"]:
+                raise GovernanceDataError("Stored task hash does not match its payload")
+            result.append({**payload, "status": row["status"]})
+        return result
 
     def get_decision(self, task_id: str) -> dict[str, Any] | None:
         with closing(self._connect()) as db:
@@ -361,11 +378,13 @@ class GovernanceStore:
         paid_today = 0
         with closing(self._connect()) as db:
             rows = db.execute(
-                """SELECT t.payload_json, t.status, d.decision_json, d.created_at
+                """SELECT t.payload_json, t.payload_hash, t.status, d.decision_json, d.created_at
                    FROM governance_tasks t LEFT JOIN governance_decisions d ON d.task_id = t.task_id"""
             ).fetchall()
         for row in rows:
             task = json.loads(row["payload_json"])
+            if payload_hash(task) != row["payload_hash"]:
+                raise GovernanceDataError("Stored task hash does not match its payload")
             if task.get("payee_id") != payee_id:
                 continue
             decision = json.loads(row["decision_json"]) if row["decision_json"] else None
@@ -385,7 +404,7 @@ class GovernanceStore:
 
     def verify_audit_chain(self) -> dict[str, Any]:
         with closing(self._connect()) as db:
-            rows = db.execute(
+            events = db.execute(
                 "SELECT sequence, event_type, entity_id, payload_hash, previous_hash, record_hash, created_at "
                 "FROM governance_audit ORDER BY sequence"
             ).fetchall()
@@ -393,8 +412,18 @@ class GovernanceStore:
                 "SELECT sequence, decision_id, task_id, decision_json, payload_hash, previous_hash, record_hash, created_at "
                 "FROM governance_decisions ORDER BY sequence"
             ).fetchall()
+            mandates = db.execute(
+                "SELECT mandate_id, payload_json, payload_hash FROM governance_mandates"
+            ).fetchall()
+            payees = db.execute(
+                "SELECT payee_id, payload_json, payload_hash FROM governance_payees"
+            ).fetchall()
+            tasks = db.execute(
+                "SELECT task_id, payload_json, payload_hash FROM governance_tasks"
+            ).fetchall()
         previous = "0" * 64
-        for row in rows:
+        latest_event_hash: dict[tuple[str, str], str] = {}
+        for row in events:
             record = {
                 "sequence": row["sequence"],
                 "event_type": row["event_type"],
@@ -406,6 +435,27 @@ class GovernanceStore:
             if row["previous_hash"] != previous or payload_hash(record) != row["record_hash"]:
                 return {"valid": False, "events_checked": row["sequence"] - 1}
             previous = row["record_hash"]
+            latest_event_hash[(row["event_type"], row["entity_id"])] = row["payload_hash"]
+
+        for row in mandates:
+            if (
+                payload_hash(json.loads(row["payload_json"])) != row["payload_hash"]
+                or latest_event_hash.get(("mandate_saved", row["mandate_id"])) != row["payload_hash"]
+            ):
+                return {"valid": False, "events_checked": len(events), "reason": "mandate_integrity"}
+        for row in payees:
+            if (
+                payload_hash(json.loads(row["payload_json"])) != row["payload_hash"]
+                or latest_event_hash.get(("payee_saved", row["payee_id"])) != row["payload_hash"]
+            ):
+                return {"valid": False, "events_checked": len(events), "reason": "payee_integrity"}
+        for row in tasks:
+            if (
+                payload_hash(json.loads(row["payload_json"])) != row["payload_hash"]
+                or latest_event_hash.get(("task_created", row["task_id"])) != row["payload_hash"]
+            ):
+                return {"valid": False, "events_checked": len(events), "reason": "task_integrity"}
+
         decision_previous = "0" * 64
         for index, row in enumerate(decisions, start=1):
             decision = json.loads(row["decision_json"])
@@ -422,16 +472,18 @@ class GovernanceStore:
                 payload_hash(decision) != row["payload_hash"]
                 or row["previous_hash"] != decision_previous
                 or payload_hash(record) != row["record_hash"]
+                or latest_event_hash.get(("decision_recorded", row["task_id"])) != row["payload_hash"]
             ):
                 return {
                     "valid": False,
-                    "events_checked": len(rows),
+                    "events_checked": len(events),
                     "decisions_checked": index - 1,
+                    "reason": "decision_integrity",
                 }
             decision_previous = row["record_hash"]
         return {
             "valid": True,
-            "events_checked": len(rows),
+            "events_checked": len(events),
             "decisions_checked": len(decisions),
             "head_hash": previous,
             "decision_head_hash": decision_previous,
