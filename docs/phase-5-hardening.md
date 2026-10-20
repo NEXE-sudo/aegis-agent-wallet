@@ -109,3 +109,8 @@ Use the reverted-call bundle path instead when validating a reverted-call scenar
 ## Phase 5 completion boundary
 
 The repository's Phase 5 implementation includes automated Solidity unit/fuzz/invariant checks, read-only deployment and transaction verification, successful-transfer and reverted-call evidence modes, portable schema-v6 bundles, offline integrity checks, live re-verification, and this cross-artifact deployment-to-transfer consistency check. The workflow is implemented, but a live evidence report must be generated from a real Base Sepolia deployment and transaction; CI and fixtures are not substitutes for that operational evidence.
+
+
+## Submission artifact manifest
+
+After generating the evaluation reports and any genuine testnet evidence, use the [submission evidence guide](submission-evidence.md) to hash the exact files intended for submission and verify their integrity offline. The manifest complements this runbook; it does not replace the schema-v6 evidence-bundle validator or prove transaction authorship or finality.

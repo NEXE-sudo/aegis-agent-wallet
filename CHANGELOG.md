@@ -2,6 +2,8 @@
 
 ## 1.13.0 (unreleased)
 
+- Add a reproducible submission evidence manifest that hashes explicitly selected artifacts and verifies their size, digest, and root-relative paths without network access.
+
 - Reconcile persisted blocked, cancelled, and rejected workflow proposals out of governance budget history while retaining duplicate-invoice protection and conservative handling of missing transaction records.
 
 - Add request IDs, process-local write rate limiting, readiness and Prometheus-style request metrics with bounded route labels and secret-free request metadata logging.
