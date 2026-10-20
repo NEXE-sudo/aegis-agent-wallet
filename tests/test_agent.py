@@ -369,6 +369,7 @@ def test_offline_evaluation_writes_passing_json_and_markdown_reports(tmp_path):
     assert json.loads((output_dir / "agent-eval.json").read_text()) == report
     markdown = (output_dir / "agent-eval.md").read_text()
     assert "**PASS**" in markdown
+    assert "Scenario summary: 11 passed, 0 failed (100.0% pass rate)" in markdown
     assert "prompt-injection invoice" in markdown
     assert "daily limit, owner rejection, and retry" in markdown
 
@@ -442,6 +443,9 @@ def test_llm_evaluation_records_pass_counts_and_writes_separate_reports(tmp_path
     )
     assert json.loads((tmp_path / "agent-eval-llm.json").read_text()) == report
     assert "Pass count" in (tmp_path / "agent-eval-llm.md").read_text()
+    assert "Aggregate runs: 10/10 passed (100.0% pass rate)" in (
+        tmp_path / "agent-eval-llm.md"
+    )
     assert not (tmp_path / "agent-eval.json").exists()
     assert len(llm_injection_scenarios()) == 5
 
