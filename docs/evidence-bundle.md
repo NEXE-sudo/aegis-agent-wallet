@@ -38,7 +38,18 @@ The JSON and Markdown reports record the UTC generation time, source revision wh
 
 The bundle includes the deterministic evaluation results, optional transaction evidence, explicit per-check outcomes, provenance, and a SHA-256 digest of the canonical JSON payload (excluding the digest field itself). Recompute the digest after removing `bundle_sha256` to check that the saved JSON has not changed. The digest covers the provenance fields, detects accidental or subsequent modification, and is not a digital signature or proof of authorship.
 
-A bundle fails if the included transaction cannot be verified, the expected sender differs, a required audit cross-check fails, the receipt status does not match the selected success/revert mode, the observed confirmation depth is below the requested minimum, or any offline scenario fails. A failed run still writes a report describing the outcome. The evidence schema is `aegis-evidence-bundle/v4`, which records receipt and canonical block hashes for supplied testnet evidence. No live LLM evaluation is run by this command.
+A bundle fails if the included transaction cannot be verified, the expected sender differs, a required audit cross-check fails, the receipt status does not match the selected success/revert mode, the observed confirmation depth is below the requested minimum, or any offline scenario fails. A failed run still writes a report describing the outcome. The generator emits schema `aegis-evidence-bundle/v5`, including separate status-aware successful-transfer and reverted-call modes. The verifier also accepts schema v4 successful-transfer bundles. No live LLM evaluation is run by the generator.
+
+## Verify a saved bundle
+
+Validate the saved JSON without regenerating the evaluation or contacting an RPC:
+
+```bash
+uv run --locked python -m scripts.verify_evidence_bundle \
+  reports/evidence-bundle/aegis-evidence-bundle.json
+```
+
+Exit code `0` means the digest and internal consistency checks pass and the bundle's overall result is PASS. Exit code `1` means the bundle is internally consistent but its recorded overall result is FAIL. Exit code `2` means the file, digest, schema, or cross-field consistency is invalid. This checks the saved payload against its own SHA-256 digest and recorded results; it does not authenticate the author, prove the source revision was trusted, or independently re-query the chain.
 
 ## Evidence limits
 

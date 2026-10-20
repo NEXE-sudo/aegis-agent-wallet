@@ -317,3 +317,118 @@ def test_cli_requires_complete_testnet_arguments():
     with pytest.raises(SystemExit) as exc:
         bundle_script.main(["--transaction-hash", "0x" + "a" * 64])
     assert exc.value.code == 2
+
+
+def _seal_bundle(payload):
+    payload = dict(payload)
+    payload.pop("bundle_sha256", None)
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    payload["bundle_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return payload
+
+
+def _valid_offline_bundle():
+    return _seal_bundle({
+        "schema": "aegis-evidence-bundle/v5",
+        "generated_at": "2026-10-20T00:00:00+00:00",
+        "provenance": {
+            "source_revision": "a" * 40,
+            "python_version": "3.14.0",
+            "python_implementation": "CPython",
+        },
+        "passed": True,
+        "offline_evaluation": {"passed": True, "scenario_count": 1, "scenarios": []},
+        "testnet_evidence": {
+            "requested": False,
+            "mode": "successful_transfer",
+            "passed": None,
+            "checks": {},
+            "evidence": None,
+        },
+        "limitations": ["Test fixture only."],
+    })
+
+
+def test_saved_evidence_bundle_verifier_accepts_valid_offline_bundle(tmp_path, capsys):
+    from scripts import verify_evidence_bundle
+
+    path = tmp_path / "bundle.json"
+    path.write_text(json.dumps(_valid_offline_bundle()), encoding="utf-8")
+
+    assert verify_evidence_bundle.main([str(path)]) == 0
+    assert "integrity and consistency: PASS" in capsys.readouterr().out
+
+
+def test_saved_evidence_bundle_verifier_rejects_payload_tampering(tmp_path, capsys):
+    from scripts import verify_evidence_bundle
+
+    bundle = _valid_offline_bundle()
+    bundle["offline_evaluation"]["scenario_count"] = 999
+    path = tmp_path / "bundle.json"
+    path.write_text(json.dumps(bundle), encoding="utf-8")
+
+    assert verify_evidence_bundle.main([str(path)]) == 2
+    assert "SHA-256 digest does not match" in capsys.readouterr().err
+
+
+def test_saved_evidence_bundle_verifier_rejects_inconsistent_overall_result(
+    tmp_path, capsys
+):
+    from scripts import verify_evidence_bundle
+
+    bundle = _valid_offline_bundle()
+    bundle["passed"] = False
+    path = tmp_path / "bundle.json"
+    path.write_text(json.dumps(_seal_bundle(bundle)), encoding="utf-8")
+
+    assert verify_evidence_bundle.main([str(path)]) == 2
+    assert "inconsistent with the component results" in capsys.readouterr().err
+
+
+def test_saved_evidence_bundle_verifier_accepts_reverted_call_without_audit_record():
+    from scripts import verify_evidence_bundle
+
+    bundle = _valid_offline_bundle()
+    bundle["testnet_evidence"] = {
+        "requested": True,
+        "mode": "reverted_vault_call",
+        "passed": True,
+        "checks": {
+            "chain_and_transfer_evidence_verified": True,
+            "expected_sender_matches": True,
+            "receipt_status_matches_expectation": True,
+            "minimum_confirmations_met": True,
+        },
+        "evidence": {
+            "receipt_status": "failed",
+            "confirmations_observed": 12,
+        },
+        "audit_transaction_id": None,
+    }
+    bundle["passed"] = True
+    bundle = _seal_bundle(bundle)
+
+    assert verify_evidence_bundle.validate_bundle(bundle) == bundle
+
+
+def test_saved_evidence_bundle_verifier_rejects_wrong_revert_receipt_status():
+    from scripts import verify_evidence_bundle
+
+    bundle = _valid_offline_bundle()
+    bundle["testnet_evidence"] = {
+        "requested": True,
+        "mode": "reverted_vault_call",
+        "passed": True,
+        "checks": {
+            "chain_and_transfer_evidence_verified": True,
+            "expected_sender_matches": True,
+            "receipt_status_matches_expectation": True,
+            "minimum_confirmations_met": True,
+        },
+        "evidence": {"receipt_status": "success"},
+    }
+    bundle["passed"] = True
+    bundle = _seal_bundle(bundle)
+
+    with pytest.raises(ValueError, match="must have a failed receipt"):
+        verify_evidence_bundle.validate_bundle(bundle)
