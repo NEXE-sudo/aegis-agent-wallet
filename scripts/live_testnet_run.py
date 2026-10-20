@@ -6,6 +6,7 @@ Secrets are read only from environment variables and are never written to report
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 import hashlib
 import json
 import os
@@ -17,12 +18,16 @@ import urllib.error
 import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from urllib.parse import urlsplit
 
 from eth_account import Account
 
-from app.chain.base_sepolia import BASE_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_USDC_ADDRESS, validate_address
+from app.chain.base_sepolia import (
+    BASE_SEPOLIA_CHAIN_ID,
+    BASE_SEPOLIA_USDC_ADDRESS,
+    validate_address,
+)
 
 MINIMUM_WALLET_BALANCE_WEI = 10**16  # 0.01 test ETH, for deployment plus follow-up transactions
 MIN_CONFIRMATIONS = 12
@@ -248,7 +253,7 @@ def _cast_env(env: dict[str, str], account: str) -> dict[str, str]:
 def _extract_hash(output: str) -> str:
     matches = HASH_RE.findall(output)
     # Prefer an explicitly labelled transaction hash, otherwise use the last hash in Forge/cast output.
-    labelled = re.search(r"(?:transaction hash|transactionHash|tx hash)\s*[:=]\s*(0x[0-9a-fA-F]{64})", output, re.I)
+    labelled = re.search(r"(?:transaction hash|transactionHash|tx hash)\s*[:=]\s*(0x[0-9a-fA-F]{64})", output, re.IGNORECASE)
     if labelled:
         return labelled.group(1).lower()
     if matches:
