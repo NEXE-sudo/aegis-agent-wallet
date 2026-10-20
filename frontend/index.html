@@ -121,6 +121,7 @@ tbody td{font-size:10px;color:#dce9f8}
 .small-mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:.02em;overflow-wrap:anywhere;word-break:break-word}
 .status-badge,.risk-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 7px;border-radius:6px;border:1px solid transparent;font-size:8px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
 .status-badge:before,.risk-badge:before{content:"";display:block;width:5px;height:5px;border-radius:50%;background:currentColor}
+.approval-expiry{display:block;margin-top:5px;color:#a8b8c9;font-size:9px;white-space:normal}.approval-expiry.expired{color:var(--red);font-weight:800}
 .status-ready{background:rgba(158,231,178,.08);border-color:rgba(158,231,178,.2);color:var(--green)}
 .status-awaiting{background:rgba(244,198,106,.08);border-color:rgba(244,198,106,.2);color:var(--amber)}
 .status-approved{background:rgba(130,195,255,.08);border-color:rgba(130,195,255,.2);color:var(--blue)}
@@ -1371,7 +1372,7 @@ const renderOverview = () => {
         </div>
       </td>
       <td><span class="risk-badge ${riskClass(tx.risk_level)}">${esc(tx.risk_level ? tx.risk_level.toUpperCase() : 'Unavailable')} · ${esc(tx.risk_score ?? '—')}/100</span></td>
-      <td><span class="status-badge ${kindClass(tx.status)}">${esc(statusLabel(tx.status))}</span></td>
+      <td><span class="status-badge ${kindClass(tx.status)}">${esc(statusLabel(tx.status))}</span>${tx.status === 'approved' && tx.approval_expires_at ? `<small class="approval-expiry ${new Date(tx.approval_expires_at).getTime() <= Date.now() ? 'expired' : ''}">Approval ${new Date(tx.approval_expires_at).getTime() <= Date.now() ? 'expired' : 'expires'} · ${esc(humanTime(tx.approval_expires_at))}</small>` : ''}</td>
       <td class="small-mono">${esc(humanTime(tx.created_at))}</td>
       <td><button class="text-button" type="button" data-action="inspect" data-id="${esc(tx.transaction_id || '')}">Inspect</button></td>
     </tr>

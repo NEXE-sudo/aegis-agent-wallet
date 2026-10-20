@@ -5,7 +5,7 @@ import re
 import secrets
 import sqlite3
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from time import perf_counter, time
 from typing import Literal
@@ -143,6 +143,7 @@ class TransactionResponse(BaseModel):
     status: str
     approval_fingerprint: str | None = None
     approved_at: str | None = None
+    approval_expires_at: str | None = None
     execution_reference: str | None = None
     created_at: str
     updated_at: str
@@ -276,7 +277,21 @@ def _proposal(request: EvaluationRequest | ProposalRequest) -> TransactionPropos
 
 
 def _record_response(record: dict) -> TransactionResponse:
-    return TransactionResponse(**record)
+    response = dict(record)
+    response["approval_expires_at"] = None
+    approved_at = response.get("approved_at")
+    if response.get("status") == "approved" and isinstance(approved_at, str):
+        try:
+            approved_time = datetime.fromisoformat(approved_at)
+            if approved_time.tzinfo is None:
+                approved_time = approved_time.replace(tzinfo=UTC)
+            response["approval_expires_at"] = (
+                approved_time + timedelta(seconds=DEMO_POLICY.approval_expires_seconds)
+            ).isoformat()
+        except ValueError:
+            # Malformed persisted timestamps must not produce a fabricated deadline.
+            response["approval_expires_at"] = None
+    return TransactionResponse(**response)
 
 
 @app.get("/health")

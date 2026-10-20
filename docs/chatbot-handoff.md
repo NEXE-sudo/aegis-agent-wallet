@@ -57,6 +57,7 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 ### Phase 4 — Wallet dashboard and visibility
 - Present identity, network, balances, limits, spending, and transaction status in the existing dependency-free frontend.
 - Use real API responses; never fabricate wallet data or market movement.
+- Remaining visibility work includes approval lifecycle clarity: expose the backend-derived absolute expiry timestamp for currently approved transactions and display elapsed deadlines in Activity without treating browser time as authoritative.
 
 ### Phase 5 — Contract and integration hardening
 - Run Solidity unit, fuzz, and invariant tests automatically in GitHub Actions using the pinned compiler and dependency versions.
@@ -108,8 +109,9 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 - PR #207 (branch `feat/evidence-provenance`) is merged; it records source revision and Python runtime provenance, uses schema v3, and covers provenance in the canonical digest. The user confirmed post-merge checks and deleted the branch.
 - PR #208 is merged and post-merge local checks passed. Matching receipt/canonical block hashes remain a point-in-time observation from one RPC, not proof of finality.
 - PR #209 added automated Foundry contract checks and was merged; the user confirmed post-merge checks and deleted the branch.
-- Current work is on `feat/onchain-vault-configuration-inspection`: add an owner-authenticated, read-only AegisVault status endpoint with regression tests and documentation. It must not sign or submit transactions, and it must not present one-RPC inspection as proof of authenticity.
-- The user must run both local Python checks on the PR branch before merge. Then verify the PR head SHA and all CI jobs (including Foundry), squash-merge, ask for post-merge checks on updated `main`, and only then provide branch deletion commands.
+- PR #210 (`feat/onchain-vault-configuration-inspection`) is merged; the owner-authenticated read-only AegisVault status endpoint is in `main`, and the user confirmed post-merge Ruff/pytest checks and deleted the branch.
+- Next work is `feat/approval-expiry-visibility`: return the absolute approval deadline derived from persisted `approved_at` plus configured approval lifetime, show it in Activity, and test API/UI behaviour including the deadline boundary. The backend remains authoritative for expiration and execution.
+- The user must run both local Python checks on the PR branch before merge. Then verify the PR head SHA and all CI jobs (including Foundry when relevant), squash-merge, ask for post-merge checks on updated `main`, and only then provide branch deletion commands.
 - Continue bundling implementation, tests, and related docs in one coherent PR. Never update `main` directly.
 
 ## Standard accounting and safety semantics
