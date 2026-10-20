@@ -25,19 +25,13 @@ Last updated: 20 October 2026
 - PR #187 added the owner-authenticated, on-demand Overview network status panel using `GET /chain/base-sepolia/status`; it was squash-merged as `f220ee98fc75ee03910feee39b8c5f2220b7634c`, CI passed on Python 3.11/3.12/3.14, and the user confirmed post-merge checks passed and deleted the branch.
 
 - PR #193 adds browser regression coverage showing receipt RPC failures as unavailable status rather than fabricating a receipt.
+- PR #202 expanded deterministic agent evaluation from five to eleven scenarios, including chain/token metadata mismatches, unapproved recipients, and approval-threshold boundaries; it was squash-merged as `95240d1f9ff9e2573449d9b9e8db448736d813b0`, all three Python CI jobs passed, and the user confirmed post-merge Ruff and pytest checks and deleted the branch.
 
 ## Current implementation priority
 
-The next feature batch expands deterministic agent evaluation before additional
-dashboard polish: cover chain and trusted-token metadata mismatches, unapproved
-recipients, and the exact approval-threshold boundary in the same cohesive PR as
-the scenario runner, regression assertions, and evaluation documentation. Continue
-to treat offline scenario results as policy/workflow evidence only; they are not
-proof of successful Base Sepolia execution or general LLM safety.
+The next milestone is a reproducible, judge-ready evidence bundle that combines the deterministic offline agent evaluation with optional read-only Base Sepolia transfer verification and a read-only SQLite audit cross-check. It emits JSON and Markdown, records explicit pass/fail checks, and hashes the canonical JSON payload so reviewers can detect later edits. If no transaction hash is supplied, the bundle must clearly state that it contains no on-chain proof.
 
-PRs should bundle related implementation, tests, and documentation when they form
-one deliverable. Keep the branch reviewable and the scope coherent rather than
-splitting each test or document update into a separate PR.
+PRs should bundle related implementation, tests, documentation, and evidence into a larger coherent deliverable. Prefer changes that improve the end-to-end story (policy decision, owner approval, vault-bounded execution, on-chain receipt, and matching audit record) over isolated dashboard polish. Keep simulated mode as the default; do not sign or broadcast as part of evidence generation, and never claim finality, independent audit, LLM safety, or production readiness.
 
 ## Phased roadmap
 
@@ -74,18 +68,10 @@ splitting each test or document update into a separate PR.
 - ERC-4337 account abstraction is a separate architectural decision.
 - Do not enable mainnet execution or claim the unaudited vault is production-ready.
 
-## Current open PR batch (do not merge without explicit user approval)
+## Recently completed transaction-history and contract-hardening batch
 
-- #192 restores the manual PR workflow.
-- #193 adds browser coverage for receipt lookup failures.
-- #194 clarifies the Activity history search scope.
-- #195 keeps receipt lookup errors visible inline in Activity.
-- #196 and #197 cover transaction history limit validation and capped results.
-- #198 adds owner-authenticated offset pagination to the transaction history API.
-- #199 adds Activity Previous/Next controls and depends on #198.
-- #201 rejects vault transfer approvals at the exact expiry timestamp and adds a Foundry boundary regression test.
-- #200 adds fail-closed regression tests for public-address balance reads on unexpected RPC chain responses and sanitised RPC failures; it has been merged.
-- Keep the batch unmerged until the user explicitly approves merging; inspect dependency order and resolve any handoff-document conflicts before merging.
+- The receipt visibility and error-state work, history scope/limit validation, offset pagination, Activity Previous/Next controls, exact approval-expiry boundary, and fail-closed balance RPC regression tests were incorporated before PR #202.
+- There are currently no open pull requests at the start of the reproducible evidence-bundle milestone. Always query GitHub before assuming this remains true.
 
 ## Required PR workflow
 
@@ -116,16 +102,11 @@ splitting each test or document update into a separate PR.
 
 ## Current status and next action
 
-- PR #183 (daily spending Overview panel): squash-merged as `62bdf6d9b72b01d322929294bfcd4f33be346918`; CI passed and the user confirmed checks on updated `main`.
-- PR #184 (read-only active policy configuration in Settings): squash-merged as `f548deeb5506b0ce121aa059c3ab2c344154c14b`; CI passed and the user confirmed checks on updated `main`.
-- PR #185 (read-only wallet balances on Overview): squash-merged as `fbe22f13dd59a6572eccd07544aa3016a22b1cbc`; CI passed on Python 3.11/3.12/3.14 and the user confirmed checks on updated `main`.
-- The wallet balance panel uses owner-authenticated `GET /chain/base-sepolia/address/{address}/balances`, accepts a public address, checks chain ID 84532, guards against stale-session responses, and escapes API-provided values. It does not request private keys or sign/broadcast transactions.
-- The user has confirmed post-merge Ruff and pytest checks for PR #185. Local `.forge/` and `contracts/lib/` are intentionally untracked while the user investigates them; do not delete, stage, or modify them without instruction.
-- PR #187 (network status on Overview): squash-merged as `f220ee98fc75ee03910feee39b8c5f2220b7634c`; CI passed on Python 3.11/3.12/3.14, and the user confirmed Ruff and pytest passed on updated `main` and deleted the branch. The panel reports only the configured RPC's chain ID; it does not prove vault deployment, token authenticity, or transaction finality.
-- PR #188 (configured vault status on Overview): squash-merged as `7f829059c4400f1300a338c6b32692f7acce8118`; GitHub Actions passed on Python 3.11/3.12/3.14, the user confirmed post-merge Ruff and pytest passed on updated `main`, and the branch was deleted. The panel reports vault roles, pause state, and policy differences from the configured RPC; this is not an independent contract audit.
-- The user has completed post-merge verification for PR #188 and deleted its branch. The current receipt-visibility change adds the RPC-reported hash, chain, status, and block inline to the Activity view for the loaded page session; it does not persist receipt reads or claim finality.
-- PRs #189 and #190 introduced a bounded autonomous development workflow and changed its Copilot authentication, but this approach is being retired in favour of the established manual PR workflow. The autonomous workflow and its setup guide are removed by the current cleanup PR. Do not enable or recreate automated continuation unless explicitly requested. Never update `main` directly.
-- Keep every future handoff update inside the feature PR that motivates it. Never update `main` directly.
+- Main is at `95240d1f9ff9e2573449d9b9e8db448736d813b0` after PR #202, which expanded the deterministic offline evaluation to eleven scenarios.
+- The user confirmed post-merge Ruff and pytest checks for PR #202 and deleted `feat/expanded-agent-policy-evaluation`.
+- Current branch: `feat/reproducible-evidence-bundles`. This milestone adds a portable JSON/Markdown evidence bundle, optional read-only Base Sepolia transfer verification, expected-sender matching, SQLite audit cross-checking, and a canonical-payload SHA-256 digest. It must not submit transactions or imply finality.
+- After the user confirms both local checks pass on the PR branch, verify CI and head SHA, then squash-merge. Ask the user to rerun checks on updated `main`; only after their confirmation provide branch deletion commands.
+- Continue bundling related implementation, tests, docs, and evidence into coherent larger PRs. Never update `main` directly.
 
 ## Standard accounting and safety semantics
 

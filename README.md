@@ -129,3 +129,8 @@ This remains a local prototype. Use simulated mode or the unaudited vault integr
 - [Frontend guide](docs/frontend.md) — frontend functionality, validation, and safety limitations.
 - [Market-data guide](docs/market-data.md) — read-only market-data endpoint and providers.
 - [Version 1.10.3 release notes](docs/release-notes-v1.10.3.md) — testnet and agent-evaluation release notes (unreleased).
+
+
+## Reproducible evidence bundle
+
+Build a portable deterministic-evaluation report, with optional read-only Base Sepolia transfer and audit verification, using the [evidence bundle guide](docs/evidence-bundle.md).
