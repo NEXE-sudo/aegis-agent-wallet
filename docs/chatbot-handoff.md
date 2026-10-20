@@ -42,22 +42,22 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 - Direct EOA token-transfer mode retired.
 - Owner approval requirements preserved and simulated mode remains the default.
 
-### Phase 2 — Wallet read and configuration layer
-- Backend read surfaces include public-address Base Sepolia ETH/demo-USDC balances, active policy configuration, and UTC-day local workflow spending summaries.
-- Frontend surfaces include read-only wallet balances, active policy settings/allowlists, daily spending/remaining budget, RPC-reported network status, and configured vault status comparison.
-- Activity displays receipt details for the loaded page session; receipt checks are point-in-time observations, not proof of finality.
-- Distinguish local configuration/database values from on-chain state, fail clearly on missing/mismatched configuration, and never expose secrets/private keys.
+### Phase 2 — Wallet read and configuration layer (complete)
+- Owner-authenticated read-only Base Sepolia ETH/demo-USDC balances for a public address, active policy configuration and allowlists, UTC-day local workflow spending summaries, and read-only network/vault status comparison are implemented.
+- The dependency-free frontend presents balances, policy settings, per-token spend/reserved amount, daily limits and remaining budget, RPC-reported chain ID, and on-chain vault policy differences.
+- Activity exposes receipt details for the loaded page session and clearly labels receipt state as a point-in-time RPC observation, not finality.
+- Regression coverage checks authentication, wrong-chain refusal before balance queries, sanitised provider failures, configuration mismatch states, and owner-only access. Local database accounting is labelled separately from on-chain state; secrets and private keys are never exposed by these read surfaces.
 
-### Phase 3 — Wallet lifecycle and configuration verification
-- Additional regression coverage checks that public-address balance reads refuse to query balances when the configured RPC reports a non-Base-Sepolia chain, and sanitise RPC read errors rather than exposing provider internals.
-- The current increment adds read-only vault inspection for chain identity, bytecode presence, owner/agent separation, pause state, token allowlisting, spending caps, and optional comparisons against `AEGIS_VAULT_ADDRESS`, `AEGIS_VAULT_OWNER_ADDRESS`, and the public address derived from `AEGIS_TESTNET_PRIVATE_KEY`.
-- Phase 3's read-only verification surface is covered by regression tests for authentication, invalid addresses, wrong-chain RPCs, missing bytecode, malformed ABI responses, structural misconfiguration, and local identity matches. Missing expected values are explicitly reported as unverified rather than treated as matches.
-- Fail closed on wrong-chain RPCs and malformed configuration responses; inspection data from one RPC is not proof of contract authenticity or finality.
+### Phase 3 — Wallet lifecycle and configuration verification (complete)
+- Read-only vault inspection reports chain identity, bytecode presence, owner/agent separation, pause state, token/recipient policy and spending caps, and optional comparisons with configured vault/owner and the public address derived from the agent key.
+- Missing expected identity values are reported as unverified rather than treated as matches; wrong-chain RPCs, absent bytecode, malformed ABI responses and structurally invalid configuration fail closed.
+- Regression coverage exercises authentication, invalid addresses, wrong-chain RPCs, missing bytecode, malformed responses, policy differences, and configured identity comparisons. RPC observations remain point-in-time evidence, not independent contract authenticity or finality proofs.
 
-### Phase 4 — Wallet dashboard and visibility
-- Present identity, network, balances, limits, spending, and transaction status in the existing dependency-free frontend.
-- Use real API responses; never fabricate wallet data or market movement.
-- Remaining visibility work includes approval lifecycle clarity: expose the backend-derived absolute expiry timestamp for currently approved transactions and display elapsed deadlines in Activity without treating browser time as authoritative.
+### Phase 4 — Wallet dashboard and visibility (complete)
+- The Overview and supporting views present workflow identity/status, network, public-address balances, active policy, spending and remaining limits, vault configuration comparison, and transaction receipt details using actual API responses.
+- Browser credentials remain in memory only, asynchronous requests are guarded against stale sessions, and unavailable data is shown as unavailable rather than fabricated.
+- Activity displays the backend-derived approval expiry timestamp for approved transactions and flags elapsed deadlines; the browser display is advisory, while the backend remains authoritative for approval validity.
+- An end-to-end browser regression covers the wallet read/configuration surfaces together, including spending summary, network and vault status, balances, policy settings, and expired-approval visibility.
 
 ### Phase 5 — Contract and integration hardening
 - Run Solidity unit, fuzz, and invariant tests automatically in GitHub Actions using the pinned compiler and dependency versions.
