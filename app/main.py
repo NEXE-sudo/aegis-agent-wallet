@@ -749,9 +749,12 @@ def propose_transaction(
 
 
 @app.get("/transactions", response_model=list[TransactionResponse], dependencies=[Depends(require_owner)])
-def list_transactions(limit: int = Query(default=50, ge=1, le=100)) -> list[TransactionResponse]:
-    """List recent persisted workflow records for the local owner-facing UI."""
-    return [_record_response(record) for record in store.list_recent(limit)]
+def list_transactions(
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> list[TransactionResponse]:
+    """List persisted workflow records for the local owner-facing UI."""
+    return [_record_response(record) for record in store.list_recent(limit, offset=offset)]
 
 
 @app.get("/transactions/{transaction_id}/audit", dependencies=[Depends(require_owner)])

@@ -937,14 +937,16 @@ class WorkflowStore:
             row = db.execute("SELECT * FROM transactions WHERE transaction_id = ?", (transaction_id,)).fetchone()
         return self._decode(row) if row else None
 
-    def list_recent(self, limit: int = 50) -> list[dict[str, Any]]:
-        """Return the newest persisted workflow records for owner-facing inspection."""
+    def list_recent(self, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
+        """Return a page of newest persisted workflow records for owner-facing inspection."""
         if not 1 <= limit <= 100:
             raise ValueError("limit must be between 1 and 100")
+        if offset < 0:
+            raise ValueError("offset cannot be negative")
         with closing(self._connect()) as db:
             rows = db.execute(
-                "SELECT * FROM transactions ORDER BY created_at DESC, transaction_id DESC LIMIT ?",
-                (limit,),
+                "SELECT * FROM transactions ORDER BY created_at DESC, transaction_id DESC LIMIT ? OFFSET ?",
+                (limit, offset),
             ).fetchall()
         return [self._decode(row) for row in rows]
 
