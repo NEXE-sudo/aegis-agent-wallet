@@ -15,7 +15,7 @@ The command writes:
 - `reports/evidence-bundle/aegis-evidence-bundle.json`
 - `reports/evidence-bundle/aegis-evidence-bundle.md`
 
-This runs the existing deterministic scenarios with simulated execution and isolated temporary SQLite databases. Without a transaction hash, the report explicitly marks testnet evidence as not supplied; it must not be presented as proof of an on-chain transfer.
+This runs the current 22-case deterministic suite with simulated execution and isolated temporary SQLite databases, including persisted governance decisions for injected task descriptions, unverified payees, and stale mandate/payee records. Without a transaction hash, the report explicitly marks testnet evidence as not supplied; it must not be presented as proof of an on-chain transfer.
 
 ## Add a verified Base Sepolia transfer
 
