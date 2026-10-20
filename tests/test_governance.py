@@ -292,6 +292,25 @@ def test_task_escalates_if_mandate_or_payee_changes_after_creation(monkeypatch, 
     assert "registry:payee_changed_since_task_creation" in decision["evidence_refs"]
     assert decision["transaction_id"] is None
 
+    requeued = client.post(
+        "/governance/tasks",
+        headers=OWNER_HEADERS,
+        json={
+            "task_id": "invoice-stale-policy-requeued",
+            "invoice_id": "invoice-stale-policy",
+            "payee_id": "power-company",
+            "token_symbol": "USDC",
+            "amount_base_units": 1_000_000,
+        },
+    )
+    assert requeued.status_code == 201
+    next_result = client.post(
+        "/agent/governance/decide-pending", headers=AGENT_HEADERS
+    ).json()
+    next_decision = next_result["decisions"][0]["decision"]
+    assert next_decision["action"] == "propose"
+    assert next_decision["transaction_status"] == "ready"
+
 
 @pytest.mark.parametrize("amount", [1000.5, True, "1000"])
 def test_task_amount_requires_a_strict_integer(monkeypatch, tmp_path, amount):
