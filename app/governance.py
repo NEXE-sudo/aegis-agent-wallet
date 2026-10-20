@@ -8,13 +8,19 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
 import uuid
 from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field, field_validator
+
+from app.auth import require_agent, require_owner
+from app.policy.models import TransactionProposal
 from agent.autonomy import Mandate, Payee, PayeeHistory, PaymentTask, decide_payments
 
 
@@ -443,3 +449,189 @@ def evaluate_pending_tasks(store: GovernanceStore, *, now: datetime | None = Non
             now=current,
         )
     ]
+
+
+class MandateInput(BaseModel):
+    mandate_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    allowed_categories: list[str] = Field(min_length=1, max_length=32)
+    allowed_tokens: list[str] = Field(min_length=1, max_length=1)
+    monthly_budget_base_units: int = Field(gt=0, le=2**63 - 1)
+    per_payment_limit_base_units: int = Field(gt=0, le=2**63 - 1)
+    approval_threshold_base_units: int = Field(ge=0, le=2**63 - 1)
+    treasury_buffer_base_units: int = Field(ge=0, le=2**63 - 1)
+    # Owner-maintained planning value, not a live chain balance.
+    available_balance_base_units: int = Field(ge=0, le=2**63 - 1)
+
+    @field_validator("allowed_categories")
+    @classmethod
+    def validate_categories(cls, values: list[str]) -> list[str]:
+        normalized = [value.strip().lower() for value in values]
+        if any(not value or len(value) > 64 for value in normalized):
+            raise ValueError("Categories must be non-empty and at most 64 characters")
+        if len(set(normalized)) != len(normalized):
+            raise ValueError("Categories must be unique")
+        return normalized
+
+    @field_validator("allowed_tokens")
+    @classmethod
+    def validate_tokens(cls, values: list[str]) -> list[str]:
+        normalized = [value.strip().upper() for value in values]
+        if any(not value or len(value) > 16 for value in normalized):
+            raise ValueError("Token symbols must be non-empty and at most 16 characters")
+        return normalized
+
+
+class PayeeInput(BaseModel):
+    payee_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    name: str = Field(min_length=1, max_length=128)
+    address: str = Field(pattern=r"^0x[a-fA-F0-9]{40}$")
+    chain_id: Literal[84532]
+    token_address: str = Field(pattern=r"^0x[a-fA-F0-9]{40}$")
+    token_symbol: str = Field(min_length=1, max_length=16)
+    token_decimals: int = Field(ge=0, le=36)
+    category: str = Field(min_length=1, max_length=64)
+    per_tx_limit_base_units: int = Field(gt=0, le=2**63 - 1)
+    daily_limit_base_units: int = Field(gt=0, le=2**63 - 1)
+    verified: bool = False
+
+    @field_validator("address", "token_address")
+    @classmethod
+    def lowercase_addresses(cls, value: str) -> str:
+        return value.lower()
+
+    @field_validator("name", "category", "token_symbol")
+    @classmethod
+    def normalize_text(cls, value: str, info) -> str:
+        value = value.strip()
+        if info.field_name == "token_symbol":
+            return value.upper()
+        if info.field_name == "category":
+            return value.lower()
+        return value
+
+
+class TaskInput(BaseModel):
+    task_id: str | None = Field(default=None, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    invoice_id: str = Field(min_length=1, max_length=128)
+    payee_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    token_symbol: str = Field(min_length=1, max_length=16)
+    amount_base_units: int = Field(gt=0, le=2**63 - 1)
+    due_at: datetime | None = None
+    description: str = Field(default="", max_length=4000)
+
+    @field_validator("invoice_id", "payee_id", "token_symbol")
+    @classmethod
+    def normalize_task_fields(cls, value: str, info) -> str:
+        value = value.strip()
+        return value.upper() if info.field_name == "token_symbol" else value
+
+    @field_validator("due_at")
+    @classmethod
+    def require_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is not None and value.tzinfo is None:
+            raise ValueError("due_at must include a timezone")
+        return value
+
+
+router = APIRouter(tags=["owner governance"])
+
+
+@router.get("/governance/mandate", dependencies=[Depends(require_owner)])
+def read_active_mandate(request: Request) -> dict[str, Any]:
+    record = request.app.state.governance_store.get_active_mandate()
+    if record is None:
+        raise HTTPException(status_code=404, detail="No active mandate is configured")
+    return record
+
+
+@router.put("/governance/mandate", dependencies=[Depends(require_owner)])
+def save_active_mandate(payload: MandateInput, request: Request) -> dict[str, Any]:
+    policy = request.app.state.controller.policy
+    if not set(payload.allowed_tokens).issubset(policy.allowed_token_symbols):
+        raise HTTPException(status_code=422, detail="Mandate tokens must be allowed by the active wallet policy")
+    return request.app.state.governance_store.put_mandate(payload.model_dump())
+
+
+@router.get("/governance/payees", dependencies=[Depends(require_owner)])
+def read_payees(request: Request) -> list[dict[str, Any]]:
+    return request.app.state.governance_store.list_payees()
+
+
+@router.put("/governance/payees/{payee_id}", dependencies=[Depends(require_owner)])
+def save_payee(payee_id: str, payload: PayeeInput, request: Request) -> dict[str, Any]:
+    if payee_id != payload.payee_id:
+        raise HTTPException(status_code=422, detail="Path payee_id must match the payload")
+    policy = request.app.state.controller.policy
+    trusted = policy.trusted_tokens.get(payload.token_address)
+    if (
+        payload.chain_id not in policy.allowed_chain_ids
+        or payload.token_address not in policy.allowed_token_addresses
+        or trusted is None
+        or trusted.symbol != payload.token_symbol
+        or trusted.decimals != payload.token_decimals
+    ):
+        raise HTTPException(status_code=422, detail="Payee token metadata must match an allowed trusted token")
+    return request.app.state.governance_store.put_payee(payload.model_dump())
+
+
+@router.post("/governance/tasks", status_code=201, dependencies=[Depends(require_owner)])
+def create_governance_task(payload: TaskInput, request: Request) -> dict[str, Any]:
+    payee = request.app.state.governance_store.get_payee(payload.payee_id)
+    if payee and payload.token_symbol != payee["token_symbol"]:
+        raise HTTPException(status_code=422, detail="Task token must match the registered payee token")
+    return request.app.state.governance_store.create_task(payload.model_dump())
+
+
+@router.get("/governance/tasks", dependencies=[Depends(require_owner)])
+def read_governance_tasks(request: Request, pending_only: bool = False) -> list[dict[str, Any]]:
+    return request.app.state.governance_store.list_tasks(pending_only=pending_only)
+
+
+@router.get("/governance/audit/verify", dependencies=[Depends(require_owner)])
+def verify_governance_audit(request: Request) -> dict[str, Any]:
+    return request.app.state.governance_store.verify_audit_chain()
+
+
+@router.post("/agent/governance/decide-pending", dependencies=[Depends(require_agent)])
+def decide_pending_governance_tasks(request: Request) -> dict[str, Any]:
+    governance = request.app.state.governance_store
+    controller = request.app.state.controller
+    try:
+        evaluated = evaluate_pending_tasks(governance)
+    except LookupError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    results: list[dict[str, Any]] = []
+    payees = {item["payee_id"]: item for item in governance.list_payees()}
+    for item in evaluated:
+        task = item.pop("task")
+        task_id = task["task_id"]
+        proposal_record = None
+        if item["action"] == "propose":
+            payee = payees.get(item["payee_id"])
+            if payee is None:
+                item["action"] = "escalate"
+                item["amount"] = None
+                item["rationale"] = "Payee registry changed during evaluation; owner review required."
+                item["evidence_refs"] = list(item["evidence_refs"]) + ["registry:changed_during_evaluation"]
+            else:
+                proposal = TransactionProposal(
+                    agent_id=controller.policy.agent_id,
+                    chain_id=payee["chain_id"],
+                    token_symbol=payee["token_symbol"],
+                    token_address=payee["token_address"],
+                    recipient=payee["address"],
+                    amount_base_units=item["amount"],
+                    token_decimals=payee["token_decimals"],
+                )
+                _, proposal_record = controller.propose(
+                    proposal, idempotency_key=f"governance-task-{task_id}"
+                )
+        stored = {
+            **item,
+            "transaction_id": proposal_record["transaction_id"] if proposal_record else None,
+            "transaction_status": proposal_record["status"] if proposal_record else None,
+        }
+        stored_record = governance.record_decision(task_id, stored)
+        results.append(stored_record)
+    return {"processed": len(results), "decisions": results}
