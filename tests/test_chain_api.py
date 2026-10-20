@@ -198,3 +198,68 @@ def test_chain_token_endpoint_preserves_unreadable_metadata_result(monkeypatch):
 
     assert response.status_code == 200
     assert response.json() == expected
+
+
+
+def test_address_balances_fails_closed_when_rpc_reports_wrong_chain(monkeypatch):
+    monkeypatch.setenv("AEGIS_APPROVAL_TOKEN", OWNER_HEADERS["Authorization"].split()[-1])
+    calls = []
+
+    class FakeRpc:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+        def chain_id(self):
+            return 1
+
+        def eth_balance(self, _address):
+            calls.append("eth_balance")
+            return 123
+
+        def token_balance(self, *_args):
+            calls.append("token_balance")
+            return 456
+
+    monkeypatch.setattr(chain_router, "BaseSepoliaRpc", FakeRpc)
+    response = client.get(
+        "/chain/base-sepolia/address/0x1111111111111111111111111111111111111111/balances",
+        headers=OWNER_HEADERS,
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Configured RPC endpoint is not Base Sepolia (84532)"
+    }
+    assert calls == []
+
+
+def test_address_balances_sanitizes_rpc_read_failures(monkeypatch):
+    monkeypatch.setenv("AEGIS_APPROVAL_TOKEN", OWNER_HEADERS["Authorization"].split()[-1])
+
+    class FakeRpc:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+        def chain_id(self):
+            return 84532
+
+        def eth_balance(self, _address):
+            raise chain_router.RpcRequestError("provider response contained internal details")
+
+    monkeypatch.setattr(chain_router, "BaseSepoliaRpc", FakeRpc)
+    response = client.get(
+        "/chain/base-sepolia/address/0x1111111111111111111111111111111111111111/balances",
+        headers=OWNER_HEADERS,
+    )
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "detail": "Base Sepolia balance data is unavailable or malformed"
+    }
+    assert "internal details" not in response.text
