@@ -142,6 +142,7 @@ This remains a local prototype. Use simulated mode or the unaudited vault integr
 - [Agent and evaluation guide](docs/agent.md) — agent tools, trusted payment inputs, and evaluation.
 - [Workflow state transitions](docs/workflow-state-transitions.md) — workflow statuses and state changes.
 - [Reproducible demo scenario](docs/demo-scenario.md) — API walkthrough and expected outcomes.
+- [End-to-end demo](docs/end-to-end-demo.md) — local owner-governed workflow and repeatable offline evaluation evidence.
 - [Python client walkthrough](docs/python-client.md) — authenticated proposal-only API client.
 - [Frontend guide](docs/frontend.md) — frontend functionality, validation, and safety limitations.
 - [Market-data guide](docs/market-data.md) — read-only market-data endpoint and providers.
