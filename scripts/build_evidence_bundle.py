@@ -229,9 +229,10 @@ async def build_evidence_bundle(
                 ) if expect_revert else verify_evidence(transaction_hash, rpc, normalized_vault)
             testnet["evidence"] = evidence
             testnet["checks"]["chain_and_transfer_evidence_verified"] = True
-            configuration = capture_vault_configuration(
-                rpc, normalized_vault, evidence["token_contract"]
-            )
+            with BaseSepoliaRpc() as rpc:
+                configuration = capture_vault_configuration(
+                    rpc, normalized_vault, evidence["token_contract"]
+                )
             testnet["vault_configuration"] = configuration
             testnet["checks"]["vault_configuration_valid"] = (
                 configuration["configuration_structurally_valid"]
