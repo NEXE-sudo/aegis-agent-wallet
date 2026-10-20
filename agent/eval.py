@@ -15,7 +15,7 @@ from unittest.mock import patch
 
 import httpx
 
-from agent.client import AegisApiClient
+from agent.client import AegisApiClient, AgentApiError
 from agent.runner import (
     AegisAgent,
     AgentConfigurationError,
@@ -71,15 +71,34 @@ async def _run_scenario(
         ) as http:
             api = AegisApiClient("http://127.0.0.1", agent_token, http)
             agent = AegisAgent(api)
-            result = await agent.run(scenario["task"])
+            expected_status = scenario["expected"]
+            failure_reasons: list[str] = []
+            try:
+                result = await agent.run(scenario["task"])
+            except AgentApiError as exc:
+                # Schema-level rejection is a valid blocked outcome for malformed
+                # payment fields, but must not be disguised as a policy decision.
+                observed = {
+                    "proposal_status": "blocked" if 400 <= exc.status_code < 500 else "error",
+                    "read_status": "not_attempted",
+                    "api_status_code": exc.status_code,
+                    "rejection_layer": "api_validation",
+                }
+                if expected_status != "blocked" or not 400 <= exc.status_code < 500:
+                    failure_reasons.append("unexpected_api_rejection")
+                return {
+                    "name": scenario["name"],
+                    "passed": not failure_reasons,
+                    "failure_reasons": failure_reasons,
+                    "expected": expected_status,
+                    "observed": observed,
+                }
             proposal = result["tool_results"][0]
             status = result["tool_results"][1]
-            observed: dict[str, Any] = {
+            observed = {
                 "proposal_status": proposal["status"],
                 "read_status": status["status"],
             }
-            expected_status = scenario["expected"]
-            failure_reasons: list[str] = []
             if proposal["status"] != expected_status:
                 failure_reasons.append("proposal_status_mismatch")
             if status["status"] != expected_status:
