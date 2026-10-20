@@ -7,7 +7,8 @@ from typing import Any
 
 import pytest
 
-from scripts import submission_manifest, submission_preflight
+import scripts.submission_manifest
+import scripts.submission_preflight
 
 
 REVISION = "a" * 40
@@ -73,7 +74,7 @@ def _make_fixture(root: Path, monkeypatch) -> tuple[Path, Path, Path, Path]:
     bundle["bundle_sha256"] = _canonical_digest(bundle)
     _write_json(root / bundle_path, bundle)
 
-    manifest = submission_manifest.build_manifest(
+    manifest = scripts.submission_manifest.build_manifest(
         root,
         [agent_eval_path, repeated_path, bundle_path],
         generated_at="2026-10-20T12:00:00+00:00",
@@ -90,7 +91,7 @@ def _make_fixture(root: Path, monkeypatch) -> tuple[Path, Path, Path, Path]:
 def test_preflight_accepts_consistent_offline_submission_artifacts(tmp_path, monkeypatch) -> None:
     paths = _make_fixture(tmp_path, monkeypatch)
 
-    notes = submission_preflight.run_preflight(tmp_path, *paths)
+    notes = scripts.submission_preflight.run_preflight(tmp_path, *paths)
 
     assert any("Manifest and selected artifact hashes: PASS" in note for note in notes)
     assert any("NOT SUPPLIED" in note for note in notes)
