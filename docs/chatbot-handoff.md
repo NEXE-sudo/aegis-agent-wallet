@@ -26,8 +26,6 @@ Last updated: 20 October 2026
 
 - PR #193 adds browser regression coverage showing receipt RPC failures as unavailable status rather than fabricating a receipt.
 
-- PR #198 adds owner-authenticated transaction-history offset pagination with non-negative offsets and deterministic ordering.
-
 ## Phased roadmap
 
 ### Phase 1 — Secure execution foundation (complete)
@@ -63,7 +61,7 @@ Last updated: 20 October 2026
 - ERC-4337 account abstraction is a separate architectural decision.
 - Do not enable mainnet execution or claim the unaudited vault is production-ready.
 
-## Current PR batch status
+## Current open PR batch (do not merge without explicit user approval)
 
 - #192 restores the manual PR workflow.
 - #193 adds browser coverage for receipt lookup failures.
@@ -72,8 +70,9 @@ Last updated: 20 October 2026
 - #196 and #197 cover transaction history limit validation and capped results.
 - #198 adds owner-authenticated offset pagination to the transaction history API.
 - #199 adds Activity Previous/Next controls and depends on #198.
-- PR #200 adds fail-closed regression tests for public-address balance reads on unexpected RPC chain responses and sanitised RPC failures; it has been merged.
-- The user has explicitly authorised squash merges once checks and mergeability are satisfactory. Respect dependencies, require current checks, and never force-merge conflicts.
+- #201 rejects vault transfer approvals at the exact expiry timestamp and adds a Foundry boundary regression test.
+- #200 adds fail-closed regression tests for public-address balance reads on unexpected RPC chain responses and sanitised RPC failures; it has been merged.
+- Keep the batch unmerged until the user explicitly approves merging; inspect dependency order and resolve any handoff-document conflicts before merging.
 
 ## Required PR workflow
 
