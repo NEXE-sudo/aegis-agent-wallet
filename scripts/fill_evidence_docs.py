@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -26,6 +27,8 @@ REQUIRED_FILES = (
     "revert/aegis-evidence-bundle.json",
     "phase5-success.json",
     "phase5-revert.json",
+    "reverify-success.log",
+    "reverify-revert.log",
 )
 DOCS = (
     "docs/onchain-enforcement.md",
@@ -84,6 +87,27 @@ def _validate_live_evidence(live_dir: Path) -> dict[str, Any]:
             raise EvidenceDocsError(f"Saved {label} cross-check does not match recomputed verified evidence.")
     success_tx = success["testnet_evidence"]["evidence"]["transaction_hash"]
     revert_tx = reverted["testnet_evidence"]["evidence"]["transaction_hash"]
+    for label, tx_hash, mode in (
+        ("success", success_tx, "successful_transfer"),
+        ("revert", revert_tx, "reverted_vault_call"),
+    ):
+        log_path = live_dir / ("reverify-" + label + ".log")
+        try:
+            log = log_path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            raise EvidenceDocsError(f"Cannot read {label} live reverification log.") from exc
+        if "Testnet evidence re-verification: PASS" not in log:
+            raise EvidenceDocsError(f"The {label} bundle has no passing live reverification result.")
+        if f"Mode: {mode}" not in log or f"Transaction hash: {tx_hash.lower()}" not in log.lower():
+            raise EvidenceDocsError(f"The {label} reverification log does not match its bundle.")
+        confirmation_match = re.search(r"Confirmations observed: (\d+) \(minimum required: (\d+)\)", log)
+        if confirmation_match is None:
+            raise EvidenceDocsError(f"The {label} reverification log has no confirmation-depth result.")
+        observed, required = (int(value) for value in confirmation_match.groups())
+        if required < 12 or observed < required:
+            raise EvidenceDocsError(f"The {label} bundle has insufficient observed confirmation depth.")
+        if "Vault deployment/configuration snapshot: MATCH" not in log:
+            raise EvidenceDocsError(f"The {label} bundle did not reverify the vault configuration snapshot.")
     if success_tx.lower() == revert_tx.lower():
         raise EvidenceDocsError("Successful and reverted transaction hashes must be distinct.")
     if success_tx.lower() == deployment["transaction_hash"].lower() or revert_tx.lower() == deployment["transaction_hash"].lower():
