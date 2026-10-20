@@ -214,14 +214,15 @@ def _run_step(
 
 def _command_result(command: list[str], *, root: Path, env: dict[str, str],
                     report_dir: Path, label: str, timeout: int = 300,
-                    cwd: Path | None = None, keep_agent_key: bool = False) -> str:
+                    cwd: Path | None = None, keep_agent_key: bool = False,
+                    command_runner: Callable[..., subprocess.CompletedProcess[str]] = _run_command) -> str:
     child_env = dict(env)
     if not keep_agent_key:
         child_env.pop("AEGIS_TESTNET_PRIVATE_KEY", None)
     child_env.pop("AEGIS_AGENT_TOKEN", None)
     child_env.pop("AEGIS_APPROVAL_TOKEN", None)
     try:
-        result = _run_command(command, cwd=cwd or root, env=child_env, timeout=timeout)
+        result = command_runner(command, cwd=cwd or root, env=child_env, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise LiveRunError(f"{label} could not be completed; inspect {report_dir / 'partial-report.json'}.") from exc
     output = redact((result.stdout or "") + (result.stderr or ""), env)
@@ -370,20 +371,33 @@ def run_live(args: argparse.Namespace, *, root: Path | None = None,
         print(f"Plan saved: {report_dir / 'partial-report.json'}")
         return report
 
-    actual_chain = rpc_call("eth_chainId", [], env=values)
-    if not isinstance(actual_chain, str) or not re.fullmatch(r"0x[0-9a-fA-F]+", actual_chain):
-        raise LiveRunError("RPC returned an invalid chain ID; refusing to broadcast.")
-    actual_chain_id = int(actual_chain, 16)
-    if actual_chain_id != BASE_SEPOLIA_CHAIN_ID:
-        raise LiveRunError(f"Refusing to broadcast: RPC chain ID is {actual_chain_id}, expected 84532.")
-    agent_address = Account.from_key(values["AEGIS_TESTNET_PRIVATE_KEY"]).address.lower()
-    for label, address in (("owner", public["owner"]), ("agent", agent_address)):
-        balance = int(rpc_call("eth_getBalance", [address, "latest"], env=values), 16)
-        if balance < MINIMUM_WALLET_BALANCE_WEI:
-            raise LiveRunError(
-                f"The {label} wallet has less than 0.01 test ETH. Fund it from a public Base Sepolia faucet, "
-                "then rerun; no transaction has been broadcast yet."
-            )
+    try:
+        actual_chain = rpc_call("eth_chainId", [], env=values)
+        if not isinstance(actual_chain, str) or not re.fullmatch(r"0x[0-9a-fA-F]+", actual_chain):
+            raise LiveRunError("RPC returned an invalid chain ID; refusing to broadcast.")
+        actual_chain_id = int(actual_chain, 16)
+        if actual_chain_id != BASE_SEPOLIA_CHAIN_ID:
+            raise LiveRunError(f"Refusing to broadcast: RPC chain ID is {actual_chain_id}, expected 84532.")
+        agent_address = Account.from_key(values["AEGIS_TESTNET_PRIVATE_KEY"]).address.lower()
+        if agent_address == public["owner"]:
+            raise LiveRunError("Owner and agent must be separate throwaway accounts; refusing to broadcast.")
+        for label, address in (("owner", public["owner"]), ("agent", agent_address)):
+            raw_balance = rpc_call("eth_getBalance", [address, "latest"], env=values)
+            if not isinstance(raw_balance, str) or not re.fullmatch(r"0x[0-9a-fA-F]+", raw_balance):
+                raise LiveRunError(f"RPC returned an invalid {label} wallet balance.")
+            balance = int(raw_balance, 16)
+            if balance < MINIMUM_WALLET_BALANCE_WEI:
+                raise LiveRunError(
+                    f"The {label} wallet has less than 0.01 test ETH. Fund it from a public Base Sepolia faucet, "
+                    "then rerun; no transaction has been broadcast yet."
+                )
+    except Exception as exc:
+        _write_json(report_dir / "partial-report.json", {
+            "mode": "broadcast", "broadcast": False, "result": "INCOMPLETE",
+            "error": redact(str(exc), values),
+            "note": "Chain and balance preflight failed before any broadcast step was started.",
+        })
+        raise
     state["chain_id"] = actual_chain_id
     state["agent_address"] = agent_address
     state["owner_address"] = public["owner"]
@@ -419,7 +433,7 @@ def run_live(args: argparse.Namespace, *, root: Path | None = None,
         now = int(time())
         account = values["OWNER_KEYSTORE_ACCOUNT"]
         config_steps = [
-            ("set-agent", vault, "setAgent(address,uint256)", [agent_address, str(now + 30 * 24 * 3600)]),
+            ("set-agent", vault, "setAgent(address,uint256)", [agent_address, str(now + 29 * 24 * 3600)]),
             ("set-token-policy", vault, "setTokenPolicy(address,bool,uint256,uint256,uint256)",
              [public["token"], "true", str(TOKEN_CAP), str(TOKEN_DAILY_CAP), str(APPROVAL_THRESHOLD)]),
             ("allow-demo-recipient-1", vault, "setRecipient(address,bool)", [DEMO_ALLOWLIST[0], "true"]),
