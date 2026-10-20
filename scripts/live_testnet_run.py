@@ -174,8 +174,14 @@ def _read_state(path: Path, input_fingerprint: str) -> dict[str, Any]:
 
 
 def _run_command(command: list[str], *, cwd: Path, env: dict[str, str],
-                 timeout: int = 300) -> subprocess.CompletedProcess[str]:
-    """Run a child process with RPC URL supplied through env, never argv."""
+                 timeout: int = 300, interactive: bool = False) -> subprocess.CompletedProcess[str]:
+    """Run a child with secrets in env, never argv; show local keystore prompts when needed."""
+    if interactive:
+        # Foundry reads keystore passwords locally; keep stderr attached to the operator's
+        # terminal while capturing stdout for transaction-hash extraction. RPC URLs are
+        # never passed in argv, and saved stdout is still redacted by _command_result.
+        return subprocess.run(command, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=None,
+                              text=True, check=False, timeout=timeout)
     return subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True,
                           check=False, timeout=timeout)
 
@@ -215,6 +221,7 @@ def _run_step(
 def _command_result(command: list[str], *, root: Path, env: dict[str, str],
                     report_dir: Path, label: str, timeout: int = 300,
                     cwd: Path | None = None, keep_agent_key: bool = False,
+                    interactive: bool = False,
                     command_runner: Callable[..., subprocess.CompletedProcess[str]] | None = None) -> str:
     child_env = dict(env)
     if not keep_agent_key:
@@ -223,7 +230,10 @@ def _command_result(command: list[str], *, root: Path, env: dict[str, str],
     child_env.pop("AEGIS_APPROVAL_TOKEN", None)
     try:
         runner = command_runner or _run_command
-        result = runner(command, cwd=cwd or root, env=child_env, timeout=timeout)
+        if interactive:
+            result = runner(command, cwd=cwd or root, env=child_env, timeout=timeout, interactive=True)
+        else:
+            result = runner(command, cwd=cwd or root, env=child_env, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise LiveRunError(f"{label} could not be completed; inspect {report_dir / 'partial-report.json'}.") from exc
     output = redact((result.stdout or "") + (result.stderr or ""), env)
