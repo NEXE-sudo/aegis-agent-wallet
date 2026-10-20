@@ -215,14 +215,15 @@ def _run_step(
 def _command_result(command: list[str], *, root: Path, env: dict[str, str],
                     report_dir: Path, label: str, timeout: int = 300,
                     cwd: Path | None = None, keep_agent_key: bool = False,
-                    command_runner: Callable[..., subprocess.CompletedProcess[str]] = _run_command) -> str:
+                    command_runner: Callable[..., subprocess.CompletedProcess[str]] | None = None) -> str:
     child_env = dict(env)
     if not keep_agent_key:
         child_env.pop("AEGIS_TESTNET_PRIVATE_KEY", None)
     child_env.pop("AEGIS_AGENT_TOKEN", None)
     child_env.pop("AEGIS_APPROVAL_TOKEN", None)
     try:
-        result = command_runner(command, cwd=cwd or root, env=child_env, timeout=timeout)
+        runner = command_runner or _run_command
+        result = runner(command, cwd=cwd or root, env=child_env, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise LiveRunError(f"{label} could not be completed; inspect {report_dir / 'partial-report.json'}.") from exc
     output = redact((result.stdout or "") + (result.stderr or ""), env)
