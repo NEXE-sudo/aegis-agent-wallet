@@ -1,187 +1,71 @@
 # Aegis Agent Wallet — Chatbot Handoff
 
+Last updated: 20 October 2026
+
 ## Current work in progress
 
-- Branch `feat/persisted-governance-decision-flow` is the next coherent WS1/WS2 milestone. It adds SQLite-backed mandates, payees, owner-created structured tasks, hash-linked governance/decision records, an agent queue mode that submits proposals through the existing policy gateway, and cumulative treasury-buffer protection. It also adds tests and updates the version/changelog/docs.
-- PR #221 is open and carries this branch. The first available Python CI run failed two async tests because they called `asyncio.run()` inside an active event loop; those tests now use AnyIO. No workflow result is available for the latest branch head yet, so Ruff/pytest are not confirmed green. The user must run the local checks before merge, and CI must be rechecked when available.
-- PR #220 was squash-merged as `d4e891ef54a8a0d9300ad68996f79ad26d16a670`; its feature branch was deleted after the user confirmed post-merge checks passed.
-
-Last updated: 20 October 2026
+- **PR #223** — [Add governance controls and operational hardening](https://github.com/NEXE-sudo/aegis-agent-wallet/pull/223), branch `feat/governance-operations-control-centre`, is open against `main`. It adds an owner-facing Governance view for mandates/payees/tasks, persisted decision review, owner-authenticated JSON/CSV exports, request IDs, process-local write rate limiting, `/ready`, Prometheus-style `/metrics`, regression tests, docs, and version 1.13.0. The user must run the branch checks and report the result; do not claim local tests passed unless reported.
+- PR #222 was squash-merged as `8ee561e5df50a0704bfbac39681d0818fea5bd09`; user confirmed post-merge Ruff and pytest checks passed and deleted `feat/vault-session-expiry-recipient-caps`.
+- PR #221 was squash-merged as `2d65ed4589cdc9d60aeb46d62666354f53d772cd` was the base commit for #222; its feature work persists owner-managed mandates/payees/tasks and integrates deterministic queue decisions with the existing wallet policy gateway.
+- PR #220 added deterministic mandate-bounded payment decisions. PRs #221 and #222 establish persisted governance and bounded on-chain agent sessions/recipient caps.
+- **Current version:** 1.13.0 (unreleased on the PR branch). Keep `pyproject.toml`, `uv.lock`, `app.main:app.version`, frontend version label and changelog aligned.
 
 ## Live project tracker
 
-Completion estimates below are planning estimates, not CI results or security certifications. Do not mark unmerged branch work as completed.
+Completion estimates are planning estimates, not CI results, audits, or production-readiness claims. Do not mark unmerged branch work as completed.
 
 ### Original product phases
 
 | Phase | Status | Remaining boundary |
 | --- | --- | --- |
-| Phase 1 — Secure execution foundation | Complete | Vault-only eligible execution; simulated mode default; owner approval boundary retained. |
-| Phase 2 — Wallet read/configuration | Complete | Read-only balances, policy, spend summary, network and vault inspection are implemented. |
-| Phase 3 — Lifecycle/configuration verification | Complete | Vault identity and policy comparisons fail closed on missing/mismatched observations. |
-| Phase 4 — Dashboard and visibility | Complete | Overview/Activity, policy, spending, balances, receipt and approval-expiry views exist. |
-| Phase 5 — Contract/integration hardening | Implementation complete; live evidence pending | Foundry tests and evidence tooling exist; actual deployment/transfer evidence must come from operator-run Base Sepolia activity. |
+| Phase 1 — Secure execution foundation | Complete | Simulated execution by default; eligible actual transfers only through the unaudited AegisVault on Base Sepolia. |
+| Phase 2 — Wallet read/configuration | Complete | Read-only policy, spending, balances, network and vault inspection. |
+| Phase 3 — Lifecycle/configuration verification | Complete | Persisted proposal integrity, approval expiry and vault/policy comparisons. |
+| Phase 4 — Dashboard and visibility | Core complete | Overview, proposals, approvals, activity/audit, settings and read-only chain panels exist; governance UI is in PR #223 pending merge. |
+| Phase 5 — Contract/integration hardening | Implementation complete; live evidence pending | Foundry tests and evidence verification exist. Actual deployment/transfer evidence must come from operator-run Base Sepolia activity. |
 
-### Workstreams and milestones
+### Workstreams
 
-| Workstream | Merged baseline | Pending milestones | Planning estimate |
-| --- | --- | --- | --- |
-| WS1 — Agent autonomy | PR #220 adds deterministic mandate-bounded decision logic and focused tests. | PR #221 integrates the queue with persisted owner records and the existing policy gateway; later add LLM reasoning over persisted tasks, evidence/provenance, at least 30 adversarial scenarios, repeated-run metrics, and stale-report checks. | ~20% merged; ~40% if PR #221 passes and merges |
-| WS2 — Persistent governance | Existing policy gateway, owner auth and read-only policy API. | PR #221 adds persisted mandates/payees/tasks and hash-linked records; later reconcile proposal lifecycle and spend reservations, role separation, token rotation, governance UI, and verified compliance exports. | ~10% merged; ~40% if PR #221 passes and merges |
-| WS3 — AegisVault v2 | Current vault has owner controls, exact approvals, per-token caps and Foundry unit/fuzz/invariant CI. | Session expiry, per-recipient on-chain limits, ABI/calldata synchronization, drift tests, and threat/invariant updates. | ~65% |
-| WS4 — Operations | FastAPI/SQLite, bearer-token separation, request logging, locked dependencies and CI. | Signer abstraction, rate limiting, request IDs/structured redacted logs, readiness/metrics, Docker, backup/restore, signed notification adapters. | ~25% |
-| WS5 — Frontend | Existing dependency-free control centre, policy/spending/balance/vault views, approvals and Playwright coverage. | Mandates/Payees views, Agent Activity decision timeline, policy diff, drift display, mobile approval inbox, onboarding, compliance export and browser tests. | ~45% |
-| WS6 — Demo/submission | Existing evaluation tooling, evidence bundles, deployment verification and Phase 5 runbook. | Guided demo, measured 30-scenario evaluation report, verified operator evidence, final README/security/threat model, video script, ten-minute talk and WeBank business case. | ~45%; actual live evidence is operator-dependent |
+| Workstream | Merged baseline | Remaining milestones |
+| --- | --- | --- |
+| WS1 — Agent autonomy | Deterministic mandate-bounded decisions and persisted task queue with policy-gateway proposals. | Add optional LLM reasoning over persisted structured tasks, explicit provenance, at least 30 adversarial scenarios, repeated-run metrics, and a measured evaluation report. |
+| WS2 — Persistent governance | Owner-managed mandate/payee/task persistence, payload hashes, hash-linked audit records, and stale-record fail-closed checks. | PR #223 adds control-centre forms, decision review and JSON/CSV export; later improve role separation/token rotation and export verification workflow as time permits. |
+| WS3 — AegisVault v2 | Owner controls, exact approvals, global token caps, bounded agent sessions, optional per-recipient caps, Foundry unit/fuzz/invariant tests. | ABI/calldata/configuration drift checks and operator-run deployment/transfer evidence. |
+| WS4 — Operations | FastAPI/SQLite, separate bearer-token roles, request metadata logging and CI. | PR #223 adds request IDs, process-local mutating-request rate limit, readiness and request metrics. Remaining: signer adapter boundaries, packaging, backup/restore and deployment runbook as feasible. |
+| WS5 — Frontend | Dependency-free local control centre and Playwright coverage for core workflow. | PR #223 adds governance, persisted decision review and exports; verify browser accessibility, error states and responsive behaviour in tests. |
+| WS6 — Demo/submission | Demo scenario, evidence bundles, deployment verification and contract-hardening runbook. | Guided end-to-end demo, measured evaluation report, verified operator evidence, final threat model/security summary, demo video script, ten-minute presentation and WeBank business case. |
 
-### Priority and PR minimisation plan
+## Next priorities
 
-1. **P0 — Finish WS1/WS2 core in PR #221:** persisted owner governance, integrated deterministic decision queue, existing policy gateway, audit integrity checks, regression tests, version/changelog and documentation.
-2. **P1 — One coherent WS3 PR:** session expiry plus per-recipient caps, ABI/calldata/deployment changes, Foundry unit/fuzz/invariant tests and Python/ABI drift checks.
-3. **P1 — One combined WS4/WS5 PR:** operational hardening and the highest-value governance/decision frontend views, with API and Playwright regression tests.
-4. **P1 — One WS6 close-out PR:** guided demo, measured evaluation, evidence verification integration, and final submission collateral.
+1. **Finish PR #223 safely:** check UI/route wiring, CSV formula neutralisation, rate-limit behaviour, request-ID propagation, readiness semantics, and CI. Merge only after the user reports local Ruff/pytest checks passed and CI is green.
+2. **Consolidated evaluation/demo PR:** connect the existing evaluation harness to 30+ adversarial scenarios and repeated-run metrics; add a guided demo command and produce reports only from actual test/evaluation runs.
+3. **Submission close-out:** improve evidence-bundle usability, final security/threat-model and README material, Mermaid architecture/data-flow diagrams, a ten-minute talk track, video script, and one-page business case.
+4. Keep the number of PRs low and the feature scope substantial, comparable in breadth to PR #221. Combine implementation, relevant tests, docs, changelog, version and handoff changes when they belong together.
 
-Target four substantial PRs from this checkpoint, including PR #221, and adjust only when dependencies or safety make bundling impractical. Each PR must include implementation, relevant tests, documentation, changelog, version bump and handoff update. Do not split out documentation-only PRs when the changes belong with a feature.
+## PR workflow — mandatory
 
-### Required acceptance boundaries
+For each feature PR:
+1. Work on a feature branch; never push directly to `main`.
+2. Provide the user with commands to fetch/switch to the branch and run `uv run --locked ruff check .` and `uv run --locked python -m pytest -q`; add Foundry checks when Solidity changes.
+3. Wait for the user to confirm the branch checks passed. Recheck the exact PR head and CI status before merging.
+4. Squash-merge via GitHub after the user has confirmed all checks passed; do not ask the user to perform the merge.
+5. Tell the user to sync `main` and rerun local Python checks. Only after they confirm post-merge checks passed, provide branch-deletion commands.
+6. After the user says `Branch deleted`, refresh this handoff and present the next consolidated PR plan.
 
-- No mainnet; simulated execution remains the default; Base Sepolia vault remains unaudited and testnet-only.
-- The agent cannot approve/reject, change owner policy, alter registry records, pause the wallet, or bypass the policy gateway/vault.
-- Free-text task descriptions cannot supply recipient, token, chain or amount. Governance tasks are created by owner-authenticated structured APIs.
-- The owner-maintained `available_balance_base_units` is a planning value, not a live chain balance. Governance budget history currently counts proposals conservatively and does not yet release blocked/cancelled amounts.
-- Hash chains detect payload/hash inconsistencies and chain breaks; they are not signatures and cannot protect against an attacker who can rewrite the entire database and recompute hashes.
-- Never invent transaction hashes, addresses, test results, CI results, or live evidence. The operator must generate real Base Sepolia evidence.
-- Merge only after the user confirms PR-branch Ruff/pytest checks pass and relevant CI passes. The user then syncs main and reruns checks; branch deletion follows their confirmation.
+## Security and evidence boundaries
 
-## Repository and product
+- No mainnet. Simulated execution remains the default. Actual ERC-20 transfers are only through the unaudited AegisVault on Base Sepolia (chain ID 84532), using throwaway testnet wallets.
+- The agent cannot approve/reject, pause/resume, change owner policy, edit payees/mandates, or bypass the policy gateway or vault.
+- Free-text descriptions are context only. Recipient, token, chain and amount must come from owner-authenticated structured task/payee records.
+- Payee “verified” means owner-attested, not independently identity-verified.
+- Governance audit hash chains are tamper-evident, not digital signatures, and do not prevent a database owner from rewriting the full database and recomputing hashes.
+- `available_balance_base_units` is owner-maintained planning data, not a live chain balance. Governance budget history currently reserves proposals conservatively and does not release blocked/cancelled amounts in every case.
+- PR #223's rate limiter is process-local and per client IP; it is not distributed and is not a substitute for an authenticated gateway. `/metrics` counters are process-local.
+- Never invent transaction hashes, deployment addresses, test results, CI outcomes or evidence. The operator must generate real Base Sepolia evidence.
+- Never claim audit, production readiness, or live evidence without proof.
+
+## Repository
 
 - Repository: https://github.com/NEXE-sudo/aegis-agent-wallet
-- Product: testnet-only AI-agent wallet prototype for the FinTechathon 2026 Shenzhen International Track, theme “Agent Wallet on Chain”.
-- The AI agent is a wallet user, not the product pitch.
-- Use British English and do not address the user by name.
-- Safety boundary: simulated execution by default; actual ERC-20 execution is only through the unaudited AegisVault on Base Sepolia (chain ID 84532). No mainnet or production-readiness claims.
-
-## Current state
-
-- PR #177 added vault-bounded agent execution while preserving owner approvals.
-- PR #179 retired direct EOA token execution; actual Base Sepolia ERC-20 execution is routed through AegisVault.
-- PR #180 added owner-authenticated read-only Base Sepolia ETH and demo USDC balance inspection.
-- PR #181 added owner-authenticated read-only `GET /policy/config` for active policy settings and allowlists.
-- PR #181 was squash-merged as `71b611700b0a3b113d9fa102789572c54c7ab77a`; the user confirmed checks passed on the PR and updated `main`, and the branch was deleted.
-- PR #182 added owner-authenticated `GET /spending/summary` for UTC-day local workflow spend and remaining budget per allowed token; it is merged, the user confirmed checks passed on updated `main`, and the branch was deleted.
-- PR #183 added the Overview dashboard's owner-authenticated daily spending summary with exact token-unit formatting, per-token limits and remaining budget, stale-session protection, and clear local-accounting semantics; it was squash-merged as `62bdf6d9b72b01d322929294bfcd4f33be346918`, all three CI jobs passed, and the user confirmed checks passed on updated `main` and deleted the branch.
-- PR #184 exposed the owner-authenticated `GET /policy/config` response in Settings as a read-only view of active chain/token/recipient allowlists, spending limits, and approval rules; it was squash-merged as `f548deeb5506b0ce121aa059c3ab2c344154c14b`, CI passed on Python 3.11/3.12/3.14, the user confirmed checks on updated `main`, and the branch was deleted.
-- PR #185 added an Overview panel for on-demand owner-authenticated, read-only Base Sepolia ETH and demo-USDC balances for a user-entered public address. It was squash-merged as `fbe22f13dd59a6572eccd07544aa3016a22b1cbc`; CI passed on Python 3.11/3.12/3.14, and the user confirmed both Ruff and pytest passed on updated `main`.
-- PR #186 refreshed this handoff and was squash-merged as `fde988a7c0309d67e73b5492a607283b42cf6fe9`; CI passed on Python 3.11/3.12/3.14, and the user confirmed post-merge checks passed.
-- PR #187 added the owner-authenticated, on-demand Overview network status panel using `GET /chain/base-sepolia/status`; it was squash-merged as `f220ee98fc75ee03910feee39b8c5f2220b7634c`, CI passed on Python 3.11/3.12/3.14, and the user confirmed post-merge checks passed and deleted the branch.
-
-- PR #193 adds browser regression coverage showing receipt RPC failures as unavailable status rather than fabricating a receipt.
-- PR #202 expanded deterministic agent evaluation from five to eleven scenarios, including chain/token metadata mismatches, unapproved recipients, and approval-threshold boundaries; it was squash-merged as `95240d1f9ff9e2573449d9b9e8db448736d813b0`, all three Python CI jobs passed, and the user confirmed post-merge Ruff and pytest checks and deleted the branch.
-
-## Current implementation priority
-
-PR #209 added the dedicated Foundry GitHub Actions workflow with Solidity unit, fuzz, and invariant tests. PR #210 added owner-authenticated read-only inspection of a Base Sepolia AegisVault's bytecode, owner/agent, pause state, token policy, and optional comparison with the locally configured vault address. PRs #203–#208 added portable JSON/Markdown evidence bundles, optional read-only transfer verification, audit cross-checking, provenance, confirmation-depth checks, and canonical receipt-block hash comparisons. These are point-in-time RPC observations, not finality guarantees.
-
-PRs #205–#208 added evaluation metrics and failure diagnostics, source/runtime provenance, and canonical receipt-block hash comparisons. PRs #212–#218 added reverted-call evidence, offline bundle validation, live re-verification, vault configuration snapshots, deployment verification, and approval-expiry visibility. The Phase 5 close-out adds a cross-artifact consistency verifier and operator runbook. Offline scenarios do not prove actual transfers or general LLM safety.
-
-Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve the end-to-end story (policy decision, owner approval, vault-bounded execution, on-chain receipt, and matching audit record). Keep simulated mode as the default; evidence generation must not sign or broadcast transactions. Never claim finality, independent audit, LLM safety, or production readiness.
-
-## Phased roadmap
-
-### Phase 1 — Secure execution foundation (complete)
-- Vault-only execution for eligible agent proposals.
-- Direct EOA token-transfer mode retired.
-- Owner approval requirements preserved and simulated mode remains the default.
-
-### Phase 2 — Wallet read and configuration layer (complete)
-- Owner-authenticated read-only Base Sepolia ETH/demo-USDC balances for a public address, active policy configuration and allowlists, UTC-day local workflow spending summaries, and read-only network/vault status comparison are implemented.
-- The dependency-free frontend presents balances, policy settings, per-token spend/reserved amount, daily limits and remaining budget, RPC-reported chain ID, and on-chain vault policy differences.
-- Activity exposes receipt details for the loaded page session and clearly labels receipt state as a point-in-time RPC observation, not finality.
-- Regression coverage checks authentication, wrong-chain refusal before balance queries, sanitised provider failures, configuration mismatch states, and owner-only access. Local database accounting is labelled separately from on-chain state; secrets and private keys are never exposed by these read surfaces.
-
-### Phase 3 — Wallet lifecycle and configuration verification (complete)
-- Read-only vault inspection reports chain identity, bytecode presence, owner/agent separation, pause state, token/recipient policy and spending caps, and optional comparisons with configured vault/owner and the public address derived from the agent key.
-- Missing expected identity values are reported as unverified rather than treated as matches; wrong-chain RPCs, absent bytecode, malformed ABI responses and structurally invalid configuration fail closed.
-- Regression coverage exercises authentication, invalid addresses, wrong-chain RPCs, missing bytecode, malformed responses, policy differences, and configured identity comparisons. RPC observations remain point-in-time evidence, not independent contract authenticity or finality proofs.
-
-### Phase 4 — Wallet dashboard and visibility (complete)
-- The Overview and supporting views present workflow identity/status, network, public-address balances, active policy, spending and remaining limits, vault configuration comparison, and transaction receipt details using actual API responses.
-- Browser credentials remain in memory only, asynchronous requests are guarded against stale sessions, and unavailable data is shown as unavailable rather than fabricated.
-- Activity displays the backend-derived approval expiry timestamp for approved transactions and flags elapsed deadlines; the browser display is advisory, while the backend remains authoritative for approval validity.
-- An end-to-end browser regression covers the wallet read/configuration surfaces together, including spending summary, network and vault status, balances, policy settings, and expired-approval visibility.
-### Phase 5 — Contract and integration hardening (implementation complete; live evidence is operator-generated)
-
-- GitHub Actions runs the Solidity unit, fuzz, and invariant suite; Python tests and Ruff remain separate required checks.
-- `scripts/verify_vault_deployment.py` verifies an already-mined Base Sepolia deployment receipt, created vault address, constructor/current owner, canonical receipt block hash, observed confirmation depth, and runtime bytecode fingerprint without signing or broadcasting.
-- `scripts/build_evidence_bundle.py` captures offline evaluation plus optional successful-transfer or expected-revert evidence, sender and confirmation checks, SQLite audit cross-checks for successful transfers, provenance, and a schema-v6 bundle digest.
-- `scripts/verify_evidence_bundle.py` validates saved bundle integrity and internal consistency offline; `scripts/reverify_testnet_bundle.py` re-queries the configured RPC and compares stable transaction/receipt fields and the saved vault configuration snapshot.
-- `scripts/verify_phase5_evidence.py` cross-checks a deployment-verification JSON artefact against a passing schema-v6 transaction bundle, rejecting mismatched chain, vault, owner, bytecode fingerprint, or transaction identities.
-- The end-to-end procedure and residual-risk matrix are documented in `docs/phase-5-hardening.md`. Implementation scope is complete; a real deployment/transfer report still must be generated from actual Base Sepolia activity and cannot be inferred from CI or fixtures.
-- Residual risks remain explicit: RPC observations are not independent consensus proofs, observed confirmations are not finality, bytecode hashes do not prove source reproducibility or safety, and evidence digests do not prove authorship. The vault is unaudited and testnet-only.
-
-### Explicitly separate scope decisions
-- Native ETH transfer support is separate from read-only ETH balance support.
-- ERC-4337 account abstraction is a separate architectural decision.
-- Do not enable mainnet execution or claim the unaudited vault is production-ready.
-
-## Recently completed transaction-history and contract-hardening batch
-
-- The receipt visibility and error-state work, history scope/limit validation, offset pagination, Activity Previous/Next controls, exact approval-expiry boundary, and fail-closed balance RPC regression tests were incorporated before PR #202.
-- PRs #203–#218 are merged, covering portable evidence bundles, confirmation-depth checks, evaluation metrics/diagnostics, provenance, canonical receipt-block hash checks, reverted-call evidence, standalone bundle validation, current-state re-verification, vault configuration snapshots, deployment verification, and dashboard visibility. The current Phase 5 close-out links deployment and transfer artefacts and documents the operational workflow; it does not invent or substitute for real deployment evidence. Always query GitHub before assuming there are no open pull requests.
-
-## Required PR workflow
-
-1. Create one focused branch from the current `main`, implement the change, add tests, update relevant documentation, and open a PR.
-2. Use a plain-English PR title and a **single-sentence description** explaining the change; do not use prefixes such as `feat:` or `milestone:`.
-3. The user pulls the PR branch and runs:
-   ```bash
-   uv run --locked ruff check .
-   uv run --locked python -m pytest -q
-   ```
-4. When the user confirms both checks pass on the PR branch, verify that the PR is open, mergeable, and its head SHA is unchanged; then squash-merge it through GitHub without asking the user to merge it.
-5. The user pulls updated `main` and reruns both checks:
-   ```bash
-   git switch main
-   git pull --ff-only origin main
-   uv run --locked ruff check .
-   uv run --locked python -m pytest -q
-   ```
-6. Only after the user confirms both checks pass on updated `main` and GitHub confirms the merge, provide local and remote branch deletion together in one code block:
-   ```bash
-   git switch main
-   git branch -d <branch-name>
-   git push origin --delete <branch-name>
-   ```
-7. Keep every handoff or other documentation update inside a PR; never update `main` directly or create a separate documentation-only PR when the update belongs with the current feature.
-8. Inspect GitHub state before each PR and before cleanup. Do not infer that tests passed or a merge occurred without confirmation.
-9. Use British English, keep instructions compact, and do not address the user by name.
-
-## Current status and next action
-
-- PR #221 (`feat/persisted-governance-decision-flow`) is merged at version 1.12.0; persisted mandates, payees, structured tasks, governance queue decisions, and tamper-evident governance audit verification are on `main`. User confirmed post-merge Ruff/pytest checks and deleted the branch.
-- Current PR in progress: `feat/vault-session-expiry-recipient-caps`. Adds bounded on-chain agent sessions (maximum 30 days), optional per-token/per-recipient transfer and UTC-day caps, Foundry regression tests, and on-chain operator docs. Do not merge until the user confirms checks and the Foundry workflow is green.
-
-- PR #203 added portable JSON/Markdown evidence bundles, optional read-only Base Sepolia transfer verification, audit cross-checking, and a canonical-payload SHA-256 digest.
-- PR #204 added receipt/latest-block heights and configurable minimum-confirmation checks; these remain point-in-time RPC observations, not finality guarantees.
-- PR #205 added aggregate evaluation metrics. PR #206 added machine-readable failure reasons and aggregate LLM failure diagnostics. Both are merged; the user confirmed post-merge checks and deleted the branch.
-- PR #207 (branch `feat/evidence-provenance`) is merged; it records source revision and Python runtime provenance, uses schema v3, and covers provenance in the canonical digest. The user confirmed post-merge checks and deleted the branch.
-- PR #208 is merged and post-merge local checks passed. Matching receipt/canonical block hashes remain a point-in-time observation from one RPC, not proof of finality.
-- PR #209 added automated Foundry contract checks and was merged; the user confirmed post-merge checks and deleted the branch.
-- PR #210 (`feat/onchain-vault-configuration-inspection`) is merged; the owner-authenticated read-only AegisVault status endpoint is in `main`, and the user confirmed post-merge Ruff/pytest checks and deleted the branch.
-- PR #211 (`feat/approval-expiry-visibility`) is merged; it exposes the backend-derived absolute approval deadline and displays expired deadlines in Activity. The user confirmed post-merge Ruff/pytest checks and deleted the branch.
-- PR #216 is merged and post-merge Ruff/pytest checks passed; the user confirmed deletion of `feat/deployment-aware-testnet-evidence`.
-- PR #218 completed the dashboard visibility slice. The current Phase 5 close-out adds cross-artifact deployment-to-transfer evidence verification, regression coverage, and a single operational runbook; it does not generate fabricated live-chain evidence.- The user must run both local Python checks on the PR branch before merge. Then verify the PR head SHA and all CI jobs (including Foundry when relevant), squash-merge, ask for post-merge checks on updated `main`, and only then provide branch deletion commands.
-- Continue bundling the broadest coherent milestone scope practical, including implementation, regression/integration tests, docs and handoff updates; do not impose artificial PR size limits. Never update `main` directly.
-
-## Standard accounting and safety semantics
-
-- Daily workflow spend is keyed by UTC date, chain ID, and token address.
-- Active `ready`, `awaiting_approval`, and `approved` proposals reserve budget; `submitting_onchain` remains reserved while an RPC outcome is uncertain.
-- `executed_simulated` and `submitted_onchain` count for the UTC execution day recorded by the workflow store. A submitted transaction is not proof of mining or finality.
-- `GET /spending/summary` is local workflow accounting, not an on-chain balance or vault spend counter.
-- Protect the SQLite database and backups. The testnet vault is unaudited and must only use throwaway Base Sepolia wallets.
-
-
-## Development workflow status
-
-- Continue with the manual PR workflow documented above: one coherent, milestone-sized branch and PR at a time, with scope driven by completion rather than an arbitrary size limit; required checks before squash merge, user-confirmed local checks on the PR and updated `main`, and branch cleanup only after post-merge verification.
-- The dedicated Foundry contract workflow is active alongside the existing Python workflow; do not treat Python tests as evidence that Solidity tests passed. Prefer phase-completion PRs that bundle implementation, tests, and related documentation.
+- Product: testnet-only AI-agent wallet prototype for FinTechathon 2026 Shenzhen International Track, theme “Agent Wallet on Chain”.
+- Use British English. Keep user-facing instructions direct and compact.

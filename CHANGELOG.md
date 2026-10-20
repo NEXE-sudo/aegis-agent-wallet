@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.13.0 (unreleased)
+
+- Add request IDs, process-local write rate limiting, readiness and Prometheus-style request metrics with bounded route labels and secret-free request metadata logging.
+- Add owner-facing mandate, payee and structured-task controls, persisted decision review, and JSON/CSV governance exports with CSV formula neutralisation and explicit audit-integrity limitations.
+- Add operational and governance export regression tests; keep simulated execution as the default and Base Sepolia as the only supported on-chain target.
+
 ## 1.12.0 (unreleased)
 
 - Persist owner-managed mandates, verified payees, and structured payment tasks in SQLite with payload hashes and append-only hash-chained governance and decision records.

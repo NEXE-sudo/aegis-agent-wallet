@@ -4,10 +4,13 @@ import os
 import re
 import secrets
 import sqlite3
+import uuid
+from collections import deque
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from time import perf_counter, time
+from threading import Lock
+from time import monotonic, perf_counter, time
 from typing import Literal
 
 from eth_utils import keccak
@@ -205,7 +208,7 @@ async def lifespan(application: FastAPI):
 app = FastAPI(
     title="Aegis Agent Wallet API",
     description="Policy, risk, and approval workflow with simulated execution by default and explicitly gated Base Sepolia testnet execution.",
-    version="1.12.0",
+    version="1.13.0",
     lifespan=lifespan,
 )
 
@@ -215,21 +218,67 @@ app.include_router(governance_router)
 
 
 request_logger = logging.getLogger("aegis.request")
+_REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+_RATE_LIMIT_WINDOW_SECONDS = 60.0
+_RATE_LIMIT_MAX_REQUESTS = max(1, int(os.environ.get("AEGIS_RATE_LIMIT_REQUESTS", "120")))
+_rate_lock = Lock()
+_rate_windows: dict[str, deque[float]] = {}
+_metrics_lock = Lock()
+_http_metrics: dict[tuple[str, str, int], int] = {}
+
+
+def _record_http_metric(method: str, route: str, status: int) -> None:
+    key = (method, route, status)
+    with _metrics_lock:
+        _http_metrics[key] = _http_metrics.get(key, 0) + 1
+
+
+def _consume_write_limit(client_key: str, now: float) -> tuple[bool, int]:
+    """Apply a process-local sliding-window limit to mutating requests."""
+    cutoff = now - _RATE_LIMIT_WINDOW_SECONDS
+    with _rate_lock:
+        requests = _rate_windows.setdefault(client_key, deque())
+        while requests and requests[0] <= cutoff:
+            requests.popleft()
+        if len(requests) >= _RATE_LIMIT_MAX_REQUESTS:
+            return False, max(1, int(_RATE_LIMIT_WINDOW_SECONDS - (now - requests[0])))
+        requests.append(now)
+        return True, _RATE_LIMIT_MAX_REQUESTS - len(requests)
 
 
 @app.middleware("http")
 async def log_http_requests(request: Request, call_next):
-    """Log request metadata without recording raw URLs, headers, or exception text."""
+    """Correlate requests and log bounded route metadata without credentials or bodies."""
     started = perf_counter()
+    supplied_id = request.headers.get("X-Request-ID", "")
+    request_id = supplied_id if _REQUEST_ID_PATTERN.fullmatch(supplied_id) else uuid.uuid4().hex
+    request.state.request_id = request_id
+
+    response = None
+    status_code = 500
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        client_key = request.client.host if request.client else "unknown"
+        allowed, remaining = _consume_write_limit(client_key, monotonic())
+        if not allowed:
+            response = JSONResponse(
+                status_code=429,
+                content={"detail": {"code": "rate_limit_exceeded", "message": "Too many write requests; retry after the rate-limit window."}},
+                headers={"Retry-After": str(remaining)},
+            )
+            status_code = 429
+
     try:
-        response = await call_next(request)
+        if response is None:
+            response = await call_next(request)
+            status_code = response.status_code
     except Exception:
-        # Record the failure status and route metadata, but never exception text.
         route = request.scope.get("route")
         route_template = getattr(route, "path", "<unmatched>")
+        _record_http_metric(request.method, route_template, 500)
         request_logger.info(
             "http_request",
             extra={
+                "request_id": request_id,
                 "http_method": request.method,
                 "http_route": route_template,
                 "http_status_code": 500,
@@ -240,15 +289,18 @@ async def log_http_requests(request: Request, call_next):
 
     route = request.scope.get("route")
     route_template = getattr(route, "path", "<unmatched>")
+    _record_http_metric(request.method, route_template, status_code)
     request_logger.info(
         "http_request",
         extra={
+            "request_id": request_id,
             "http_method": request.method,
             "http_route": route_template,
-            "http_status_code": response.status_code,
+            "http_status_code": status_code,
             "duration_ms": round((perf_counter() - started) * 1000, 2),
         },
     )
+    response.headers.setdefault("X-Request-ID", request_id)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("Referrer-Policy", "no-referrer")
     response.headers.setdefault("X-Frame-Options", "DENY")
@@ -308,7 +360,47 @@ def _record_response(record: dict) -> TransactionResponse:
 
 @app.get("/health")
 def health() -> dict[str, str]:
+    """Liveness probe: the process is running, without asserting database readiness."""
     return {"status": "ok", "mode": execution_settings.mode}
+
+
+@app.get("/ready")
+def readiness() -> JSONResponse:
+    """Check workflow and governance storage reads without exposing database details."""
+    checks: dict[str, str] = {}
+    try:
+        store.list_recent(1)
+        checks["workflow_store"] = "ok"
+    except (sqlite3.Error, WorkflowDataError, ValueError, TypeError, KeyError, OSError):
+        checks["workflow_store"] = "unavailable"
+    try:
+        app.state.governance_store.get_active_mandate()
+        app.state.governance_store.list_payees()
+        checks["governance_store"] = "ok"
+    except (sqlite3.Error, GovernanceDataError, ValueError, TypeError, KeyError, OSError):
+        checks["governance_store"] = "unavailable"
+    ready = all(value == "ok" for value in checks.values())
+    return JSONResponse(
+        status_code=200 if ready else 503,
+        content={"status": "ready" if ready else "not_ready", "checks": checks},
+    )
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics() -> Response:
+    """Expose bounded-cardinality process-local request counters in Prometheus text format."""
+    with _metrics_lock:
+        snapshot = sorted(_http_metrics.items())
+    lines = [
+        "# HELP aegis_http_requests_total HTTP requests handled by this process.",
+        "# TYPE aegis_http_requests_total counter",
+    ]
+    for (method, route, status), count in snapshot:
+        safe_route = route.replace("\\", "\\\\").replace('"', '\\"')
+        lines.append(
+            f'aegis_http_requests_total{{method="{method}",route="{safe_route}",status="{status}"}} {count}'
+        )
+    return Response(content="\n".join(lines) + "\n", media_type="text/plain; version=0.0.4")
 
 
 @app.post("/policy/evaluate", response_model=EvaluationResponse)

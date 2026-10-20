@@ -32,6 +32,14 @@ Credentials are held in JavaScript memory only. They are not written to local st
 
 The proposal form is intentionally bounded to the current demo policy: chain ID 84532, Circle's configured Base Sepolia USDC contract, six decimals, and a maximum amount of 50 USDC. These defaults do not configure live-trading controls. The API may apply other policy constraints, such as recipient and daily limits.
 
+## Governance control centre and compliance exports
+
+The **Governance** view is owner-authenticated and reads the persisted mandate, payee registry, structured tasks, saved decisions, and audit-chain verification result. It can save a single-token mandate, register a payee whose token metadata must match the active wallet policy, queue structured tasks, and ask the agent-token endpoint to process pending tasks. The agent can propose or escalate; it cannot approve or execute a payment. Free-text descriptions are context only and do not supply recipient, token, chain, or amount.
+
+The view offers JSON and CSV downloads from `GET /governance/export?format=json` and `GET /governance/export?format=csv`. Both are owner-authenticated. The JSON export includes the verification result, active mandate, payees, tasks, saved decisions, export timestamp, and limitations. The CSV export flattens task/decision data and prefixes spreadsheet formula-leading cells. A valid hash chain is tamper-evident rather than a digital signature, and an owner-attested payee is not independently identity-verified.
+
+Operational endpoints include `/ready` (storage-readiness probe) and `/metrics` (process-local request counters in Prometheus text format). Mutating requests use a process-local sliding-window rate limit controlled by `AEGIS_RATE_LIMIT_REQUESTS` (default 120 per client IP per minute). This is not a distributed rate limiter and should not be treated as a substitute for an authenticated gateway. Responses include a validated or generated `X-Request-ID`; logs record request IDs, route templates, status codes, and durations without logging credentials, bodies, or raw query strings.
+
 ## Validation
 
 There is no separate frontend build or package command. From the repository root, run:
