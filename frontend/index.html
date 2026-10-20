@@ -246,6 +246,7 @@ button.audit-card{text-align:left;width:100%;color:inherit}
       <button data-view="proposals"><span class="nav-icon">＋</span>Proposals</button>
       <button data-view="approvals"><span class="nav-icon">◷</span>Approvals <span class="count" id="approval-count">0</span></button>
       <button data-view="activity"><span class="nav-icon">≡</span>Activity &amp; Audit</button>
+      <button data-view="governance"><span class="nav-icon">◇</span>Governance</button>
       <button data-view="settings"><span class="nav-icon">⚙</span>Settings</button>
     </nav>
     <div class="side-section">
@@ -260,7 +261,7 @@ button.audit-card{text-align:left;width:100%;color:inherit}
           <small id="connection-status">No active session</small>
         </span>
       </button>
-      <div class="mode-chip">◆ <span id="execution-mode-chip">CHECKING EXECUTION MODE</span> <span style="margin-left:auto;color:#8f9fb3;letter-spacing:0;text-transform:none;font-weight:700">v1.12.0 API</span></div>
+      <div class="mode-chip">◆ <span id="execution-mode-chip">CHECKING EXECUTION MODE</span> <span style="margin-left:auto;color:#8f9fb3;letter-spacing:0;text-transform:none;font-weight:700">v1.13.0 API</span></div>
     </div>
   </aside>
   <main class="main">
@@ -603,6 +604,73 @@ button.audit-card{text-align:left;width:100%;color:inherit}
       </div>
     </section>
 
+    <section class="view" id="view-governance">
+      <div class="heading">
+        <div>
+          <div class="eyebrow">OWNER CONTROL</div>
+          <h1>Governance</h1>
+          <p class="subtitle">Configure the owner-managed mandate, payee registry and structured payment queue. Agent decisions still pass through wallet policy and owner approval.</p>
+        </div>
+        <button class="btn secondary" type="button" id="governance-refresh">Refresh</button>
+      </div>
+      <div class="notice">
+        <div class="notice-icon">◇</div>
+        <div><strong id="governance-integrity-title">Governance integrity not checked</strong><p id="governance-integrity-copy">Connect with the owner token to read the persisted records and verify the audit chain.</p></div>
+        <span class="notice-tag">OWNER ONLY</span>
+      </div>
+      <div class="settings-grid">
+        <section class="settings-card" style="grid-column:1/-1">
+          <h3>Active mandate</h3>
+          <p>Amounts are token base units. The available balance is an owner-maintained planning value, not a live on-chain balance. One token is supported per mandate.</p>
+          <div id="governance-mandate-summary" class="empty-state">Connect with an owner token to inspect the active mandate.</div>
+          <form id="governance-mandate-form" class="form-grid" style="margin-top:16px">
+            <label class="field"><span>Mandate ID</span><input name="mandate_id" required maxlength="64" pattern="[A-Za-z0-9_-]+" value="monthly-utilities"></label>
+            <label class="field"><span>Allowed categories (comma separated)</span><input name="allowed_categories" required value="utilities"></label>
+            <label class="field"><span>Monthly budget (base units)</span><input name="monthly_budget_base_units" type="number" min="1" step="1" required value="10000000"></label>
+            <label class="field"><span>Per-payment limit (base units)</span><input name="per_payment_limit_base_units" type="number" min="1" step="1" required value="5000000"></label>
+            <label class="field"><span>Approval threshold (base units)</span><input name="approval_threshold_base_units" type="number" min="0" step="1" required value="4000000"></label>
+            <label class="field"><span>Treasury buffer (base units)</span><input name="treasury_buffer_base_units" type="number" min="0" step="1" required value="0"></label>
+            <label class="field"><span>Planning balance (base units)</span><input name="available_balance_base_units" type="number" min="0" step="1" required value="10000000"></label>
+            <div class="form-actions" style="grid-column:1/-1;padding:0"><button class="btn primary" type="submit">Save mandate</button></div>
+          </form>
+        </section>
+        <section class="settings-card" style="grid-column:1/-1">
+          <h3>Payee registry</h3>
+          <p>“Verified” means owner-attested in this prototype; it is not independent identity verification. Token metadata must match the wallet policy allowlist.</p>
+          <div id="governance-payee-list" class="spending-list"><div class="empty-state">Payees have not been loaded.</div></div>
+          <form id="governance-payee-form" class="form-grid" style="margin-top:16px">
+            <label class="field"><span>Payee ID</span><input name="payee_id" required maxlength="64" pattern="[A-Za-z0-9_-]+" placeholder="power-company"></label>
+            <label class="field"><span>Display name</span><input name="name" required maxlength="128" placeholder="Power Company"></label>
+            <label class="field"><span>Recipient address</span><input name="address" required pattern="0x[a-fA-F0-9]{40}" maxlength="42" placeholder="0x…"></label>
+            <label class="field"><span>Category</span><input name="category" required maxlength="64" value="utilities"></label>
+            <label class="field"><span>Per-transaction cap (base units)</span><input name="per_tx_limit_base_units" type="number" min="1" step="1" required value="5000000"></label>
+            <label class="field"><span>Daily cap (base units)</span><input name="daily_limit_base_units" type="number" min="1" step="1" required value="8000000"></label>
+            <label class="field"><span>Owner attestation</span><select name="verified"><option value="false">Not verified</option><option value="true">Owner-attested</option></select></label>
+            <div class="form-actions" style="grid-column:1/-1;padding:0"><button class="btn primary" type="submit">Save payee</button></div>
+          </form>
+        </section>
+        <section class="settings-card" style="grid-column:1/-1">
+          <h3>Structured task queue</h3>
+          <p>Free-text descriptions are context only; they cannot set the payment recipient, token, chain or amount. Those come from the structured owner task and registered payee.</p>
+          <form id="governance-task-form" class="form-grid">
+            <label class="field"><span>Invoice / reference ID</span><input name="invoice_id" required maxlength="128" placeholder="INV-2026-0042"></label>
+            <label class="field"><span>Registered payee</span><select name="payee_id" id="governance-task-payee" required><option value="">Load payees first</option></select></label>
+            <label class="field"><span>Amount (base units)</span><input name="amount_base_units" type="number" min="1" step="1" required value="1000000"></label>
+            <label class="field"><span>Due date (optional)</span><input name="due_at" type="datetime-local"></label>
+            <label class="field" style="grid-column:1/-1"><span>Description / supporting context</span><input name="description" maxlength="4000" placeholder="Monthly utility invoice; context only, not payment authority"></label>
+            <div class="form-actions" style="grid-column:1/-1;padding:0"><button class="btn primary" type="submit">Queue task</button></div>
+          </form>
+          <div class="form-actions" style="padding:16px 0 0">
+            <button class="btn secondary" type="button" id="governance-process-queue">Process pending tasks with agent token</button>
+            <button class="btn secondary" type="button" id="governance-export-json">Export JSON</button>
+            <button class="btn secondary" type="button" id="governance-export-csv">Export CSV</button>
+          </div>
+          <div id="governance-queue-result" aria-live="polite" style="margin-top:12px"></div>
+          <div id="governance-task-list" class="spending-list" style="margin-top:12px"><div class="empty-state">Tasks have not been loaded.</div></div>
+        </section>
+      </div>
+    </section>
+
     <section class="view" id="view-settings">
       <div class="heading">
         <div>
@@ -732,6 +800,7 @@ const state = {
   ],
   marketSelected: { assetClass: 'crypto', symbol: 'BTC' },
   audit: [],
+  governance: {mandate: null, payees: [], tasks: [], integrity: null, error: '', decisions: null},
   proposalAttempt: null
 };
 
@@ -897,12 +966,14 @@ const setView = (view) => {
     proposals: 'Proposals',
     approvals: 'Approvals',
     activity: 'Activity & Audit',
+    governance: 'Governance',
     settings: 'Settings'
   }[view] || 'Overview';
   if (view === 'overview') renderOverview();
   if (view === 'approvals') renderApprovals();
   if (view === 'activity') renderActivity();
   if (view === 'markets') renderMarketList();
+  if (view === 'governance') void refreshGovernance();
 };
 
 const api = async (path, options = {}, role = 'owner') => {
