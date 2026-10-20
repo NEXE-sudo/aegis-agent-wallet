@@ -228,6 +228,7 @@ async def build_evidence_bundle(
                     transaction_hash, rpc, normalized_vault, expect_revert=True
                 ) if expect_revert else verify_evidence(transaction_hash, rpc, normalized_vault)
             testnet["evidence"] = evidence
+            testnet["checks"]["chain_and_transfer_evidence_verified"] = True
             configuration = capture_vault_configuration(
                 rpc, normalized_vault, evidence["token_contract"]
             )
@@ -240,7 +241,6 @@ async def build_evidence_bundle(
                     "Vault configuration snapshot is structurally invalid: "
                     + "; ".join(configuration["issues"])
                 )
-            testnet["checks"]["chain_and_transfer_evidence_verified"] = True
             testnet["checks"]["expected_sender_matches"] = (
                 evidence["sender"] == normalized_sender
             )
