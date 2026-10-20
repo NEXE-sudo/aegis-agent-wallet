@@ -237,3 +237,63 @@ def test_governance_runner_rejects_caller_supplied_payment_fields():
             "mode": "governance_queue",
             "authorized_payment": {"recipient": "0x" + "b" * 40},
         }))
+
+
+def test_task_escalates_if_mandate_or_payee_changes_after_creation(monkeypatch, tmp_path):
+    setup_isolated(monkeypatch, tmp_path)
+    client.put("/governance/mandate", headers=OWNER_HEADERS, json=mandate_payload())
+    client.put(
+        "/governance/payees/power-company",
+        headers=OWNER_HEADERS,
+        json=payee_payload(),
+    )
+    client.post(
+        "/governance/tasks",
+        headers=OWNER_HEADERS,
+        json={
+            "task_id": "invoice-stale-policy",
+            "invoice_id": "invoice-stale-policy",
+            "payee_id": "power-company",
+            "token_symbol": "USDC",
+            "amount_base_units": 1_000_000,
+        },
+    )
+    client.put(
+        "/governance/mandate",
+        headers=OWNER_HEADERS,
+        json=mandate_payload(monthly_budget_base_units=9_000_000),
+    )
+    client.put(
+        "/governance/payees/power-company",
+        headers=OWNER_HEADERS,
+        json=payee_payload(address="0x3333333333333333333333333333333333333333"),
+    )
+
+    response = client.post("/agent/governance/decide-pending", headers=AGENT_HEADERS)
+
+    assert response.status_code == 200
+    decision = response.json()["decisions"][0]["decision"]
+    assert decision["action"] == "escalate"
+    assert decision["amount"] is None
+    assert "policy:mandate_changed_since_task_creation" in decision["evidence_refs"]
+    assert "registry:payee_changed_since_task_creation" in decision["evidence_refs"]
+    assert decision["transaction_id"] is None
+
+
+@pytest.mark.parametrize("amount", [1000.5, True, "1000"])
+def test_task_amount_requires_a_strict_integer(monkeypatch, tmp_path, amount):
+    setup_isolated(monkeypatch, tmp_path)
+    client.put("/governance/mandate", headers=OWNER_HEADERS, json=mandate_payload())
+
+    response = client.post(
+        "/governance/tasks",
+        headers=OWNER_HEADERS,
+        json={
+            "invoice_id": "invoice-invalid-amount",
+            "payee_id": "unknown-payee",
+            "token_symbol": "USDC",
+            "amount_base_units": amount,
+        },
+    )
+
+    assert response.status_code == 422
