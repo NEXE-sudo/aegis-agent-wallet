@@ -830,7 +830,13 @@ def _require_current_governance_for_transaction(transaction_id: str) -> None:
     }:
         return
     governance = app.state.governance_store
-    decision = governance.get_decision_for_transaction(transaction_id)
+    try:
+        decision = governance.get_decision_for_transaction(transaction_id)
+    except GovernanceDataError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "governance_integrity_failed", "message": "Governance evidence failed integrity verification."},
+        ) from exc
     if decision is None:
         return
     mandate = governance.get_active_mandate()
