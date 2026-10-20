@@ -4,11 +4,10 @@ Last updated: 20 October 2026
 
 ## Current work in progress
 
-- **PR #223** — [Add governance controls and operational hardening](https://github.com/NEXE-sudo/aegis-agent-wallet/pull/223), branch `feat/governance-operations-control-centre`, is open against `main`. It adds an owner-facing Governance view for mandates/payees/tasks, persisted decision review, owner-authenticated JSON/CSV exports, request IDs, process-local write rate limiting, `/ready`, Prometheus-style `/metrics`, regression tests, docs, and version 1.13.0. The user must run the branch checks and report the result; do not claim local tests passed unless reported.
-- PR #222 was squash-merged as `8ee561e5df50a0704bfbac39681d0818fea5bd09`; user confirmed post-merge Ruff and pytest checks passed and deleted `feat/vault-session-expiry-recipient-caps`.
-- PR #221 was squash-merged as `2d65ed4589cdc9d60aeb46d62666354f53d772cd` was the base commit for #222; its feature work persists owner-managed mandates/payees/tasks and integrates deterministic queue decisions with the existing wallet policy gateway.
-- PR #220 added deterministic mandate-bounded payment decisions. PRs #221 and #222 establish persisted governance and bounded on-chain agent sessions/recipient caps.
-- **Current version:** 1.13.0 (unreleased on the PR branch). Keep `pyproject.toml`, `uv.lock`, `app.main:app.version`, frontend version label and changelog aligned.
+- **PR in preparation** — branch `feat/governance-budget-reconciliation`. It reconciles persisted downstream `blocked`, `cancelled`, and `rejected` workflow states out of governance budget history, keeps invoice IDs in duplicate checks, and counts missing/unknown transaction evidence conservatively. Local checks and CI must be confirmed before merge.
+- PR #225 — [Expand adversarial evaluation and governance evidence](https://github.com/NEXE-sudo/aegis-agent-wallet/pull/225) — was squash-merged as `1e0b5f0b90020ffb2fb0d06c141275bef9e925fa`. The user confirmed 110/110 scenario observations passed across five repeated runs, post-merge checks passed, and the branch was deleted.
+- PR #224 added repeatable evaluation and a demo guide; PR #223 added governance controls and operational hardening; PR #222 added expiring agent sessions and recipient caps; PR #221 persisted governance and integrated deterministic queue decisions.
+- Keep the number of PRs low and feature scope substantial, comparable in breadth to PR #221. Do not claim local checks passed unless the user reports the result.
 
 ## Live project tracker
 
