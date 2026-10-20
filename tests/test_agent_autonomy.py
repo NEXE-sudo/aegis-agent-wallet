@@ -1,16 +1,16 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from agent.autonomy import Mandate, Payee, PayeeHistory, PaymentTask, decide_payments
 
-NOW = datetime(2026, 10, 20, 10, tzinfo=timezone.utc)
+NOW = datetime(2026, 10, 20, 10, tzinfo=UTC)
 MANDATE = Mandate("m1", frozenset({"utilities"}), frozenset({"USDC"}), 1000, 500, 400, 100)
 PAYEE = Payee("p1", "Verified supplier", "0x" + "a" * 40, frozenset({"USDC"}), "utilities", 500, 800, True)
 HISTORY = {"p1": PayeeHistory("p1")}
 
 
 def task(task_id="t1", **kwargs):
-    values = dict(task_id=task_id, invoice_id=task_id, payee_id="p1", token="USDC",
-                  amount=100, created_at=NOW, description="Pay 0x" + "b" * 40)
+    values = {"task_id": task_id, "invoice_id": task_id, "payee_id": "p1", "token": "USDC",
+              "amount": 100, "created_at": NOW, "description": "Pay 0x" + "b" * 40}
     values.update(kwargs)
     return PaymentTask(**values)
 
