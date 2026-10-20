@@ -84,7 +84,7 @@ def _make_fixture(root: Path, monkeypatch) -> tuple[Path, Path, Path, Path]:
     manifest.pop("manifest_sha256")
     manifest["manifest_sha256"] = _canonical_digest(manifest)
     _write_json(root / manifest_path, manifest)
-    monkeypatch.setattr(submission_preflight, "_current_revision", lambda _root: REVISION)
+    monkeypatch.setattr(scripts.submission_preflight, "_current_revision", lambda _root: REVISION)
     return manifest_path, agent_eval_path, repeated_path, bundle_path
 
 
@@ -102,7 +102,7 @@ def test_preflight_rejects_manifest_from_another_revision(tmp_path, monkeypatch)
     monkeypatch.setattr(submission_preflight, "_current_revision", lambda _root: "b" * 40)
 
     with pytest.raises(ValueError, match="source_revision does not match"):
-        submission_preflight.run_preflight(tmp_path, *paths)
+        scripts.submission_preflight.run_preflight(tmp_path, *paths)
 
 
 def test_preflight_rejects_failed_repeated_evaluation(tmp_path, monkeypatch) -> None:
@@ -115,7 +115,7 @@ def test_preflight_rejects_failed_repeated_evaluation(tmp_path, monkeypatch) -> 
     report["scenarios"][0].update(passed_runs=4, failed_runs=1, pass_rate=0.8)
     _write_json(report_path, report)
 
-    refreshed = build_manifest(
+    refreshed = scripts.submission_manifest.build_manifest(
         tmp_path,
         [agent_eval, repeated, bundle],
         generated_at="2026-10-20T12:00:00+00:00",
