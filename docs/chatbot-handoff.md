@@ -31,7 +31,7 @@ Last updated: 20 October 2026
 
 PR #203 delivered portable JSON/Markdown evidence bundles, optional read-only Base Sepolia transfer verification, audit cross-checking, and a canonical-payload SHA-256 digest. PR #204 added receipt/latest-block heights, observed confirmation depth, and configurable minimum-confirmation checks. These are point-in-time RPC observations, not finality guarantees.
 
-PR #205 delivered aggregate pass/failure counts and pass rates for deterministic and opt-in LLM evaluations. PR #206 then added machine-readable failure reasons to individual deterministic and LLM runs and aggregates LLM failure types in reports. Both are merged. The current increment adds generation provenance to the portable evidence bundle: source revision when available and Python runtime identity, all covered by the bundle digest. Keep the narrow scope explicit: offline scenarios do not prove actual transfers or general LLM safety.
+PR #205 delivered aggregate pass/failure counts and pass rates for deterministic and opt-in LLM evaluations. PR #206 added machine-readable failure reasons to individual deterministic and LLM runs and aggregates LLM failure types in reports. PR #207 added source revision and Python runtime provenance to the portable evidence bundle, upgraded its schema to v3, and included provenance in the bundle digest; it is merged and the user confirmed post-merge checks and deleted the branch. The current increment checks the receipt block hash against the hash returned by the configured RPC for that height, records both hashes in evidence, upgrades the bundle schema to v4, and adds regression tests and documentation. Keep the narrow scope explicit: offline scenarios do not prove actual transfers or general LLM safety.
 
 Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve the end-to-end story (policy decision, owner approval, vault-bounded execution, on-chain receipt, and matching audit record). Keep simulated mode as the default; evidence generation must not sign or broadcast transactions. Never claim finality, independent audit, LLM safety, or production readiness.
 
@@ -70,7 +70,7 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 ## Recently completed transaction-history and contract-hardening batch
 
 - The receipt visibility and error-state work, history scope/limit validation, offset pagination, Activity Previous/Next controls, exact approval-expiry boundary, and fail-closed balance RPC regression tests were incorporated before PR #202.
-- PR #203 (portable evidence bundles), PR #204 (confirmation-depth checks), PR #205 (aggregate evaluation metrics), and PR #206 (actionable evaluation failure reasons) are merged. Always query GitHub before assuming there are no open pull requests.
+- PR #203 (portable evidence bundles), PR #204 (confirmation-depth checks), PR #205 (aggregate evaluation metrics), PR #206 (actionable evaluation failure reasons), and PR #207 (evidence provenance) are merged. PR #208 is the current canonical receipt-block evidence increment. Always query GitHub before assuming there are no open pull requests.
 
 ## Required PR workflow
 
@@ -104,7 +104,8 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 - PR #203 added portable JSON/Markdown evidence bundles, optional read-only Base Sepolia transfer verification, audit cross-checking, and a canonical-payload SHA-256 digest.
 - PR #204 added receipt/latest-block heights and configurable minimum-confirmation checks; these remain point-in-time RPC observations, not finality guarantees.
 - PR #205 added aggregate evaluation metrics. PR #206 added machine-readable failure reasons and aggregate LLM failure diagnostics. Both are merged; the user confirmed post-merge checks and deleted the branch.
-- Current work is on `feat/evidence-provenance`: add source revision and Python runtime provenance to evidence bundles, bump the schema to v3, cover provenance in the canonical digest, and update tests and documentation.
+- PR #207 (branch `feat/evidence-provenance`) is merged; it records source revision and Python runtime provenance, uses schema v3, and covers provenance in the canonical digest. The user confirmed post-merge checks and deleted the branch.
+- Current work is on `feat/canonical-receipt-block-evidence`: compare the receipt's block hash with the configured RPC's hash for the receipt height, record both hashes in evidence bundles, bump the bundle schema to v4, and update tests and documentation. A mismatch must fail closed; matching hashes remain a point-in-time observation from one RPC, not proof of finality.
 - The user must run both local checks on the PR branch before merge. Then verify the PR head SHA and all CI jobs, squash-merge, ask for post-merge checks on updated `main`, and only then provide branch deletion commands.
 - Continue bundling implementation, tests, and related docs in one coherent PR. Never update `main` directly.
 
