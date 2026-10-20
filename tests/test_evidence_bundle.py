@@ -31,16 +31,24 @@ def _install_offline_eval(monkeypatch, report=None):
 
 def test_offline_bundle_is_portable_and_explicitly_not_onchain(monkeypatch, tmp_path):
     _install_offline_eval(monkeypatch)
+    revision = "a" * 40
+    monkeypatch.setattr(bundle_script, "_source_revision", lambda: revision)
 
     bundle = asyncio.run(bundle_script.build_evidence_bundle(tmp_path / "bundle"))
 
-    assert bundle["schema"] == "aegis-evidence-bundle/v2"
+    assert bundle["schema"] == "aegis-evidence-bundle/v3"
+    assert bundle["provenance"] == {
+        "source_revision": revision,
+        "python_version": bundle_script.platform.python_version(),
+        "python_implementation": bundle_script.platform.python_implementation(),
+    }
     assert bundle["passed"] is True
     assert bundle["testnet_evidence"]["requested"] is False
     assert bundle["testnet_evidence"]["passed"] is None
-    assert "does not demonstrate an on-chain transfer" in (
-        tmp_path / "bundle" / "aegis-evidence-bundle.md"
-    ).read_text()
+    markdown = (tmp_path / "bundle" / "aegis-evidence-bundle.md").read_text()
+    assert "does not demonstrate an on-chain transfer" in markdown
+    assert f"Source revision: `{revision}`" in markdown
+    assert f"Python: `{bundle['provenance']['python_version']}`" in markdown
     saved = json.loads((tmp_path / "bundle" / "aegis-evidence-bundle.json").read_text())
     digest = saved.pop("bundle_sha256")
     canonical = json.dumps(saved, sort_keys=True, separators=(",", ":"), ensure_ascii=False)

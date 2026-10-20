@@ -5,6 +5,10 @@ import argparse
 import asyncio
 import hashlib
 import json
+import os
+import platform
+import re
+import subprocess
 import sys
 import tempfile
 from datetime import UTC, datetime
@@ -20,15 +24,38 @@ from app.chain.base_sepolia import (
 )
 from scripts.verify_testnet_evidence import verify_audit_record, verify_evidence
 
-BUNDLE_SCHEMA = "aegis-evidence-bundle/v2"
+BUNDLE_SCHEMA = "aegis-evidence-bundle/v3"
 
 
 def _canonical_json(value: dict[str, Any]) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
+def _source_revision() -> str | None:
+    """Return the source commit used to generate evidence, when available."""
+    configured = os.environ.get("GITHUB_SHA", "").strip()
+    if re.fullmatch(r"[0-9a-fA-F]{40,64}", configured):
+        return configured.lower()
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=Path(__file__).resolve().parents[1],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    revision = result.stdout.strip().lower()
+    if result.returncode == 0 and re.fullmatch(r"[0-9a-f]{40,64}", revision):
+        return revision
+    return None
+
+
 def _render_markdown(bundle: dict[str, Any]) -> str:
     evaluation = bundle["offline_evaluation"]
+    provenance = bundle["provenance"]
     lines = [
         "# Aegis Evidence Bundle",
         "",
@@ -36,6 +63,11 @@ def _render_markdown(bundle: dict[str, Any]) -> str:
         f"- Generated (UTC): {bundle['generated_at']}",
         f"- Overall result: **{'PASS' if bundle['passed'] else 'FAIL'}**",
         f"- Bundle SHA-256: {bundle['bundle_sha256']}",
+        "",
+        "## Generation provenance",
+        "",
+        f"- Source revision: `{provenance['source_revision'] or 'unavailable'}`",
+        f"- Python: `{provenance['python_version']}` ({provenance['python_implementation']})",
         "",
         "## Deterministic offline evaluation",
         "",
@@ -190,6 +222,11 @@ async def build_evidence_bundle(
     payload: dict[str, Any] = {
         "schema": BUNDLE_SCHEMA,
         "generated_at": datetime.now(UTC).isoformat(),
+        "provenance": {
+            "source_revision": _source_revision(),
+            "python_version": platform.python_version(),
+            "python_implementation": platform.python_implementation(),
+        },
         "passed": bool(offline["passed"] and (testnet["passed"] is not False)),
         "offline_evaluation": offline,
         "testnet_evidence": testnet,
