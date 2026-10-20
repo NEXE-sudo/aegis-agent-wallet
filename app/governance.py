@@ -83,6 +83,7 @@ class GovernanceStore:
                 );
                 CREATE TABLE IF NOT EXISTS governance_decisions (
                     decision_id TEXT PRIMARY KEY,
+                    sequence INTEGER UNIQUE,
                     task_id TEXT NOT NULL UNIQUE REFERENCES governance_tasks(task_id),
                     decision_json TEXT NOT NULL,
                     payload_hash TEXT NOT NULL,
@@ -105,6 +106,29 @@ class GovernanceStore:
                 CREATE TRIGGER IF NOT EXISTS governance_audit_no_delete
                     BEFORE DELETE ON governance_audit
                     BEGIN SELECT RAISE(ABORT, 'governance audit is append-only'); END;
+                CREATE TRIGGER IF NOT EXISTS governance_decisions_no_update
+                    BEFORE UPDATE ON governance_decisions
+                    BEGIN SELECT RAISE(ABORT, 'governance decisions are append-only'); END;
+                CREATE TRIGGER IF NOT EXISTS governance_decisions_no_delete
+                    BEFORE DELETE ON governance_decisions
+                    BEGIN SELECT RAISE(ABORT, 'governance decisions are append-only'); END;
+            """)
+            # Additive migration for local databases created by earlier branch revisions.
+            db.execute("DROP TRIGGER IF EXISTS governance_decisions_no_update")
+            db.execute("DROP TRIGGER IF EXISTS governance_decisions_no_delete")
+            decision_columns = {row["name"] for row in db.execute("PRAGMA table_info(governance_decisions)")}
+            if "sequence" not in decision_columns:
+                db.execute("ALTER TABLE governance_decisions ADD COLUMN sequence INTEGER")
+                old_rows = db.execute(
+                    "SELECT decision_id FROM governance_decisions ORDER BY created_at, decision_id"
+                ).fetchall()
+                for index, row in enumerate(old_rows, start=1):
+                    db.execute(
+                        "UPDATE governance_decisions SET sequence = ? WHERE decision_id = ?",
+                        (index, row["decision_id"]),
+                    )
+            db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_governance_decision_sequence ON governance_decisions(sequence)")
+            db.executescript("""
                 CREATE TRIGGER IF NOT EXISTS governance_decisions_no_update
                     BEFORE UPDATE ON governance_decisions
                     BEGIN SELECT RAISE(ABORT, 'governance decisions are append-only'); END;
@@ -287,11 +311,13 @@ class GovernanceStore:
                         return json.loads(existing["decision_json"])
                     raise GovernanceDataError("Task status is inconsistent with decision history")
                 previous_row = db.execute(
-                    "SELECT record_hash FROM governance_decisions ORDER BY created_at DESC, decision_id DESC LIMIT 1"
+                    "SELECT sequence, record_hash FROM governance_decisions ORDER BY sequence DESC LIMIT 1"
                 ).fetchone()
                 previous = previous_row["record_hash"] if previous_row else "0" * 64
+                sequence = (previous_row["sequence"] if previous_row else 0) + 1
                 record = {
                     "decision_id": str(uuid.uuid4()),
+                    "sequence": sequence,
                     "task_id": task_id,
                     "decision": decision,
                     "payload_hash": digest,
@@ -301,9 +327,9 @@ class GovernanceStore:
                 record_hash = payload_hash(record)
                 db.execute(
                     """INSERT INTO governance_decisions
-                       (decision_id, task_id, decision_json, payload_hash, previous_hash, record_hash, created_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                    (record["decision_id"], task_id, canonical_json(decision), digest, previous, record_hash, now),
+                       (decision_id, sequence, task_id, decision_json, payload_hash, previous_hash, record_hash, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (record["decision_id"], sequence, task_id, canonical_json(decision), digest, previous, record_hash, now),
                 )
                 db.execute(
                     "UPDATE governance_tasks SET status = 'decided', updated_at = ? WHERE task_id = ?",
@@ -363,6 +389,10 @@ class GovernanceStore:
                 "SELECT sequence, event_type, entity_id, payload_hash, previous_hash, record_hash, created_at "
                 "FROM governance_audit ORDER BY sequence"
             ).fetchall()
+            decisions = db.execute(
+                "SELECT sequence, decision_id, task_id, decision_json, payload_hash, previous_hash, record_hash, created_at "
+                "FROM governance_decisions ORDER BY sequence"
+            ).fetchall()
         previous = "0" * 64
         for row in rows:
             record = {
@@ -376,7 +406,36 @@ class GovernanceStore:
             if row["previous_hash"] != previous or payload_hash(record) != row["record_hash"]:
                 return {"valid": False, "events_checked": row["sequence"] - 1}
             previous = row["record_hash"]
-        return {"valid": True, "events_checked": len(rows), "head_hash": previous}
+        decision_previous = "0" * 64
+        for index, row in enumerate(decisions, start=1):
+            decision = json.loads(row["decision_json"])
+            record = {
+                "decision_id": row["decision_id"],
+                "sequence": row["sequence"],
+                "task_id": row["task_id"],
+                "decision": decision,
+                "payload_hash": row["payload_hash"],
+                "previous_hash": row["previous_hash"],
+                "created_at": row["created_at"],
+            }
+            if (
+                payload_hash(decision) != row["payload_hash"]
+                or row["previous_hash"] != decision_previous
+                or payload_hash(record) != row["record_hash"]
+            ):
+                return {
+                    "valid": False,
+                    "events_checked": len(rows),
+                    "decisions_checked": index - 1,
+                }
+            decision_previous = row["record_hash"]
+        return {
+            "valid": True,
+            "events_checked": len(rows),
+            "decisions_checked": len(decisions),
+            "head_hash": previous,
+            "decision_head_hash": decision_previous,
+        }
 
 
 class GovernanceDataError(RuntimeError):
