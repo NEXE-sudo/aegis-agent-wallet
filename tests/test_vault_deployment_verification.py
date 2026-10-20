@@ -194,3 +194,27 @@ def test_cli_returns_failure_without_claiming_success(monkeypatch, capsys):
     captured = capsys.readouterr()
     assert "Deployment verification failed" in captured.err
     assert "verification: PASS" not in captured.out
+
+
+
+def test_cli_writes_machine_readable_evidence_with_integrity_digest(
+    monkeypatch, tmp_path, capsys
+):
+    import hashlib
+    import json
+
+    output_path = tmp_path / "deployment" / "evidence.json"
+    monkeypatch.setattr(deployment, "BaseSepoliaRpc", lambda: FakeRpc())
+
+    assert deployment.main([
+        TX_HASH,
+        "--expected-vault", VAULT,
+        "--expected-owner", OWNER,
+        "--min-confirmations", "10",
+        "--output", str(output_path),
+    ]) == 0
+    saved = json.loads(output_path.read_text(encoding="utf-8"))
+    digest = saved.pop("deployment_evidence_sha256")
+    canonical = json.dumps(saved, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    assert digest == hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    assert "JSON evidence:" in capsys.readouterr().out
