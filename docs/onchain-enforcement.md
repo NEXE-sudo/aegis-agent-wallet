@@ -199,10 +199,15 @@ Set the Aegis demo USDC policy. Values are in USDC base units (six decimals):
 50 USDC:
 
 ```bash
+# Give the agent a bounded session. The example expires 30 days from now.
 cast send "$VAULT" \
-  "setAgent(address)" "$AGENT_ADDRESS" \
+  "setAgent(address,uint256)" "$AGENT_ADDRESS" "$(( $(date +%s) + 2592000 ))" \
   --rpc-url "$BASE_SEPOLIA_RPC_URL" --chain 84532 \
   --account "$OWNER_KEYSTORE_ACCOUNT"
+
+# Confirm the on-chain session deadline.
+cast call "$VAULT" "agentValidUntil()(uint256)" \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL"
 
 cast send "$VAULT" \
   "setTokenPolicy(address,bool,uint256,uint256,uint256)" \
@@ -224,6 +229,33 @@ cast send "$VAULT" \
 The two addresses above are the checked-in demo policy recipients, not verified
 real-world identities. Only allow recipients you intentionally control or have
 independently checked.
+
+### Configure an optional per-recipient cap
+
+A recipient cap adds a stricter limit on top of the token-wide policy. This example
+limits one recipient to 20 USDC per transfer and 40 USDC per UTC day:
+
+```bash
+cast send "$VAULT" \
+  "setRecipientCap(address,address,bool,uint256,uint256)" \
+  "$USDC" "0x2222222222222222222222222222222222222222" true 20000000 40000000 \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL" --chain 84532 \
+  --account "$OWNER_KEYSTORE_ACCOUNT"
+
+cast call "$VAULT" \
+  "recipientPolicy(address,address)((bool,uint256,uint256))" \
+  "$USDC" "0x2222222222222222222222222222222222222222" \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL"
+
+cast call "$VAULT" \
+  "recipientTodaySpend(address,address)(uint256)" \
+  "$USDC" "0x2222222222222222222222222222222222222222" \
+  --rpc-url "$BASE_SEPOLIA_RPC_URL"
+```
+
+The configured recipient cap is optional and owner-managed. It does not replace
+the token-wide per-transaction or daily cap, and the daily counters use UTC-aligned
+day buckets rather than a rolling 24-hour window.
 
 ### Deposit test USDC and read state back
 
