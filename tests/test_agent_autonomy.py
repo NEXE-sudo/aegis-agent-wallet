@@ -107,7 +107,7 @@ def test_batch_preserves_treasury_buffer_across_multiple_proposals():
         MANDATE,
         {"p1": PAYEE},
         HISTORY,
-        available_balance=500,
+        available_balance=450,
         now=NOW,
     )
     assert [item.action for item in result] == ["propose", "skip"]
