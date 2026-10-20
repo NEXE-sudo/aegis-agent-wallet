@@ -33,7 +33,7 @@ simulated. Never use mainnet or real funds.
 
 1. Use two separate throwaway Base Sepolia accounts: one owner account in Foundry's
    keystore and one agent account. Fund **both** with Base Sepolia test ETH. The
-   runner requires at least 0.01 test ETH on each before deployment.
+   runner requires at least 0.001 test ETH on each before deployment. This is only a low preflight floor, not a guarantee that either wallet can afford all transactions; deployment and follow-up calls may still run out of gas. Prefer more test ETH whenever available.
 2. The owner account must have enough Base Sepolia demo USDC if you pass
    `--fund-amount-base-units`; otherwise the vault must already hold enough USDC.
 3. Install the project's locked Python dependencies and Foundry. From the repository
@@ -121,7 +121,7 @@ If a step fails, the runner stops, writes `reports/live/partial-report.json`, an
 keeps logs/state in `reports/live/`. A failed broadcast step is marked uncertain
 and is **not automatically retried**. Check the actual transaction receipt and saved
 state first. If the RPC chain ID is not 84532, the runner refuses before broadcasting.
-If either wallet has less than 0.01 test ETH, use a public Base Sepolia faucet and
+If either wallet has less than 0.001 test ETH, use a public Base Sepolia faucet and
 rerun only after checking that no broadcast step is marked uncertain.
 
 ## Evidence validation and documentation

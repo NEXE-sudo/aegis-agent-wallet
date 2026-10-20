@@ -29,7 +29,7 @@ from app.chain.base_sepolia import (
     validate_address,
 )
 
-MINIMUM_WALLET_BALANCE_WEI = 10**16  # 0.01 test ETH, for deployment plus follow-up transactions
+MINIMUM_WALLET_BALANCE_WEI = 10**15  # 0.001 test ETH; this is a low preflight floor, not a gas sufficiency guarantee
 MIN_CONFIRMATIONS = 12
 TOKEN_CAP = 50_000_000
 TOKEN_DAILY_CAP = 150_000_000
@@ -410,7 +410,7 @@ def run_live(args: argparse.Namespace, *, root: Path | None = None,
             balance = int(raw_balance, 16)
             if balance < MINIMUM_WALLET_BALANCE_WEI:
                 raise LiveRunError(
-                    f"The {label} wallet has less than 0.01 test ETH. Fund it from a public Base Sepolia faucet, "
+                    f"The {label} wallet has less than 0.001 test ETH. Fund it from a public Base Sepolia faucet, "
                     "then rerun; no transaction has been broadcast yet."
                 )
     except Exception as exc:
