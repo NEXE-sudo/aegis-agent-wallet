@@ -62,6 +62,40 @@ def test_latest_block_number_is_parsed_as_a_rpc_quantity():
     assert rpc.block_number() == 304
 
 
+def test_block_hash_by_number_checks_height_and_normalizes_hash():
+    block_hash = "0x" + "A" * 64
+    calls = []
+
+    def handler(params):
+        calls.append(params)
+        return {"number": "0x123", "hash": block_hash}
+
+    rpc = BaseSepoliaRpc(
+        "https://rpc.invalid",
+        transport=_rpc_transport({"eth_getBlockByNumber": handler}),
+    )
+    assert rpc.block_hash_by_number(0x123) == block_hash.lower()
+    assert calls == [["0x123", False]]
+
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        None,
+        {"number": "0x124", "hash": "0x" + "a" * 64},
+        {"number": "0x123", "hash": "not-a-hash"},
+    ],
+    ids=["missing-block", "wrong-height", "malformed-hash"],
+)
+def test_block_hash_by_number_rejects_malformed_block(result):
+    rpc = BaseSepoliaRpc(
+        "https://rpc.invalid",
+        transport=_rpc_transport({"eth_getBlockByNumber": result}),
+    )
+    with pytest.raises(RpcRequestError, match="malformed block"):
+        rpc.block_hash_by_number(0x123)
+
+
 def test_latest_block_number_rejects_malformed_result():
     rpc = BaseSepoliaRpc(
         "https://rpc.invalid",
