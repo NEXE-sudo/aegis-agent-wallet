@@ -32,7 +32,8 @@ from app.chain.execution import (
     VaultTransactionInvariantError,
 )
 from app.chain.router import router as base_sepolia_router
-from app.governance import GovernanceDataError, GovernanceStore, router as governance_router
+from app.governance import GovernanceDataError, GovernanceStore
+from app.governance import router as governance_router
 from app.market_data import (
     CompositeMarketDataProvider,
     MarketDataError,
