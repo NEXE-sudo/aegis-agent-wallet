@@ -541,36 +541,63 @@ def evaluate_pending_tasks(store: GovernanceStore, *, now: datetime | None = Non
         payee_id: store.history_for_payee(payee_id, day=current.date().isoformat())
         for payee_id in {task.payee_id for task in tasks}
     }
-    return [
-        {
-            **decision.__dict__,
-            "evidence_refs": list(decision.evidence_refs),
+    results: list[dict[str, Any]] = []
+    pending_by_id = {item["task_id"]: item for item in pending}
+    for decision in decide_payments(
+        tasks,
+        mandate,
+        payees,
+        histories,
+        available_balance=mandate_record["available_balance_base_units"],
+        reserved_monthly_spend=store.monthly_proposed_spend(current.strftime("%Y-%m")),
+        now=current,
+    ):
+        task = pending_by_id[decision.task_id]
+        registered_payee = payee_records.get(task["payee_id"])
+        current_payee_hash = registered_payee["payload_hash"] if registered_payee else None
+        mandate_changed = task.get("mandate_hash_at_creation") != mandate_record["payload_hash"]
+        payee_changed = task.get("payee_hash_at_creation") != current_payee_hash
+        action = decision.action
+        payee_id = decision.payee_id
+        amount = decision.amount
+        rationale = decision.rationale
+        evidence_refs = list(decision.evidence_refs)
+        confidence = decision.confidence
+        if mandate_changed or payee_changed:
+            action = "escalate"
+            payee_id = None
+            amount = None
+            confidence = 0.99
+            rationale = "Mandate or payee registry changed after task creation; owner review and requeue required."
+            if mandate_changed:
+                evidence_refs.append("policy:mandate_changed_since_task_creation")
+            if payee_changed:
+                evidence_refs.append("registry:payee_changed_since_task_creation")
+        results.append({
+            "action": action,
+            "task_id": decision.task_id,
+            "payee_id": payee_id,
+            "amount": amount,
+            "rationale": rationale,
+            "confidence": confidence,
+            "evidence_refs": evidence_refs,
             "mandate_id": mandate.mandate_id,
             "mandate_hash": mandate_record["payload_hash"],
-            "task": next(item for item in pending if item["task_id"] == decision.task_id),
-        }
-        for decision in decide_payments(
-            tasks,
-            mandate,
-            payees,
-            histories,
-            available_balance=mandate_record["available_balance_base_units"],
-            reserved_monthly_spend=store.monthly_proposed_spend(current.strftime("%Y-%m")),
-            now=current,
-        )
-    ]
+            "task": task,
+        })
+    return results
 
 
 class MandateInput(BaseModel):
     mandate_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
     allowed_categories: list[str] = Field(min_length=1, max_length=32)
     allowed_tokens: list[str] = Field(min_length=1, max_length=1)
-    monthly_budget_base_units: int = Field(gt=0, le=2**63 - 1)
-    per_payment_limit_base_units: int = Field(gt=0, le=2**63 - 1)
-    approval_threshold_base_units: int = Field(ge=0, le=2**63 - 1)
-    treasury_buffer_base_units: int = Field(ge=0, le=2**63 - 1)
+    monthly_budget_base_units: int = Field(strict=True, gt=0, le=2**63 - 1)
+    per_payment_limit_base_units: int = Field(strict=True, gt=0, le=2**63 - 1)
+    approval_threshold_base_units: int = Field(strict=True, ge=0, le=2**63 - 1)
+    treasury_buffer_base_units: int = Field(strict=True, ge=0, le=2**63 - 1)
     # Owner-maintained planning value, not a live chain balance.
-    available_balance_base_units: int = Field(ge=0, le=2**63 - 1)
+    available_balance_base_units: int = Field(strict=True, ge=0, le=2**63 - 1)
 
     @field_validator("allowed_categories")
     @classmethod
@@ -598,11 +625,11 @@ class PayeeInput(BaseModel):
     chain_id: Literal[84532]
     token_address: str = Field(pattern=r"^0x[a-fA-F0-9]{40}$")
     token_symbol: str = Field(min_length=1, max_length=16)
-    token_decimals: int = Field(ge=0, le=36)
+    token_decimals: int = Field(strict=True, ge=0, le=36)
     category: str = Field(min_length=1, max_length=64)
-    per_tx_limit_base_units: int = Field(gt=0, le=2**63 - 1)
-    daily_limit_base_units: int = Field(gt=0, le=2**63 - 1)
-    verified: bool = False
+    per_tx_limit_base_units: int = Field(strict=True, gt=0, le=2**63 - 1)
+    daily_limit_base_units: int = Field(strict=True, gt=0, le=2**63 - 1)
+    verified: bool = Field(default=False, strict=True)
 
     @field_validator("address", "token_address")
     @classmethod
@@ -625,7 +652,7 @@ class TaskInput(BaseModel):
     invoice_id: str = Field(min_length=1, max_length=128)
     payee_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
     token_symbol: str = Field(min_length=1, max_length=16)
-    amount_base_units: int = Field(gt=0, le=2**63 - 1)
+    amount_base_units: int = Field(strict=True, gt=0, le=2**63 - 1)
     due_at: datetime | None = None
     description: str = Field(default="", max_length=4000)
 
@@ -686,10 +713,20 @@ def save_payee(payee_id: str, payload: PayeeInput, request: Request) -> dict[str
 
 @router.post("/governance/tasks", status_code=201, dependencies=[Depends(require_owner)])
 def create_governance_task(payload: TaskInput, request: Request) -> dict[str, Any]:
-    payee = request.app.state.governance_store.get_payee(payload.payee_id)
+    governance = request.app.state.governance_store
+    mandate = governance.get_active_mandate()
+    if mandate is None:
+        raise HTTPException(status_code=409, detail="Configure an active mandate before queueing tasks")
+    payee = governance.get_payee(payload.payee_id)
     if payee and payload.token_symbol != payee["token_symbol"]:
         raise HTTPException(status_code=422, detail="Task token must match the registered payee token")
-    return request.app.state.governance_store.create_task(payload.model_dump(mode="json"))
+    task_payload = payload.model_dump(mode="json")
+    task_payload["mandate_hash_at_creation"] = mandate["payload_hash"]
+    task_payload["payee_hash_at_creation"] = payee["payload_hash"] if payee else None
+    try:
+        return governance.create_task(task_payload)
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=409, detail="Task ID already exists") from exc
 
 
 @router.get("/governance/tasks", dependencies=[Depends(require_owner)])
