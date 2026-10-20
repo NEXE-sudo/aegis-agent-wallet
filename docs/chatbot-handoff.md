@@ -70,7 +70,8 @@ Last updated: 20 October 2026
 - #196 and #197 cover transaction history limit validation and capped results.
 - #198 adds owner-authenticated offset pagination to the transaction history API.
 - #199 adds Activity Previous/Next controls and depends on #198.
-- The current balance RPC fail-closed regression tests are being prepared as a separate focused PR from main.
+- #201 rejects vault transfer approvals at the exact expiry timestamp and adds a Foundry boundary regression test.
+- #200 adds fail-closed regression tests for public-address balance reads on unexpected RPC chain responses and sanitised RPC failures; it has been merged.
 - Keep the batch unmerged until the user explicitly approves merging; inspect dependency order and resolve any handoff-document conflicts before merging.
 
 ## Required PR workflow
