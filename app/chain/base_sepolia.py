@@ -127,6 +127,23 @@ class BaseSepoliaRpc:
             self._rpc("eth_blockNumber", []), "latest block number"
         )
 
+    def block_hash_by_number(self, block_number: int) -> str:
+        """Return the RPC-reported hash for a specific block height."""
+        if type(block_number) is not int or block_number < 0:
+            raise ValueError("Block number must be a non-negative integer")
+        result = self._rpc("eth_getBlockByNumber", [hex(block_number), False])
+        if not isinstance(result, dict):
+            raise RpcRequestError("RPC returned a malformed block")
+        returned_number = self._parse_quantity(result.get("number"), "block number")
+        block_hash = result.get("hash")
+        if (
+            returned_number != block_number
+            or not isinstance(block_hash, str)
+            or not _TRANSACTION_HASH_RE.fullmatch(block_hash)
+        ):
+            raise RpcRequestError("RPC returned a malformed block")
+        return block_hash.lower()
+
     def transaction_count(self, address: str) -> int:
         result = self._rpc(
             "eth_getTransactionCount", [validate_address(address), "pending"]
@@ -195,6 +212,7 @@ class BaseSepoliaRpc:
                 "transaction_hash": transaction_hash.lower(),
                 "status": "pending",
                 "block_number": None,
+                "block_hash": None,
                 "logs": [],
             }
         if not isinstance(result, dict):
@@ -210,6 +228,9 @@ class BaseSepoliaRpc:
         ):
             raise RpcRequestError("RPC returned a malformed transaction receipt")
         block_number = self._parse_quantity(result.get("blockNumber"), "receipt block number")
+        block_hash = result.get("blockHash")
+        if not isinstance(block_hash, str) or not _TRANSACTION_HASH_RE.fullmatch(block_hash):
+            raise RpcRequestError("RPC returned a malformed transaction receipt")
         raw_logs = result.get("logs")
         if not isinstance(raw_logs, list):
             raise RpcRequestError("RPC returned malformed receipt logs")
@@ -250,6 +271,7 @@ class BaseSepoliaRpc:
             "transaction_hash": returned_hash.lower(),
             "status": "success" if status == "0x1" else "failed",
             "block_number": block_number,
+            "block_hash": block_hash.lower(),
             "logs": logs,
         }
 
