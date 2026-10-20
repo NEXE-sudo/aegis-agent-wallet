@@ -98,7 +98,7 @@ def _validate_live_evidence(live_dir: Path) -> dict[str, Any]:
             raise EvidenceDocsError(f"Cannot read {label} live reverification log.") from exc
         if "Testnet evidence re-verification: PASS" not in log:
             raise EvidenceDocsError(f"The {label} bundle has no passing live reverification result.")
-        if f"Mode: {mode}" not in log or f"Transaction hash: {tx_hash.lower()}" not in log.lower():
+        if f"Mode: {mode}" not in log or f"transaction hash: {tx_hash.lower()}" not in log.lower():
             raise EvidenceDocsError(f"The {label} reverification log does not match its bundle.")
         confirmation_match = re.search(r"Confirmations observed: (\d+) \(minimum required: (\d+)\)", log)
         if confirmation_match is None:
