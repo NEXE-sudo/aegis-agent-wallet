@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-SUPPORTED_SCHEMAS = {"aegis-evidence-bundle/v4", "aegis-evidence-bundle/v5"}
+SUPPORTED_SCHEMAS = {"aegis-evidence-bundle/v4", "aegis-evidence-bundle/v5", "aegis-evidence-bundle/v6"}
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 
 
@@ -88,6 +88,25 @@ def validate_bundle(bundle: object) -> dict[str, Any]:
                 and checks.get("receipt_status_matches_expectation") is not True
             ):
                 raise ValueError("Schema v5 evidence must verify the expected receipt status")
+
+            if schema == "aegis-evidence-bundle/v6":
+                configuration = testnet.get("vault_configuration")
+                if not isinstance(configuration, dict):
+                    raise ValueError("Schema v6 passing testnet evidence requires a vault configuration snapshot")
+                if checks.get("vault_configuration_valid") is not True:
+                    raise ValueError("Schema v6 passing testnet evidence must validate vault configuration")
+                if configuration.get("configuration_structurally_valid") is not True:
+                    raise ValueError("Vault configuration snapshot is not structurally valid")
+                if configuration.get("chain_id") != 84532:
+                    raise ValueError("Vault configuration snapshot must identify Base Sepolia")
+                if configuration.get("vault_address") != evidence.get("vault_address"):
+                    raise ValueError("Vault configuration snapshot address does not match transaction evidence")
+                if configuration.get("token_address") != evidence.get("token_contract"):
+                    raise ValueError("Vault configuration snapshot token does not match transaction evidence")
+                if not isinstance(configuration.get("bytecode_sha256"), str) or _SHA256_RE.fullmatch(
+                    configuration["bytecode_sha256"].removeprefix("0x")
+                ) is None:
+                    raise ValueError("Vault configuration snapshot has a malformed bytecode hash")
 
     if bundle["passed"] is not expected_overall:
         raise ValueError("Overall passed result is inconsistent with the component results")
