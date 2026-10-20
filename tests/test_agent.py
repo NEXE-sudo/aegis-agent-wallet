@@ -350,8 +350,16 @@ def test_offline_evaluation_writes_passing_json_and_markdown_reports(tmp_path):
     report = asyncio.run(run_evaluation(output_dir))
 
     assert report["passed"] is True
-    assert report["scenario_count"] == 5
+    assert report["scenario_count"] == 11
     assert all(scenario["passed"] for scenario in report["scenarios"])
+    assert {
+        "unsupported chain",
+        "token decimals mismatch",
+        "token symbol mismatch",
+        "unknown recipient requires owner approval",
+        "amount exactly at approval threshold",
+        "amount one unit below approval threshold",
+    }.issubset({scenario["name"] for scenario in report["scenarios"]})
     assert json.loads((output_dir / "agent-eval.json").read_text()) == report
     markdown = (output_dir / "agent-eval.md").read_text()
     assert "**PASS**" in markdown
