@@ -46,4 +46,4 @@ The queue is deterministic. The existing optional LLM path remains a separate to
 4. Skip duplicate invoices, exhausted mandate budgets, and payments that would breach the treasury buffer.
 5. Propose only when the deterministic checks pass; attach rationale, rule evidence references, mandate ID/hash, and the resulting wallet proposal status.
 
-The confidence field is a rule label, not a calibrated probability. The engine is not a validated fraud detector. Broad adversarial evaluation, LLM orchestration over the persisted queue, transaction-lifecycle reconciliation, and owner-facing frontend views remain outstanding.
+The confidence field is a rule label, not a calibrated probability. The engine is not a validated fraud detector. The offline evaluation now includes persisted-queue cases for injected task descriptions, unverified payees, and mandate/payee drift. This remains bounded regression coverage, not a broad security evaluation. LLM orchestration over the persisted queue, transaction-lifecycle reconciliation, and reconciliation of cancelled/blocked proposals from budget history remain outstanding.
