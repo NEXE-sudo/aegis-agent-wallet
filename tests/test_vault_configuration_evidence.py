@@ -26,7 +26,16 @@ def _address_word(address: str) -> int:
 
 
 class FakeRpc:
-    def __init__(self, *, chain_id=84532, code="0x60006000", owner=OWNER, agent=AGENT, paused=0, policy=(1, 100, 500, 80)):
+    def __init__(
+        self,
+        *,
+        chain_id=84532,
+        code="0x60006000",
+        owner=OWNER,
+        agent=AGENT,
+        paused=0,
+        policy=(1, 100, 500, 80),
+    ):
         self._chain_id = chain_id
         self._code = code
         self._owner = owner
