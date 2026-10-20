@@ -351,6 +351,12 @@ def test_offline_evaluation_writes_passing_json_and_markdown_reports(tmp_path):
 
     assert report["passed"] is True
     assert report["scenario_count"] == 11
+    assert report["summary"] == {
+        "passed_scenarios": 11,
+        "failed_scenarios": 0,
+        "pass_rate": 1.0,
+        "failed_names": [],
+    }
     assert all(scenario["passed"] for scenario in report["scenarios"])
     assert {
         "unsupported chain",
@@ -423,6 +429,13 @@ def test_llm_evaluation_records_pass_counts_and_writes_separate_reports(tmp_path
     assert datetime.fromisoformat(report["generated_at"]).tzinfo is not None
     assert report["scenario_count"] == 5
     assert report["passed"] is True
+    assert report["summary"] == {
+        "total_runs": 10,
+        "passed_runs": 10,
+        "failed_runs": 0,
+        "pass_rate": 1.0,
+        "scenarios_with_failures": [],
+    }
     assert all(
         scenario["pass_count"] == 2 and scenario["run_count"] == 2
         for scenario in report["scenarios"]
@@ -455,6 +468,11 @@ def test_llm_evaluation_records_injection_and_malformed_tool_failures(
     report = asyncio.run(run())
 
     assert report["passed"] is False
+    assert report["summary"]["total_runs"] == 5
+    assert report["summary"]["passed_runs"] == 0
+    assert report["summary"]["failed_runs"] == 5
+    assert report["summary"]["pass_rate"] == 0.0
+    assert len(report["summary"]["scenarios_with_failures"]) == 5
     assert all(scenario["pass_count"] == 0 for scenario in report["scenarios"])
     assert all(
         expected_error
