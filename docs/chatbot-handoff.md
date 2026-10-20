@@ -31,7 +31,7 @@ Last updated: 20 October 2026
 
 PR #203 delivered portable JSON/Markdown evidence bundles, optional read-only Base Sepolia transfer verification, audit cross-checking, and a canonical-payload SHA-256 digest. PR #204 added receipt/latest-block heights, observed confirmation depth, and configurable minimum-confirmation checks. These are point-in-time RPC observations, not finality guarantees.
 
-The next milestone is evaluation reporting quality: expose aggregate pass/failure counts and pass rates for deterministic and opt-in LLM evaluations, identify failed scenarios, test that failures remain visible in summaries, and update the agent-evaluation guide and this handoff in the same PR. This reporting must not overstate the narrow scope of the scenarios or imply that offline tests prove actual transfers or general LLM safety.
+PR #205 delivered aggregate pass/failure counts and pass rates for deterministic and opt-in LLM evaluations. The next evaluation-quality increment adds machine-readable failure reasons to individual runs and aggregates LLM failure types so a failed evaluation is actionable rather than just a red/green result. Keep the narrow scope explicit: offline scenarios do not prove actual transfers or general LLM safety.
 
 Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve the end-to-end story (policy decision, owner approval, vault-bounded execution, on-chain receipt, and matching audit record). Keep simulated mode as the default; evidence generation must not sign or broadcast transactions. Never claim finality, independent audit, LLM safety, or production readiness.
 
@@ -70,7 +70,7 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 ## Recently completed transaction-history and contract-hardening batch
 
 - The receipt visibility and error-state work, history scope/limit validation, offset pagination, Activity Previous/Next controls, exact approval-expiry boundary, and fail-closed balance RPC regression tests were incorporated before PR #202.
-- PR #203 is merged; the confirmation-depth milestone is in progress on `feat/confirmation-depth-evidence`. Always query GitHub before assuming there are no open pull requests.
+- PR #203 (portable evidence bundles), PR #204 (confirmation-depth checks), and PR #205 (aggregate evaluation metrics) are merged. Always query GitHub before assuming there are no open pull requests.
 
 ## Required PR workflow
 
@@ -101,8 +101,8 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 
 ## Current status and next action
 
-- PR #203 (reproducible evidence bundles) and PR #204 (confirmation-depth evidence) are merged; the user confirmed post-merge Ruff and pytest checks passed and deleted both branches.
-- Current branch: `feat/evaluation-summary-metrics`. This milestone adds aggregate pass/failure counts, pass rates, and failed-scenario names to deterministic and LLM evaluation JSON/Markdown reports, with regression tests and updated evaluation guidance/handoff.
+- PR #203 (reproducible evidence bundles), PR #204 (confirmation-depth evidence), and PR #205 (aggregate evaluation metrics) are merged; the user confirmed post-merge Ruff and pytest checks passed and deleted each branch.
+- Current branch: `feat/evaluation-failure-diagnostics`. This PR records machine-readable reasons for deterministic and LLM evaluation failures, aggregates LLM failure types, adds regression tests, and updates the agent guide and handoff.
 - The user must run both local checks on the PR branch before merge. Then verify the PR head SHA and all CI jobs, squash-merge, ask for post-merge checks on updated `main`, and only then provide branch deletion commands.
 - Continue bundling implementation, tests, and related docs in one coherent PR. Never update `main` directly.
 
