@@ -89,21 +89,29 @@ def test_recent_transactions_list_requires_owner_and_returns_persisted_records()
     assert all("proposal" in record and "risk_score" in record for record in records)
 
 
-def test_recent_transactions_list_supports_offset_pages():
+def test_recent_transactions_list_respects_limit_and_offset():
     first = propose()
     second = propose(_payload(recipient="0x3333333333333333333333333333333333333333"))
     third = propose(_payload(recipient="0x4444444444444444444444444444444444444444"))
     assert [first.status_code, second.status_code, third.status_code] == [201, 201, 201]
 
     all_records = client.get("/transactions?limit=10", headers=OWNER_HEADERS)
+    limited_records = client.get("/transactions?limit=2", headers=OWNER_HEADERS)
     second_page = client.get("/transactions?limit=2&offset=2", headers=OWNER_HEADERS)
     invalid_offset = client.get("/transactions?offset=-1", headers=OWNER_HEADERS)
 
-    assert all_records.status_code == second_page.status_code == 200
-    all_ids = [record["transaction_id"] for record in all_records.json()]
-    page_ids = [record["transaction_id"] for record in second_page.json()]
-    assert page_ids == all_ids[2:]
+    assert all(
+        response.status_code == 200
+        for response in (all_records, limited_records, second_page)
+    )
     assert invalid_offset.status_code == 422
+    all_ids = [record["transaction_id"] for record in all_records.json()]
+    limited_ids = [record["transaction_id"] for record in limited_records.json()]
+    page_ids = [record["transaction_id"] for record in second_page.json()]
+    assert len(all_ids) == 3
+    assert len(limited_ids) == 2
+    assert limited_ids == all_ids[:2]
+    assert page_ids == all_ids[2:]
 
 def test_recent_transactions_list_validates_limit():
     below_minimum = client.get("/transactions?limit=0", headers=OWNER_HEADERS)
@@ -2356,4 +2364,3 @@ def test_spending_summary_releases_cancelled_reservations():
         if item["token_address"] == BASE_SEPOLIA_USDC_ADDRESS.lower()
     )
     assert token["spent_base_units"] == 0
-
