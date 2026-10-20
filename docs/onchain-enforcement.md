@@ -323,8 +323,23 @@ these fields with test fixtures or invented values.
     bypass attempt:
     `cast tx "<BLOCKED_BYPASS_TX_HASH>" --rpc-url "$BASE_SEPOLIA_RPC_URL" && cast receipt "<BLOCKED_BYPASS_TX_HASH>" --rpc-url "$BASE_SEPOLIA_RPC_URL"`
 
-These commands are read-only. A mined failed bypass attempt should have receipt
-status `0x0`; a pending or successful transaction is not evidence of a blocked
-bypass. The standard evidence verifier intentionally requires a successful
-transfer and matching events, so use the receipt inspection command for reverted
-bypass attempts. The contract is unaudited and testnet-only.
+For a mined reverted vault call, the read-only verifier can validate the Base
+Sepolia chain, transaction destination, sender, `transferToken` calldata, receipt
+failure status, receipt/canonical block hash agreement, and observed confirmation
+depth without requiring success-only transfer events:
+
+```bash
+uv run --locked python scripts/verify_testnet_evidence.py "<REVERTED_TX_HASH>" \
+  --vault "<VAULT_ADDRESS>" \
+  --expected-sender "<AGENT_ADDRESS>" \
+  --expect-revert \
+  --min-confirmations 12
+```
+
+This mode confirms only that the submitted vault call was mined with a failed
+receipt and that the configured RPC reports the stated transaction/block data.
+It does **not** recover or infer the Solidity revert reason, and it does not
+cross-check a successful Aegis transaction record in SQLite. A pending or
+successful transaction is not evidence of a blocked bypass. These observations
+come from one RPC and are not proof of finality. The contract is unaudited and
+testnet-only.
