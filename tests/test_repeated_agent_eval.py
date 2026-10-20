@@ -110,16 +110,6 @@ def test_summarise_runs_rejects_empty_input():
             [
                 {
                     "passed": True,
-                    "scenario_count": 1,
-                    "scenarios": [{"name": "valid", "passed": "yes"}],
-                }
-            ],
-            "boolean passed field",
-        ),
-        (
-            [
-                {
-                    "passed": True,
                     "scenario_count": 2,
                     "scenarios": [{"name": "valid", "passed": True}],
                 }
@@ -131,3 +121,29 @@ def test_summarise_runs_rejects_empty_input():
 def test_summarise_runs_rejects_incomplete_or_inconsistent_evidence(reports, message):
     with pytest.raises(ValueError, match=message):
         summarise_runs(reports)
+
+
+
+@pytest.mark.parametrize(
+    "report",
+    [
+        None,
+        {"passed": "yes", "scenarios": [{"name": "valid", "passed": True}]},
+    ],
+)
+def test_summarise_runs_raises_type_error_for_invalid_report_types(report):
+    with pytest.raises(TypeError):
+        summarise_runs([report])
+
+
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        None,
+        {"name": "valid", "passed": "yes"},
+    ],
+)
+def test_summarise_runs_raises_type_error_for_invalid_scenario_types(scenario):
+    report = {"passed": True, "scenario_count": 1, "scenarios": [scenario]}
+    with pytest.raises(TypeError):
+        summarise_runs([report])
