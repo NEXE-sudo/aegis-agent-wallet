@@ -2,9 +2,55 @@
 
 ## Current work in progress
 
-- Branch `feat/mandate-driven-agent-decisions` adds a deterministic mandate-bounded decision engine with owner-verified payee records, duplicate detection, daily and monthly budget checks, treasury-buffer protection, approval-threshold escalation, and structuring signals. It is a pure decision layer and does not grant approval or execution authority. Automated checks must be run before merge; no test result is claimed here.
+- Branch `feat/persisted-governance-decision-flow` is the next coherent WS1/WS2 milestone. It adds SQLite-backed mandates, payees, owner-created structured tasks, hash-linked governance/decision records, an agent queue mode that submits proposals through the existing policy gateway, and cumulative treasury-buffer protection. It also adds tests and updates the version/changelog/docs.
+- PR #221 is open and carries this branch. The first available Python CI run failed two async tests because they called `asyncio.run()` inside an active event loop; those tests now use AnyIO. No workflow result is available for the latest branch head yet, so Ruff/pytest are not confirmed green. The user must run the local checks before merge, and CI must be rechecked when available.
+- PR #220 was squash-merged as `d4e891ef54a8a0d9300ad68996f79ad26d16a670`; its feature branch was deleted after the user confirmed post-merge checks passed.
 
 Last updated: 20 October 2026
+
+## Live project tracker
+
+Completion estimates below are planning estimates, not CI results or security certifications. Do not mark unmerged branch work as completed.
+
+### Original product phases
+
+| Phase | Status | Remaining boundary |
+| --- | --- | --- |
+| Phase 1 — Secure execution foundation | Complete | Vault-only eligible execution; simulated mode default; owner approval boundary retained. |
+| Phase 2 — Wallet read/configuration | Complete | Read-only balances, policy, spend summary, network and vault inspection are implemented. |
+| Phase 3 — Lifecycle/configuration verification | Complete | Vault identity and policy comparisons fail closed on missing/mismatched observations. |
+| Phase 4 — Dashboard and visibility | Complete | Overview/Activity, policy, spending, balances, receipt and approval-expiry views exist. |
+| Phase 5 — Contract/integration hardening | Implementation complete; live evidence pending | Foundry tests and evidence tooling exist; actual deployment/transfer evidence must come from operator-run Base Sepolia activity. |
+
+### Workstreams and milestones
+
+| Workstream | Merged baseline | Pending milestones | Planning estimate |
+| --- | --- | --- | --- |
+| WS1 — Agent autonomy | PR #220 adds deterministic mandate-bounded decision logic and focused tests. | PR #221 integrates the queue with persisted owner records and the existing policy gateway; later add LLM reasoning over persisted tasks, evidence/provenance, at least 30 adversarial scenarios, repeated-run metrics, and stale-report checks. | ~20% merged; ~40% if PR #221 passes and merges |
+| WS2 — Persistent governance | Existing policy gateway, owner auth and read-only policy API. | PR #221 adds persisted mandates/payees/tasks and hash-linked records; later reconcile proposal lifecycle and spend reservations, role separation, token rotation, governance UI, and verified compliance exports. | ~10% merged; ~40% if PR #221 passes and merges |
+| WS3 — AegisVault v2 | Current vault has owner controls, exact approvals, per-token caps and Foundry unit/fuzz/invariant CI. | Session expiry, per-recipient on-chain limits, ABI/calldata synchronization, drift tests, and threat/invariant updates. | ~65% |
+| WS4 — Operations | FastAPI/SQLite, bearer-token separation, request logging, locked dependencies and CI. | Signer abstraction, rate limiting, request IDs/structured redacted logs, readiness/metrics, Docker, backup/restore, signed notification adapters. | ~25% |
+| WS5 — Frontend | Existing dependency-free control centre, policy/spending/balance/vault views, approvals and Playwright coverage. | Mandates/Payees views, Agent Activity decision timeline, policy diff, drift display, mobile approval inbox, onboarding, compliance export and browser tests. | ~45% |
+| WS6 — Demo/submission | Existing evaluation tooling, evidence bundles, deployment verification and Phase 5 runbook. | Guided demo, measured 30-scenario evaluation report, verified operator evidence, final README/security/threat model, video script, ten-minute talk and WeBank business case. | ~45%; actual live evidence is operator-dependent |
+
+### Priority and PR minimisation plan
+
+1. **P0 — Finish WS1/WS2 core in PR #221:** persisted owner governance, integrated deterministic decision queue, existing policy gateway, audit integrity checks, regression tests, version/changelog and documentation.
+2. **P1 — One coherent WS3 PR:** session expiry plus per-recipient caps, ABI/calldata/deployment changes, Foundry unit/fuzz/invariant tests and Python/ABI drift checks.
+3. **P1 — One combined WS4/WS5 PR:** operational hardening and the highest-value governance/decision frontend views, with API and Playwright regression tests.
+4. **P1 — One WS6 close-out PR:** guided demo, measured evaluation, evidence verification integration, and final submission collateral.
+
+Target four substantial PRs from this checkpoint, including PR #221, and adjust only when dependencies or safety make bundling impractical. Each PR must include implementation, relevant tests, documentation, changelog, version bump and handoff update. Do not split out documentation-only PRs when the changes belong with a feature.
+
+### Required acceptance boundaries
+
+- No mainnet; simulated execution remains the default; Base Sepolia vault remains unaudited and testnet-only.
+- The agent cannot approve/reject, change owner policy, alter registry records, pause the wallet, or bypass the policy gateway/vault.
+- Free-text task descriptions cannot supply recipient, token, chain or amount. Governance tasks are created by owner-authenticated structured APIs.
+- The owner-maintained `available_balance_base_units` is a planning value, not a live chain balance. Governance budget history currently counts proposals conservatively and does not yet release blocked/cancelled amounts.
+- Hash chains detect payload/hash inconsistencies and chain breaks; they are not signatures and cannot protect against an attacker who can rewrite the entire database and recompute hashes.
+- Never invent transaction hashes, addresses, test results, CI results, or live evidence. The operator must generate real Base Sepolia evidence.
+- Merge only after the user confirms PR-branch Ruff/pytest checks pass and relevant CI passes. The user then syncs main and reruns checks; branch deletion follows their confirmation.
 
 ## Repository and product
 

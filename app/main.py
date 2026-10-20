@@ -32,6 +32,8 @@ from app.chain.execution import (
     VaultTransactionInvariantError,
 )
 from app.chain.router import router as base_sepolia_router
+from app.governance import GovernanceDataError, GovernanceStore
+from app.governance import router as governance_router
 from app.market_data import (
     CompositeMarketDataProvider,
     MarketDataError,
@@ -203,9 +205,13 @@ async def lifespan(application: FastAPI):
 app = FastAPI(
     title="Aegis Agent Wallet API",
     description="Policy, risk, and approval workflow with simulated execution by default and explicitly gated Base Sepolia testnet execution.",
-    version="1.11.0",
+    version="1.12.0",
     lifespan=lifespan,
 )
+
+app.state.controller = controller
+app.state.governance_store = GovernanceStore(store.db_path)
+app.include_router(governance_router)
 
 
 request_logger = logging.getLogger("aegis.request")
@@ -260,6 +266,12 @@ async def sqlite_operational_error_handler(_: Request, _exc: sqlite3.Operational
 async def workflow_data_error_handler(_: Request, _exc: WorkflowDataError) -> JSONResponse:
     """Return a stable, sanitized error for malformed persisted workflow data."""
     return JSONResponse(status_code=500, content={"detail": "Stored workflow data is invalid"})
+
+
+@app.exception_handler(GovernanceDataError)
+async def governance_data_error_handler(_: Request, _exc: GovernanceDataError) -> JSONResponse:
+    """Return a stable, sanitized error for malformed persisted governance data."""
+    return JSONResponse(status_code=500, content={"detail": "Stored governance data is invalid"})
 
 
 def _proposal(request: EvaluationRequest | ProposalRequest) -> TransactionProposal:
@@ -807,9 +819,42 @@ def get_agent_transaction_status(
     )
 
 
+def _require_current_governance_for_transaction(transaction_id: str) -> None:
+    """Block governance-created proposals when their governing records have changed."""
+    record = store.get(transaction_id)
+    if record is None or record["status"] in {
+        "blocked", "cancelled", "rejected", "executed_simulated", "submitted_onchain"
+    }:
+        return
+    governance = app.state.governance_store
+    try:
+        decision = governance.get_decision_for_transaction(transaction_id)
+    except GovernanceDataError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "governance_integrity_failed", "message": "Governance evidence failed integrity verification."},
+        ) from exc
+    if decision is None:
+        return
+    mandate = governance.get_active_mandate()
+    if mandate is None or mandate["payload_hash"] != decision.get("mandate_hash"):
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "governance_mandate_changed", "message": "The mandate changed after this proposal; requeue the task for owner review."},
+        )
+    payee_id = decision.get("payee_id")
+    payee = governance.get_payee(payee_id) if isinstance(payee_id, str) else None
+    if payee is None or payee["payload_hash"] != decision.get("payee_hash"):
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "governance_payee_changed", "message": "The registered payee changed after this proposal; requeue the task for owner review."},
+        )
+
+
 @app.post("/transactions/{transaction_id}/approve", response_model=TransactionResponse,
           dependencies=[Depends(require_owner)])
 def approve_transaction(transaction_id: str, request: ApprovalRequest) -> TransactionResponse:
+    _require_current_governance_for_transaction(transaction_id)
     if store.is_paused():
         raise HTTPException(
             status_code=409,
@@ -846,6 +891,7 @@ def approve_transaction(transaction_id: str, request: ApprovalRequest) -> Transa
 @app.post("/transactions/{transaction_id}/execute", response_model=TransactionResponse,
           dependencies=[Depends(require_owner)])
 def execute_transaction(transaction_id: str) -> TransactionResponse:
+    _require_current_governance_for_transaction(transaction_id)
     if store.is_paused():
         raise HTTPException(
             status_code=409,

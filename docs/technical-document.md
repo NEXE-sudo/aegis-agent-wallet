@@ -74,6 +74,9 @@ flowchart LR
 - **`agent/`** provides the agent-token-only API client, a constrained tool loop for
   an optional OpenAI-compatible LLM, a deterministic offline fallback, and
   `python -m agent.eval`.
+- **`app/governance.py`** persists owner-managed mandates, trusted-token-bound payees,
+  owner-created structured tasks, decision payload hashes, and hash-chained audit
+  records. The agent can process pending tasks but cannot mutate governance.
 - **`frontend/index.html`** is a same-origin local control centre; it has no
   frontend package dependency.
 - **Market-data providers** supply informational quote reads. Quotes are not
@@ -108,6 +111,31 @@ The agent also has agent-token access to
 `GET /agent/market-data/{asset_class}/{symbol}` and
 `GET /agent/transactions/{transaction_id}`. The latter returns limited status,
 execution reference, and update time, not the full proposal or audit history.
+
+### Persisted governance decision queue
+
+The owner can configure the active mandate with `PUT /governance/mandate`, register a
+payee with `PUT /governance/payees/{payee_id}`, and create a structured task with
+`POST /governance/tasks`. All three routes require the owner token. The mandate currently
+supports one token symbol per budget to avoid mixing base units from tokens with
+different decimals. The configured available balance is an owner-maintained planning
+value, not a live RPC observation.
+
+The agent queue mode calls `POST /agent/governance/decide-pending` with the agent token.
+It reads the persisted mandate, registry and pending tasks, runs the deterministic
+decision engine, and creates a transaction proposal only for a `propose` result. The
+proposal is constructed from the registered payee's chain/token/address metadata and
+the owner-created task's integer amount; free-text descriptions are not used as
+payment fields. Every proposal then passes through the existing `TransactionController`
+policy and risk checks. The result may be blocked or require owner approval. This mode
+does not sign or broadcast a transaction.
+
+Governance records include canonical payload hashes and hash-linked audit entries.
+`GET /governance/audit/verify` verifies the audit chain, stored payload hashes and
+decision chain. These are tamper-evident consistency checks, not digital signatures or
+protection against an attacker who can rewrite the whole database and recompute all
+hashes. Proposed amounts are conservatively counted in governance budget history;
+reconciliation with downstream cancellation/block status remains outstanding.
 
 ### Owner review and execution
 

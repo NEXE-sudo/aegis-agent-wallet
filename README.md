@@ -34,6 +34,16 @@ For requests, send `Authorization: Bearer <AEGIS_AGENT_TOKEN>` to `POST /transac
 
 Agent-token calls include proposal creation, limited transaction-status and market-quote reads, and a vault-only execution endpoint for eligible proposals. The agent cannot approve, reject, pause, change policy, or use the owner token; proposals requiring approval remain blocked until the owner approves them. The autonomous execution endpoint is available only in `base_sepolia_vault` mode and relies on the vault's on-chain enforcement. See the [agent guide](docs/agent.md) for task structure, LLM configuration, and offline evaluation.
 
+## Persisted governance and agent decision queue
+
+The owner can save a single active mandate, register Base Sepolia payees, and queue structured payment tasks. These records are stored in SQLite with payload hashes and append-only hash-chained audit records. See the [mandate-driven agent guide](docs/mandate-driven-agent.md) for request schemas and limitations.
+
+The owner-authenticated endpoints are `PUT /governance/mandate`, `PUT /governance/payees/{payee_id}`, and `POST /governance/tasks`; the corresponding GET endpoints read the saved mandate, payees, and tasks. The owner can verify governance integrity at `GET /governance/audit/verify`.
+
+The agent processes only owner-created tasks using `POST /agent/governance/decide-pending` or runner mode `{"mode":"governance_queue"}`. In this mode the caller supplies no payment fields: the task amount comes from the owner-created structured task, and recipient/token/chain metadata comes from the owner-managed payee registry. A proposed transaction still goes through the existing policy/risk gateway and can be blocked or require owner approval. Tasks are bound to the mandate and payee versions present when queued, and governance-created proposals cannot be approved or executed after those records change or integrity verification fails. The agent does not approve or execute it.
+
+Important limitations: mandates currently support one token per budget to avoid mixing incompatible token base units. The mandate's `available_balance_base_units` is an owner-maintained planning value, not a live chain balance. Proposed amounts are conservatively retained in governance budget history even if the downstream proposal is later blocked or cancelled. The governance queue is deterministic; the existing optional LLM tool loop has not yet been integrated as a reasoner over this persisted queue.
+
 ## Local frontend control centre
 
 Start the API with the commands above, then open [http://127.0.0.1:8000/](http://127.0.0.1:8000/). The dependency-free frontend shares the API origin and includes an overview, read-only crypto/equity market quotes, proposal submission, owner approvals, mode-aware execution, workflow search, audit inspection, and local connection settings. Connect with distinct local agent and owner tokens. The browser keeps them in memory only; disconnect or reload to clear them. Market prices are informational (equity quotes are daily closes). See [the frontend guide](docs/frontend.md) for functionality, validation, and safety limitations.
