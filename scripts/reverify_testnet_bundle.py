@@ -48,7 +48,7 @@ def reverify_testnet_evidence(
         raise ValueError("Bundle does not contain passing testnet evidence")
     saved = testnet.get("evidence")
     if not isinstance(saved, dict):
-        raise ValueError("Bundle has no transaction evidence to reverify")
+        raise TypeError("Bundle transaction evidence must be a JSON object")
 
     mode = testnet.get("mode", "successful_transfer")
     if mode not in {"successful_transfer", "reverted_vault_call"}:
