@@ -29,7 +29,7 @@ Last updated: 20 October 2026
 
 ## Current implementation priority
 
-The next milestone is a reproducible, judge-ready evidence bundle that combines the deterministic offline agent evaluation with optional read-only Base Sepolia transfer verification and a read-only SQLite audit cross-check. It emits JSON and Markdown, records explicit pass/fail checks, and hashes the canonical JSON payload so reviewers can detect later edits. If no transaction hash is supplied, the bundle must clearly state that it contains no on-chain proof.
+PR #203 delivered the reproducible JSON/Markdown evidence bundle, optional read-only Base Sepolia transfer verification, sender/vault/event checks, SQLite audit cross-checking, failure-aware reports, and canonical-payload SHA-256 integrity digest. The next milestone strengthens this evidence with observed confirmation depth: report the receipt block and latest observed block, calculate confirmations, and allow a caller-selected minimum for CLI verification and bundles. This remains a point-in-time RPC observation, not a finality guarantee.
 
 PRs should bundle related implementation, tests, documentation, and evidence into a larger coherent deliverable. Prefer changes that improve the end-to-end story (policy decision, owner approval, vault-bounded execution, on-chain receipt, and matching audit record) over isolated dashboard polish. Keep simulated mode as the default; do not sign or broadcast as part of evidence generation, and never claim finality, independent audit, LLM safety, or production readiness.
 
@@ -44,8 +44,9 @@ PRs should bundle related implementation, tests, documentation, and evidence int
 - Backend read surfaces now include public-address Base Sepolia ETH/demo-USDC balances, active policy configuration, and UTC-day local workflow spending summaries.
 - Frontend surfaces now include read-only wallet balances, active policy settings/allowlists, daily spending/remaining budget, the owner-authenticated RPC-reported network status panel, and the configured vault status comparison.
 - The Activity view now keeps owner-requested Base Sepolia receipt hash, chain, status, and block visible in the loaded page session. Receipt checks remain point-in-time RPC observations, not proof of finality.
-- Current task (branch `feat/inline-receipt-status`): Keep Base Sepolia receipt details visible in Activity and add browser coverage; continue through the established manual, one-focused-PR-at-a-time workflow.
-- Next: review remaining workflow history limitations and receipt error-state visibility without implying complete lifetime history or transaction finality.
+- Receipt details are visible in Activity, and the evidence verifier now records point-in-time receipt status and block data.
+- Current task (branch `feat/confirmation-depth-evidence`): Add confirmation-depth reporting and configurable minimum-confirmation checks to the standalone verifier and evidence bundle, with mocked-RPC regression tests.
+- Next: review workflow history limitations and receipt error-state visibility without implying complete lifetime history or transaction finality.
 - Clearly distinguish local configuration/database values from state verified on-chain; fail clearly when values are unavailable or configuration is missing/mismatched.
 - Inspect existing routes, service boundaries, frontend data flow, and tests before choosing the next smallest coherent slice. Avoid duplicate endpoints and never expose secrets/private keys.
 
@@ -71,7 +72,7 @@ PRs should bundle related implementation, tests, documentation, and evidence int
 ## Recently completed transaction-history and contract-hardening batch
 
 - The receipt visibility and error-state work, history scope/limit validation, offset pagination, Activity Previous/Next controls, exact approval-expiry boundary, and fail-closed balance RPC regression tests were incorporated before PR #202.
-- There are currently no open pull requests at the start of the reproducible evidence-bundle milestone. Always query GitHub before assuming this remains true.
+- PR #203 is merged; the confirmation-depth milestone is in progress on `feat/confirmation-depth-evidence`. Always query GitHub before assuming there are no open pull requests.
 
 ## Required PR workflow
 
@@ -102,9 +103,8 @@ PRs should bundle related implementation, tests, documentation, and evidence int
 
 ## Current status and next action
 
-- Main is at `95240d1f9ff9e2573449d9b9e8db448736d813b0` after PR #202, which expanded the deterministic offline evaluation to eleven scenarios.
-- The user confirmed post-merge Ruff and pytest checks for PR #202 and deleted `feat/expanded-agent-policy-evaluation`.
-- Current branch: `feat/reproducible-evidence-bundles`. This milestone adds a portable JSON/Markdown evidence bundle, optional read-only Base Sepolia transfer verification, expected-sender matching, SQLite audit cross-checking, and a canonical-payload SHA-256 digest. It must not submit transactions or imply finality.
+- PR #203 is squash-merged as `f42bd3fd42464598cb469dce13b4a5f34fe4387c`; the user confirmed post-merge Ruff and pytest checks passed and deleted `feat/reproducible-evidence-bundles`.
+- Current branch: `feat/confirmation-depth-evidence`. This milestone adds observed receipt confirmation depth and configurable minimum-confirmation checks to the read-only verifier and portable evidence bundle, with tests and documentation. It must not submit transactions or imply finality.
 - After the user confirms both local checks pass on the PR branch, verify CI and head SHA, then squash-merge. Ask the user to rerun checks on updated `main`; only after their confirmation provide branch deletion commands.
 - Continue bundling related implementation, tests, docs, and evidence into coherent larger PRs. Never update `main` directly.
 
