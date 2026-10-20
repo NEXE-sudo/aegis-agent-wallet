@@ -1,4 +1,11 @@
+import asyncio
+
+import httpx
 from fastapi.testclient import TestClient
+import pytest
+
+from agent.client import AegisApiClient
+from agent.runner import AegisAgent, AgentToolError
 
 from app import main
 from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
@@ -126,10 +133,16 @@ def test_agent_decision_uses_registry_address_and_existing_policy_gateway(monkey
         },
     )
 
-    response = client.post("/agent/governance/decide-pending", headers=AGENT_HEADERS)
+    async def run_agent():
+        transport = httpx.ASGITransport(app=main.app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://127.0.0.1"
+        ) as http:
+            api = AegisApiClient("http://127.0.0.1", AGENT_TOKEN, http)
+            return await AegisAgent(api).run({"mode": "governance_queue"})
 
-    assert response.status_code == 200
-    body = response.json()
+    agent_result = asyncio.run(run_agent())
+    body = agent_result["governance_results"]
     assert body["processed"] == 1
     decision_record = body["decisions"][0]
     decision = decision_record["decision"]
@@ -214,3 +227,15 @@ def test_audit_chain_detects_tampering(monkeypatch, tmp_path):
         db.execute("UPDATE governance_audit SET entity_id = 'tampered' WHERE sequence = 1")
 
     assert governance.verify_audit_chain()["valid"] is False
+
+
+def test_governance_runner_rejects_caller_supplied_payment_fields():
+    class FakeApi:
+        async def decide_pending_governance_tasks(self):
+            raise AssertionError("API must not be called for an invalid task envelope")
+
+    with pytest.raises(AgentToolError):
+        asyncio.run(AegisAgent(FakeApi()).run({
+            "mode": "governance_queue",
+            "authorized_payment": {"recipient": "0x" + "b" * 40},
+        }))
