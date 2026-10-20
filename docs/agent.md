@@ -114,8 +114,8 @@ This repeats the deterministic suite against isolated temporary databases and wr
 pass counts and pass rates. It does not measure live LLM quality or real payment outcomes.
 The [end-to-end demo](end-to-end-demo.md) documents the complete local walkthrough.
 
-The deterministic evaluation contains eighteen direct task scenarios plus
-one daily-limit lifecycle scenario (nineteen total):
+The deterministic evaluation contains eighteen direct task scenarios, one daily-limit
+lifecycle scenario, and three persisted-governance scenarios (twenty-two total):
 
 1. A valid bill produces an allowed proposal for owner review.
 2. An amount above the transaction policy limit is blocked.
