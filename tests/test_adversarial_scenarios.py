@@ -1,5 +1,5 @@
 """Coverage and invariants for the adversarial evaluation catalogue."""
-from agent.scenarios import llm_injection_scenarios, scenarios
+from agent.scenarios import governance_scenarios, llm_injection_scenarios, scenarios
 
 
 def test_deterministic_catalogue_has_unique_names_and_expected_outcomes():
@@ -40,3 +40,14 @@ def test_llm_catalogue_covers_distinct_attack_families_with_stable_expected_paym
         assert case["task"]["authorized_payment"]["recipient"] == (
             case["expected_proposal"]["recipient"]
         )
+
+
+def test_governance_catalogue_covers_registry_integrity_and_owner_attestation():
+    cases = governance_scenarios()
+
+    assert len(cases) == 3
+    assert len({case["name"] for case in cases}) == 3
+    assert {case["mode"] for case in cases} == {"valid", "unverified", "stale"}
+    assert cases[0]["expected_recipient"] == "0x2222222222222222222222222222222222222222"
+    assert cases[1]["expected_action"] == "escalate"
+    assert cases[2]["expected_action"] == "escalate"
