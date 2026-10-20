@@ -349,9 +349,19 @@ def run_live(args: argparse.Namespace, *, root: Path | None = None,
              api_request: Callable[..., dict[str, Any]] = _api_request) -> dict[str, Any]:
     root = (root or Path(__file__).resolve().parents[1]).resolve()
     values = dict(os.environ if env is None else env)
-    public = validate_configuration(args, values)
     report_dir = (root / args.output_dir).resolve()
     report_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        public = validate_configuration(args, values)
+    except Exception as exc:
+        _write_json(report_dir / "partial-report.json", {
+            "mode": "broadcast" if args.broadcast else "dry_run",
+            "broadcast": False,
+            "result": "INCOMPLETE",
+            "error": redact(str(exc), values),
+            "note": "Configuration validation failed before any RPC call or broadcast.",
+        })
+        raise
     state_path = report_dir / "run-state.json"
     public_inputs = {
         "owner": public["owner"], "agent": Account.from_key(values["AEGIS_TESTNET_PRIVATE_KEY"]).address.lower(),
