@@ -118,9 +118,19 @@ def validate_configuration(args: argparse.Namespace, env: dict[str, str] | os._E
         owner = validate_address(str(env["AEGIS_VAULT_OWNER_ADDRESS"]))
         recipient = validate_address(args.recipient)
         token = validate_address(args.token_address)
-        Account.from_key(str(env["AEGIS_TESTNET_PRIVATE_KEY"]))
+        agent = Account.from_key(str(env["AEGIS_TESTNET_PRIVATE_KEY"])).address.lower()
     except (TypeError, ValueError) as exc:
         raise LiveRunError("A public address or the agent key in the environment is invalid.") from exc
+    if env["AEGIS_AGENT_TOKEN"] == env["AEGIS_APPROVAL_TOKEN"]:
+        raise LiveRunError("AEGIS_AGENT_TOKEN and AEGIS_APPROVAL_TOKEN must be distinct.")
+    if owner == agent:
+        raise LiveRunError("The owner keystore address and agent key must be different accounts.")
+    if recipient == "0x" + "0" * 40 or recipient in {owner, agent}:
+        raise LiveRunError("The transfer recipient must be a nonzero address distinct from owner and agent.")
+    api_url = str(env.get("AEGIS_API_URL", "http://127.0.0.1:8000"))
+    api = urlsplit(api_url)
+    if api.scheme != "http" or api.hostname not in {"127.0.0.1", "localhost"} or not api.port:
+        raise LiveRunError("AEGIS_API_URL must be a localhost HTTP URL with an explicit port.")
     if token != BASE_SEPOLIA_USDC_ADDRESS:
         raise LiveRunError("The current API supports the published Base Sepolia demo USDC token only.")
     if recipient in {x.lower() for x in DEMO_ALLOWLIST}:
