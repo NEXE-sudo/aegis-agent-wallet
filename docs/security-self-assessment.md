@@ -136,12 +136,16 @@ they do not prove resistance to real-world prompt injection, provider compromise
 malicious dependencies, or attacks against a deployed system. The evaluation does
 not make a real transfer and does not assess LLM quality.
 
-**TODO:** Attach the exact commit and CI run link used for final submission review.
-Foundry tests have not been run in the current environment; report
-`TODO: run forge test` until a real `forge test` run is performed. Do not infer
-contract test results from Python test runs.
-**TODO:** Record any independent penetration-test or external review findings;
-do not describe an unperformed review as completed.
+<!-- SUBMISSION_PROVENANCE_START -->
+## Final source and CI provenance
+
+- Source commit at documentation fill time: pending script fill.
+- Python CI run: pending run URL for the exact final source revision.
+- Foundry CI run: pending run URL for the exact final source revision.
+<!-- SUBMISSION_PROVENANCE_END -->
+
+The last observed Foundry workflow passed unit, fuzz, and invariant tests on commit 8ee561e5df50a0704bfbac39681d0818fea5bd09 ([run #4](https://github.com/NEXE-sudo/aegis-agent-wallet/actions/runs/39407398590)). GitHub's comparison shows no contract files changed through main commit 59e0e4567bae76710c43ebf065c07c9b987308a5; this is not a fresh Foundry run on the final runner PR.
+No independent penetration test, external audit, or certification is claimed; external review status is pending owner confirmation.
 
 ## 4. Prioritized follow-up work
 
@@ -164,22 +168,15 @@ These are recommendations, not implemented capabilities:
 
 ## 5. Review items requiring owner input
 
-- **TODO:** Confirm the intended assessment audience, business owner, and final
-  approval date.
-- **TODO:** Confirm whether any external security review or regulatory mapping is
-  required by the FinTechathon submission; do not imply formal compliance.
-- **Evidence (pending owner-run test; not yet verified):**
-  Transaction hash: TODO (supplied by the owner after a real transfer)
-  Verify with: `uv run python scripts/verify_testnet_evidence.py <TRANSACTION_HASH> --expected-sender "<TODO: throwaway wallet address>" --audit-db "<path>"`
-  This check ties the on-chain transfer to the sending wallet and to Aegis's audit record; it does not prove the wallet key was held only by Aegis.
-- Vault address, deployment transaction hash, successful vault transfer hash,
-  and reverted bypass transaction hash remain `TODO`. Their read-only verification
-  commands are listed in [on-chain enforcement evidence](onchain-enforcement.md#submission-evidence);
-  no live chain values are claimed here.
-- Foundry contract tests: **TODO: run forge test**. Do not report a Solidity
-  test result until `forge test` has actually been run and its output reviewed.
-- **TODO:** Review each residual-risk statement against the exact submission
-  commit and update this assessment if code changes before submission.
+<!-- LIVE_EVIDENCE_START -->
+## Verified Base Sepolia execution evidence
+
+Pending operator evidence: no live deployment, successful transfer, or reverted bypass values are claimed until reports/live contains verified and mutually consistent bundles.
+<!-- LIVE_EVIDENCE_END -->
+
+Assessment audience, business owner, and final approval date: pending owner input.
+Whether any external security review or regulatory mapping is required: pending owner input; no formal compliance claim is made.
+Residual-risk statements must be reviewed against the exact final submission commit before submission.
 
 ## 6. References
 
