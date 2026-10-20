@@ -130,7 +130,7 @@ def test_accepts_expected_bytecode_hash_with_optional_prefix():
         (FakeRpc(contract_address=OTHER), "does not match --expected-vault"),
         (FakeRpc(receipt_status="0x0"), "receipt status is not success"),
         (FakeRpc(receipt_block_hash="0x" + "c" * 64), "does not match the RPC's block"),
-        (FakeRpc(latest_block=118), "fewer than the 12 required"),
+        (FakeRpc(latest_block=109), "latest block is behind the deployment receipt"),
         (FakeRpc(code="0x"), "No deployed runtime bytecode"),
         (FakeRpc(onchain_owner=OTHER), "on-chain vault owner does not match"),
         (FakeRpc(missing_tx=True), "transaction was not found"),
@@ -216,3 +216,9 @@ def test_cli_writes_machine_readable_evidence_with_integrity_digest(
     canonical = json.dumps(saved, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     assert digest == hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     assert "JSON evidence:" in capsys.readouterr().out
+
+
+
+def test_rejects_insufficient_confirmation_depth():
+    with pytest.raises(ValueError, match="fewer than the 12 required"):
+        _verify(FakeRpc(latest_block=118), min_confirmations=12)
