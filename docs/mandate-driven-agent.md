@@ -14,7 +14,7 @@ All governance mutation and read endpoints require the owner bearer token:
 
 A mandate currently permits one token symbol per budget because a base-unit budget cannot safely aggregate tokens with different decimals. The mandate fields use integer token base units. `available_balance_base_units` is an owner-maintained planning value, not a live blockchain balance; it must not be presented as chain-observed liquidity. The actual wallet policy gateway and AegisVault remain the enforcement boundaries.
 
-Payee records are limited to Base Sepolia (chain ID 84532) and token metadata already trusted and enabled by the wallet policy. The owner must explicitly set `verified: true` after verifying the payee out of band. A registry entry does not itself expand the active wallet policy's recipient allowlist. If the policy requires approval or blocks a proposal, that decision remains in force.
+Payee records are limited to Base Sepolia (chain ID 84532) and token metadata already trusted and enabled by the wallet policy. The owner must explicitly set `verified: true` after verifying the payee out of band. A registry entry does not itself expand the active wallet policy's recipient allowlist. If the policy requires approval or blocks a proposal, that decision remains in force. Tasks are bound to the mandate and payee payload hashes present when they are queued; if either record changes, the task escalates and must be reviewed and requeued. Governance-created proposals are blocked from approval/execution if their mandate or payee record later changes, or if governance integrity verification fails.
 
 ## Agent workflow
 
