@@ -87,7 +87,7 @@ def validate_bundle(bundle: object) -> dict[str, Any]:
                 schema == "aegis-evidence-bundle/v5"
                 and checks.get("receipt_status_matches_expectation") is not True
             ):
-                    raise ValueError("Schema v5 evidence must verify the expected receipt status")
+                raise ValueError("Schema v5 evidence must verify the expected receipt status")
 
     if bundle["passed"] is not expected_overall:
         raise ValueError("Overall passed result is inconsistent with the component results")
