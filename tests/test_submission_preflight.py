@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from scripts.submission_manifest import build_manifest
 from scripts import submission_preflight
+from scripts.submission_manifest import build_manifest
 
 
 REVISION = "a" * 40
