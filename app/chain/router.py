@@ -127,6 +127,7 @@ def inspect_vault_configuration(address: str, token_address: str) -> dict:
             agent = "0x" + f"{agent_word:040x}"
             configured_vault = os.environ.get("AEGIS_VAULT_ADDRESS", "").strip()
             local_match = None
+            configuration_issues = []
             issues = []
             if configured_vault:
                 try:
@@ -134,9 +135,13 @@ def inspect_vault_configuration(address: str, token_address: str) -> dict:
                 except ValueError:
                     local_match = False
                 if not local_match:
-                    issues.append("The supplied vault address does not match AEGIS_VAULT_ADDRESS.")
+                    configuration_issues.append(
+                        "The supplied vault address does not match AEGIS_VAULT_ADDRESS."
+                    )
             else:
-                issues.append("AEGIS_VAULT_ADDRESS is not configured; local execution settings were not compared.")
+                configuration_issues.append(
+                    "AEGIS_VAULT_ADDRESS is not configured; local execution settings were not compared."
+                )
 
             if owner == _ZERO_ADDRESS:
                 issues.append("The vault owner is the zero address.")
@@ -167,6 +172,7 @@ def inspect_vault_configuration(address: str, token_address: str) -> dict:
                 "configured_vault_matches": local_match,
                 "configuration_structurally_valid": not issues,
                 "issues": issues,
+                "configuration_issues": configuration_issues,
                 "read_only": True,
             }
     except HTTPException:
