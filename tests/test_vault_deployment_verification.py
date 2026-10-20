@@ -122,23 +122,31 @@ def test_accepts_expected_bytecode_hash_with_optional_prefix():
 
 
 @pytest.mark.parametrize(
-    ("rpc", "message"),
+    ("rpc", "message", "error_type"),
     [
-        (FakeRpc(chain_id=1), "not Base Sepolia"),
-        (FakeRpc(tx_to=OTHER), "contract-creation transaction"),
-        (FakeRpc(tx_owner=OTHER), "constructor owner does not match"),
-        (FakeRpc(contract_address=OTHER), "does not match --expected-vault"),
-        (FakeRpc(receipt_status="0x0"), "receipt status is not success"),
-        (FakeRpc(receipt_block_hash="0x" + "c" * 64), "does not match the RPC's block"),
-        (FakeRpc(latest_block=109), "latest block is behind the deployment receipt"),
-        (FakeRpc(code="0x"), "No deployed runtime bytecode"),
-        (FakeRpc(onchain_owner=OTHER), "on-chain vault owner does not match"),
-        (FakeRpc(missing_tx=True), "transaction was not found"),
-        (FakeRpc(missing_receipt=True), "receipt is not available"),
+        (FakeRpc(chain_id=1), "not Base Sepolia", ValueError),
+        (FakeRpc(tx_to=OTHER), "contract-creation transaction", ValueError),
+        (FakeRpc(tx_owner=OTHER), "constructor owner does not match", ValueError),
+        (FakeRpc(contract_address=OTHER), "does not match --expected-vault", ValueError),
+        (FakeRpc(receipt_status="0x0"), "receipt status is not success", ValueError),
+        (
+            FakeRpc(receipt_block_hash="0x" + "c" * 64),
+            "does not match the RPC's block",
+            ValueError,
+        ),
+        (
+            FakeRpc(latest_block=109),
+            "latest block is behind the deployment receipt",
+            RpcRequestError,
+        ),
+        (FakeRpc(code="0x"), "No deployed runtime bytecode", ValueError),
+        (FakeRpc(onchain_owner=OTHER), "on-chain vault owner does not match", ValueError),
+        (FakeRpc(missing_tx=True), "transaction was not found", ValueError),
+        (FakeRpc(missing_receipt=True), "receipt is not available", ValueError),
     ],
 )
-def test_rejects_invalid_deployment_evidence(rpc, message):
-    with pytest.raises(ValueError, match=message):
+def test_rejects_invalid_deployment_evidence(rpc, message, error_type):
+    with pytest.raises(error_type, match=message):
         _verify(rpc)
 
 
