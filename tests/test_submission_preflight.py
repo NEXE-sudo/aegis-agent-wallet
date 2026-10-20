@@ -7,7 +7,8 @@ from typing import Any
 
 import pytest
 
-import scripts
+import scripts.submission_manifest
+import scripts.submission_preflight
 
 
 REVISION = "a" * 40
@@ -98,7 +99,7 @@ def test_preflight_accepts_consistent_offline_submission_artifacts(tmp_path, mon
 
 def test_preflight_rejects_manifest_from_another_revision(tmp_path, monkeypatch) -> None:
     paths = _make_fixture(tmp_path, monkeypatch)
-    monkeypatch.setattr(submission_preflight, "_current_revision", lambda _root: "b" * 40)
+    monkeypatch.setattr(scripts.submission_preflight, "_current_revision", lambda _root: "b" * 40)
 
     with pytest.raises(ValueError, match="source_revision does not match"):
         scripts.submission_preflight.run_preflight(tmp_path, *paths)
@@ -126,7 +127,7 @@ def test_preflight_rejects_failed_repeated_evaluation(tmp_path, monkeypatch) -> 
     _write_json(tmp_path / manifest, refreshed)
 
     with pytest.raises(ValueError, match="contains failures"):
-        submission_preflight.run_preflight(tmp_path, manifest, agent_eval, repeated, bundle)
+        scripts.submission_preflight.run_preflight(tmp_path, manifest, agent_eval, repeated, bundle)
 
 
 def test_preflight_can_require_genuine_testnet_evidence(tmp_path, monkeypatch) -> None:
