@@ -2364,3 +2364,31 @@ def test_spending_summary_releases_cancelled_reservations():
         if item["token_address"] == BASE_SEPOLIA_USDC_ADDRESS.lower()
     )
     assert token["spent_base_units"] == 0
+
+
+
+def test_approved_transaction_exposes_backend_derived_expiry_timestamp(monkeypatch):
+    now = [datetime(2026, 10, 20, 12, 0, tzinfo=UTC)]
+    monkeypatch.setattr(store_module, "_utc_now", lambda: now[0])
+    record = propose(_payload(recipient="0x4444444444444444444444444444444444444444")).json()
+    assert record["status"] == "awaiting_approval"
+    approval_body = {
+        "transaction_fingerprint": record["fingerprint"],
+        "confirmation": "APPROVE",
+    }
+
+    approved = owner_post(f"/transactions/{record['transaction_id']}/approve", json=approval_body)
+    assert approved.status_code == 200
+    expiry = now[0] + timedelta(seconds=main.DEMO_POLICY.approval_expires_seconds)
+    assert approved.json()["approval_expires_at"] == expiry.isoformat()
+
+    listed = client.get("/transactions", headers=OWNER_HEADERS)
+    assert listed.status_code == 200
+    listed_record = next(item for item in listed.json() if item["transaction_id"] == record["transaction_id"])
+    assert listed_record["approval_expires_at"] == expiry.isoformat()
+
+    # The deadline is an absolute backend-derived timestamp, not a browser estimate.
+    now[0] = expiry
+    refreshed = client.get(f"/transactions/{record['transaction_id']}", headers=OWNER_HEADERS)
+    assert refreshed.status_code == 200
+    assert refreshed.json()["approval_expires_at"] == expiry.isoformat()

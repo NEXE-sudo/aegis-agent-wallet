@@ -448,3 +448,15 @@ def test_frontend_shows_owner_authenticated_read_only_vault_status():
     assert "status.in_sync === true" in _script_function(response.text, "renderVaultStatus")
     assert "not an independent contract audit" in response.text
     assert "state.vaultStatus = null;" in _script_function(response.text, "clearSessionData")
+
+
+
+def test_frontend_displays_backend_approval_expiry_for_approved_activity():
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "tx.approval_expires_at" in response.text
+    assert "Approval expired" in response.text
+    assert "approval-expiry" in response.text
+    activity = _script_function(response.text, "renderActivity")
+    assert "new Date(tx.approval_expires_at).getTime() <= Date.now()" in activity
