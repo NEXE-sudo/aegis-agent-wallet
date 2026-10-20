@@ -145,7 +145,10 @@ def test_successful_testnet_bundle_links_chain_and_audit(monkeypatch, tmp_path):
         "minimum_confirmations_met": True,
         "vault_configuration_valid": True,
     }
-    assert bundle["testnet_evidence"]["vault_configuration"]["bytecode_sha256"] == "0x" + "d" * 64
+    assert (
+        bundle["testnet_evidence"]["vault_configuration"]["bytecode_sha256"]
+        == "0x" + "d" * 64
+    )
     assert bundle["testnet_evidence"]["audit_transaction_id"] == "txn-123"
     assert validate_bundle(bundle) == bundle
 
