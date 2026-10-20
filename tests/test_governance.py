@@ -185,6 +185,7 @@ def test_agent_decision_uses_registry_address_and_existing_policy_gateway(monkey
 
     asyncio.run(exercise())
 
+
 def test_unverified_payee_escalates_without_creating_transaction(monkeypatch, tmp_path):
     setup_isolated(monkeypatch, tmp_path)
     client.put("/governance/mandate", headers=OWNER_HEADERS, json=mandate_payload())
@@ -284,8 +285,8 @@ def test_governance_runner_rejects_caller_supplied_payment_fields():
                 "authorized_payment": {"recipient": "0x" + "b" * 40},
             })
 
-
     asyncio.run(exercise())
+
 
 def test_task_escalates_if_mandate_or_payee_changes_after_creation(monkeypatch, tmp_path):
     setup_isolated(monkeypatch, tmp_path)
