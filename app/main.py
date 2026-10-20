@@ -256,7 +256,7 @@ async def log_http_requests(request: Request, call_next):
 
     response = None
     status_code = 500
-    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.url.path not in {"/pause", "/resume"}:
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and True:
         client_key = request.client.host if request.client else "unknown"
         allowed, remaining = _consume_write_limit(client_key, monotonic())
         if not allowed:
@@ -400,7 +400,7 @@ def metrics() -> Response:
         lines.append(
             f'aegis_http_requests_total{{method="{method}",route="{safe_route}",status="{status}"}} {count}'
         )
-    return Response(content="\\n".join(lines) + "\\n", media_type="text/plain; version=0.0.4")
+    return Response(content="\n".join(lines) + "\n", media_type="text/plain; version=0.0.4")
 
 
 @app.post("/policy/evaluate", response_model=EvaluationResponse)
