@@ -18,9 +18,9 @@ from typing import Any, Literal
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 
+from agent.autonomy import Mandate, Payee, PayeeHistory, PaymentTask, decide_payments
 from app.auth import require_agent, require_owner
 from app.policy.models import TransactionProposal
-from agent.autonomy import Mandate, Payee, PayeeHistory, PaymentTask, decide_payments
 
 
 def canonical_json(value: Any) -> str:
