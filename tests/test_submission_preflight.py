@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from scripts import submission_preflight
+import scripts.submission_preflight
 from scripts.submission_manifest import build_manifest
 
 
@@ -91,7 +91,7 @@ def _make_fixture(root: Path, monkeypatch) -> tuple[Path, Path, Path, Path]:
 def test_preflight_accepts_consistent_offline_submission_artifacts(tmp_path, monkeypatch) -> None:
     paths = _make_fixture(tmp_path, monkeypatch)
 
-    notes = submission_preflight.run_preflight(tmp_path, *paths)
+    notes = scripts.submission_preflight.run_preflight(tmp_path, *paths)
 
     assert any("Manifest and selected artifact hashes: PASS" in note for note in notes)
     assert any("NOT SUPPLIED" in note for note in notes)
