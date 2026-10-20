@@ -285,7 +285,8 @@ def _cast_send(root: Path, env: dict[str, str], report_dir: Path, label: str,
                target: str, signature: str, arguments: list[str], account: str) -> str:
     output = _command_result(["cast", "send", target, signature, *arguments,
                               "--account", account, "--chain", "84532"],
-                             root=root, env=_cast_env(env, account), report_dir=report_dir, label=label)
+                             root=root, env=_cast_env(env, account), report_dir=report_dir, label=label,
+                             interactive=True)
     return _extract_hash(output)
 
 
