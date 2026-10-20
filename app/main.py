@@ -16,7 +16,11 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from app.auth import require_agent, require_owner
-from app.governance import GovernanceStore, router as governance_router
+from app.governance import (
+    GovernanceDataError,
+    GovernanceStore,
+    router as governance_router,
+)
 from app.chain.base_sepolia import (
     BASE_SEPOLIA_CHAIN_ID,
     BASE_SEPOLIA_USDC_ADDRESS,
@@ -265,6 +269,12 @@ async def sqlite_operational_error_handler(_: Request, _exc: sqlite3.Operational
 async def workflow_data_error_handler(_: Request, _exc: WorkflowDataError) -> JSONResponse:
     """Return a stable, sanitized error for malformed persisted workflow data."""
     return JSONResponse(status_code=500, content={"detail": "Stored workflow data is invalid"})
+
+
+@app.exception_handler(GovernanceDataError)
+async def governance_data_error_handler(_: Request, _exc: GovernanceDataError) -> JSONResponse:
+    """Return a stable, sanitized error for malformed persisted governance data."""
+    return JSONResponse(status_code=500, content={"detail": "Stored governance data is invalid"})
 
 
 def _proposal(request: EvaluationRequest | ProposalRequest) -> TransactionProposal:
