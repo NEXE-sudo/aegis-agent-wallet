@@ -34,7 +34,7 @@ def validate_bundle(bundle: object) -> dict[str, Any]:
         raise ValueError("Evidence bundle SHA-256 digest does not match its payload")
 
     schema = bundle.get("schema")
-    if schema not in SUPPORTED_SCHEMAS:
+    if not isinstance(schema, str) or schema not in SUPPORTED_SCHEMAS:
         raise ValueError(f"Unsupported evidence bundle schema: {schema!r}")
     if type(bundle.get("passed")) is not bool:
         raise ValueError("Evidence bundle passed field must be a boolean")

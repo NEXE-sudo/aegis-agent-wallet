@@ -32,6 +32,21 @@ uv run --locked python -m scripts.build_evidence_bundle \
 
 The verifier uses read-only JSON-RPC calls, checks the chain and vault/token transfer events, compares the expected public sender, and cross-checks the transaction and audit trail against the SQLite database opened read-only. It never signs or submits a transaction. The configured RPC must be Base Sepolia (chain ID 84532). The verifier also fetches the RPC-reported block at the receipt height and requires its hash to match the receipt's `blockHash`; the JSON and Markdown reports record both hashes. A mismatch fails verification, which helps detect a receipt whose block is no longer canonical according to that RPC. The optional `--min-confirmations` setting (default `1`) requires a minimum observed depth calculated as `latest block - receipt block + 1`; the report records both block heights and the observed depth. These are point-in-time observations from one RPC, not a finality guarantee or independent consensus proof.
 
+## Add a verified reverted vault call
+
+For a mined AegisVault call that failed on Base Sepolia, use the same read-only verification path with `--expect-revert`. Do not supply `--audit-db`, because a reverted call does not create a successful submitted-transfer record:
+
+```bash
+uv run --locked python -m scripts.build_evidence_bundle \
+  --transaction-hash 0xYOUR_REVERTED_TRANSACTION_HASH \
+  --expected-sender 0xYOUR_PUBLIC_AGENT_ADDRESS \
+  --vault 0xYOUR_DEPLOYED_AEGIS_VAULT \
+  --expect-revert \
+  --min-confirmations 12
+```
+
+This verifies the mined failed receipt, call shape, sender, observed confirmation depth, and receipt/canonical block hash agreement. It does not decode or infer the Solidity revert reason, and it never signs or broadcasts a transaction.
+
 ## Provenance and integrity
 
 The JSON and Markdown reports record the UTC generation time, source revision when available, Python version, and Python implementation. The source revision is read from a valid `GITHUB_SHA` environment variable first and otherwise from the local Git checkout. If neither yields a valid commit hash, the report records `null`. This identifies the reported generation context; it does not prove that the checkout was clean or that the report was produced by a trusted party.

@@ -432,3 +432,27 @@ def test_saved_evidence_bundle_verifier_rejects_wrong_revert_receipt_status():
 
     with pytest.raises(ValueError, match="must have a failed receipt"):
         verify_evidence_bundle.validate_bundle(bundle)
+
+
+def test_saved_evidence_bundle_verifier_accepts_legacy_v4_success_bundle():
+    from scripts import verify_evidence_bundle
+
+    bundle = _valid_offline_bundle()
+    bundle["schema"] = "aegis-evidence-bundle/v4"
+    bundle["testnet_evidence"] = {
+        "requested": True,
+        "mode": "successful_transfer",
+        "passed": True,
+        "checks": {
+            "chain_and_transfer_evidence_verified": True,
+            "expected_sender_matches": True,
+            "audit_record_matches": True,
+            "minimum_confirmations_met": True,
+        },
+        "evidence": {"receipt_status": "success", "confirmations_observed": 12},
+        "audit_transaction_id": "txn-123",
+    }
+    bundle["passed"] = True
+    bundle = _seal_bundle(bundle)
+
+    assert verify_evidence_bundle.validate_bundle(bundle) == bundle
