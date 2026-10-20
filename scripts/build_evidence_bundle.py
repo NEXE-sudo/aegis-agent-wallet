@@ -71,11 +71,9 @@ def _render_markdown(bundle: dict[str, Any]) -> str:
                 f"- Block: {evidence.get('block_number', 'not supplied')}",
                 f"- Latest observed block: {evidence.get('latest_block_number', 'not supplied')}",
                 (
-                    (
                     "- Confirmations observed: "
                     f"{evidence.get('confirmations_observed', 'not supplied')} "
                     f"(minimum required: {onchain.get('minimum_confirmations_required', 1)})"
-                )
                 ),
                 f"- Vault: {evidence.get('vault_address', 'not supplied')}",
                 f"- Token: {evidence.get('token_contract', 'not supplied')}",
