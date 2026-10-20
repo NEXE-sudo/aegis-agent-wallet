@@ -14,7 +14,9 @@ REPLACED_BLOCK_HASH = "0x" + "c" * 64
 VAULT = "0x9999999999999999999999999999999999999999"
 
 
-def make_executor(*, receipt=True, receipt_status="0x1", canonical_hash=BLOCK_HASH, head="0x20"):
+def make_executor(
+    *, receipt=True, receipt_status="0x1", canonical_hash=BLOCK_HASH, head="0x20"
+):
     def handler(request):
         payload = json.loads(request.content)
         method = payload["method"]
