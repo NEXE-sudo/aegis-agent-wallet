@@ -38,7 +38,7 @@ The JSON and Markdown reports record the UTC generation time, source revision wh
 
 The bundle includes the deterministic evaluation results, optional transaction evidence, explicit per-check outcomes, provenance, and a SHA-256 digest of the canonical JSON payload (excluding the digest field itself). Recompute the digest after removing `bundle_sha256` to check that the saved JSON has not changed. The digest covers the provenance fields, detects accidental or subsequent modification, and is not a digital signature or proof of authorship.
 
-A bundle fails if an included transfer cannot be verified, the expected sender differs, the audit cross-check fails, the receipt reports failure, the observed confirmation depth is below the requested minimum, or any offline scenario fails. A failed run still writes a report describing the outcome. The evidence schema is `aegis-evidence-bundle/v4`, which records receipt and canonical block hashes for supplied testnet evidence. No live LLM evaluation is run by this command.
+A bundle fails if the included transaction cannot be verified, the expected sender differs, a required audit cross-check fails, the receipt status does not match the selected success/revert mode, the observed confirmation depth is below the requested minimum, or any offline scenario fails. A failed run still writes a report describing the outcome. The evidence schema is `aegis-evidence-bundle/v4`, which records receipt and canonical block hashes for supplied testnet evidence. No live LLM evaluation is run by this command.
 
 ## Evidence limits
 

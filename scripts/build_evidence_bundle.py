@@ -24,7 +24,7 @@ from app.chain.base_sepolia import (
 )
 from scripts.verify_testnet_evidence import verify_audit_record, verify_evidence
 
-BUNDLE_SCHEMA = "aegis-evidence-bundle/v4"
+BUNDLE_SCHEMA = "aegis-evidence-bundle/v5"
 
 
 def _canonical_json(value: dict[str, Any]) -> str:
@@ -90,6 +90,7 @@ def _render_markdown(bundle: dict[str, Any]) -> str:
             "",
         ])
     else:
+        lines.append(f"- Mode: `{onchain.get('mode', 'successful_transfer')}`")
         lines.append(f"- Result: **{'PASS' if onchain['passed'] else 'FAIL'}**")
         evidence = onchain.get("evidence")
         if evidence:
@@ -161,6 +162,7 @@ async def build_evidence_bundle(
     audit_db: str | Path | None = None,
     vault: str | None = None,
     min_confirmations: int = 1,
+    expect_revert: bool = False,
 ) -> dict[str, Any]:
     """Generate a portable report; testnet verification is opt-in and read-only."""
     if type(min_confirmations) is not int or min_confirmations < 1:
@@ -170,6 +172,7 @@ async def build_evidence_bundle(
 
     testnet: dict[str, Any] = {
         "requested": transaction_hash is not None,
+        "mode": "reverted_vault_call" if expect_revert else "successful_transfer",
         "passed": None,
         "checks": {},
         "evidence": None,
@@ -182,18 +185,22 @@ async def build_evidence_bundle(
             "chain_and_transfer_evidence_verified": False,
             "expected_sender_matches": False,
             "audit_record_matches": False,
-            "receipt_succeeded": False,
+            "receipt_status_matches_expectation": False,
             "minimum_confirmations_met": False,
         }
         try:
-            if expected_sender is None or audit_db is None or vault is None:
+            if expected_sender is None or vault is None or (audit_db is None and not expect_revert):
                 raise ValueError(
-                    "Testnet evidence requires --expected-sender, --audit-db, and --vault"
+                    "Testnet evidence requires --expected-sender and --vault; successful transfers also require --audit-db"
                 )
+            if expect_revert and audit_db is not None:
+                raise ValueError("--audit-db cannot be used with --expect-revert")
             normalized_sender = validate_address(expected_sender)
             normalized_vault = validate_address(vault)
             with BaseSepoliaRpc() as rpc:
-                evidence = verify_evidence(transaction_hash, rpc, normalized_vault)
+                evidence = verify_evidence(
+                    transaction_hash, rpc, normalized_vault, expect_revert=True
+                ) if expect_revert else verify_evidence(transaction_hash, rpc, normalized_vault)
             testnet["evidence"] = evidence
             testnet["checks"]["chain_and_transfer_evidence_verified"] = True
             testnet["checks"]["expected_sender_matches"] = (
@@ -201,11 +208,19 @@ async def build_evidence_bundle(
             )
             if not testnet["checks"]["expected_sender_matches"]:
                 raise ValueError("Transaction sender does not match --expected-sender")
-            testnet["audit_transaction_id"] = verify_audit_record(audit_db, evidence)
-            testnet["checks"]["audit_record_matches"] = True
-            testnet["checks"]["receipt_succeeded"] = evidence["receipt_status"] == "success"
-            if not testnet["checks"]["receipt_succeeded"]:
-                raise ValueError("Transaction receipt status is not success")
+            if expect_revert:
+                testnet["checks"].pop("audit_record_matches", None)
+            else:
+                testnet["audit_transaction_id"] = verify_audit_record(audit_db, evidence)
+                testnet["checks"]["audit_record_matches"] = True
+            testnet["checks"]["receipt_status_matches_expectation"] = (
+                evidence["receipt_status"] == ("failed" if expect_revert else "success")
+            )
+            if not testnet["checks"]["receipt_status_matches_expectation"]:
+                raise ValueError(
+                    "Transaction receipt status is not failed as expected"
+                    if expect_revert else "Transaction receipt status is not success"
+                )
             testnet["checks"]["minimum_confirmations_met"] = (
                 type(evidence.get("confirmations_observed")) is int
                 and evidence["confirmations_observed"] >= min_confirmations
@@ -266,6 +281,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--audit-db", help="read-only Aegis SQLite database to cross-check")
     parser.add_argument("--vault", help="deployed AegisVault address")
     parser.add_argument(
+        "--expect-revert", action="store_true",
+        help="verify a mined failed AegisVault call instead of a successful transfer",
+    )
+    parser.add_argument(
         "--min-confirmations",
         type=int,
         default=1,
@@ -275,11 +294,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.min_confirmations < 1:
         parser.error("--min-confirmations must be at least 1")
 
-    supplied = (args.expected_sender is not None, args.audit_db is not None, args.vault is not None)
-    if args.transaction_hash is None and any(supplied):
-        parser.error("--expected-sender, --audit-db, and --vault require --transaction-hash")
-    if args.transaction_hash is not None and not all(supplied):
-        parser.error("--transaction-hash requires --expected-sender, --audit-db, and --vault")
+    if args.expect_revert and args.audit_db is not None:
+        parser.error("--audit-db cannot be used with --expect-revert")
+    if args.transaction_hash is None and (args.expected_sender is not None or args.audit_db is not None or args.vault is not None or args.expect_revert):
+        parser.error("--expected-sender, --audit-db, --vault, and --expect-revert require --transaction-hash")
+    if args.transaction_hash is not None and (args.expected_sender is None or args.vault is None or (args.audit_db is None and not args.expect_revert)):
+        parser.error("--transaction-hash requires --expected-sender and --vault; successful transfers also require --audit-db")
 
     try:
         bundle = asyncio.run(
@@ -290,6 +310,7 @@ def main(argv: list[str] | None = None) -> int:
                 audit_db=args.audit_db,
                 vault=args.vault,
                 min_confirmations=args.min_confirmations,
+                expect_revert=args.expect_revert,
             )
         )
     except (OSError, ValueError) as exc:

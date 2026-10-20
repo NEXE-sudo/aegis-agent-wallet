@@ -63,6 +63,7 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 - Run Solidity unit, fuzz, and invariant tests automatically in GitHub Actions using the pinned compiler and dependency versions.
 - Gather Foundry and testnet deployment/transfer/revert evidence, including transaction hashes where available.
 - The read-only verifier supports `--expect-revert` for mined failed AegisVault calls; it checks the failed receipt and call shape without claiming to decode the revert reason.
+- The evidence bundle has a separate `--expect-revert` mode that packages this verification with offline evaluation, sender and confirmation checks, provenance, and a bundle digest; reverted-call mode does not require a successful-transfer SQLite audit record.
 - Document remaining security limitations and residual risks.
 
 ### Explicitly separate scope decisions
@@ -112,7 +113,7 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 - PR #209 added automated Foundry contract checks and was merged; the user confirmed post-merge checks and deleted the branch.
 - PR #210 (`feat/onchain-vault-configuration-inspection`) is merged; the owner-authenticated read-only AegisVault status endpoint is in `main`, and the user confirmed post-merge Ruff/pytest checks and deleted the branch.
 - PR #211 (`feat/approval-expiry-visibility`) is merged; it exposes the backend-derived absolute approval deadline and displays expired deadlines in Activity. The user confirmed post-merge Ruff/pytest checks and deleted the branch.
-- Current work adds an explicit read-only verification mode for mined reverted AegisVault calls, complementing successful-transfer verification without pretending to know the Solidity revert reason.
+- Current work packages both successful-transfer and mined-revert verification into the portable evidence bundle, with separate expected receipt-status semantics and no claim to know the Solidity revert reason.
 - The user must run both local Python checks on the PR branch before merge. Then verify the PR head SHA and all CI jobs (including Foundry when relevant), squash-merge, ask for post-merge checks on updated `main`, and only then provide branch deletion commands.
 - Continue bundling implementation, tests, and related docs in one coherent PR. Never update `main` directly.
 
