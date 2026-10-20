@@ -35,6 +35,19 @@ The next milestone is evaluation reporting quality: expose aggregate pass/failur
 
 Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve the end-to-end story (policy decision, owner approval, vault-bounded execution, on-chain receipt, and matching audit record). Keep simulated mode as the default; evidence generation must not sign or broadcast transactions. Never claim finality, independent audit, LLM safety, or production readiness.
 
+## Phased roadmap
+
+### Phase 1 — Secure execution foundation (complete)
+- Vault-only execution for eligible agent proposals.
+- Direct EOA token-transfer mode retired.
+- Owner approval requirements preserved and simulated mode remains the default.
+
+### Phase 2 — Wallet read and configuration layer
+- Backend read surfaces include public-address Base Sepolia ETH/demo-USDC balances, active policy configuration, and UTC-day local workflow spending summaries.
+- Frontend surfaces include read-only wallet balances, active policy settings/allowlists, daily spending/remaining budget, RPC-reported network status, and configured vault status comparison.
+- Activity displays receipt details for the loaded page session; receipt checks are point-in-time observations, not proof of finality.
+- Distinguish local configuration/database values from on-chain state, fail clearly on missing/mismatched configuration, and never expose secrets/private keys.
+
 ### Phase 3 — Wallet lifecycle and configuration verification
 - Additional regression coverage now checks that public-address balance reads refuse to query balances when the configured RPC reports a non-Base-Sepolia chain, and sanitise RPC read errors rather than exposing provider internals.
 - Verify network settings, wallet deployment state, and contract configuration.
