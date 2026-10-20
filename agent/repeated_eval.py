@@ -21,16 +21,16 @@ def summarise_runs(reports: list[dict[str, Any]]) -> dict[str, Any]:
     expected_names: set[str] | None = None
     for report_index, report in enumerate(reports, start=1):
         if not isinstance(report, dict):
-            raise ValueError(f"Run {report_index} must be an evaluation report object")
+            raise TypeError(f"Run {report_index} must be an evaluation report object")
         if not isinstance(report.get("passed"), bool):
-            raise ValueError(f"Run {report_index} must contain a boolean passed field")
+            raise TypeError(f"Run {report_index} must contain a boolean passed field")
         scenarios = report.get("scenarios")
         if not isinstance(scenarios, list) or not scenarios:
             raise ValueError(f"Run {report_index} must contain at least one scenario")
         names: set[str] = set()
         for scenario in scenarios:
             if not isinstance(scenario, dict):
-                raise ValueError(f"Run {report_index} contains an invalid scenario record")
+                raise TypeError(f"Run {report_index} contains an invalid scenario record")
             name = scenario.get("name")
             passed = scenario.get("passed")
             if not isinstance(name, str) or not name.strip():
@@ -38,7 +38,7 @@ def summarise_runs(reports: list[dict[str, Any]]) -> dict[str, Any]:
             if name in names:
                 raise ValueError(f"Run {report_index} contains duplicate scenario {name!r}")
             if not isinstance(passed, bool):
-                raise ValueError(
+                raise TypeError(
                     f"Run {report_index} scenario {name!r} must have a boolean passed field"
                 )
             names.add(name)
