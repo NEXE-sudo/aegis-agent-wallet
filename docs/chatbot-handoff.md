@@ -24,6 +24,8 @@ Last updated: 20 October 2026
 - PR #186 refreshed this handoff and was squash-merged as `fde988a7c0309d67e73b5492a607283b42cf6fe9`; CI passed on Python 3.11/3.12/3.14, and the user confirmed post-merge checks passed.
 - PR #187 added the owner-authenticated, on-demand Overview network status panel using `GET /chain/base-sepolia/status`; it was squash-merged as `f220ee98fc75ee03910feee39b8c5f2220b7634c`, CI passed on Python 3.11/3.12/3.14, and the user confirmed post-merge checks passed and deleted the branch.
 
+- PR #193 adds browser regression coverage showing receipt RPC failures as unavailable status rather than fabricating a receipt.
+
 ## Phased roadmap
 
 ### Phase 1 — Secure execution foundation (complete)
