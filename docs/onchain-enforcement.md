@@ -7,14 +7,20 @@
 ## Design
 
 `AegisVault` holds ERC-20 tokens and allows one configured agent address to call
-`transferToken`. The owner is initialized at deployment and uses OpenZeppelin
+`transferToken`. Each agent session has an on-chain expiry. The two-argument
+`setAgent(address,uint256)` selector sets an explicit expiry up to 30 days away;
+the retained one-argument selector sets a bounded 30-day session for compatibility.
+Expired sessions cannot transfer until the owner renews or rotates the agent. The owner is initialized at deployment and uses OpenZeppelin
 `Ownable2Step` for ownership transfers. The owner can rotate or revoke the one
 agent, configure per-token limits, manage recipient allowlisting and exact
 transfer approvals, pause the agent path, and make an emergency withdrawal even
 while paused.
 
 Each enabled token has a per-transaction cap, a daily cap, and an optional
-approval threshold, all measured in token base units. A transfer requires an
+approval threshold, all measured in token base units. The owner may additionally
+configure an optional per-recipient per-transfer and daily cap for each token;
+these stricter limits are tracked independently per recipient and never replace
+the token-wide caps. Disabling a recipient cap leaves the token-wide limits active. A transfer requires an
 owner approval if the recipient is not allowlisted or if a nonzero threshold is
 met or exceeded. That approval is bound to the exact token, recipient, amount,
 and `bytes32` reference, expires within at most seven days, and is consumed on
@@ -30,12 +36,12 @@ those checks are rejected.
 
 ## Invariants enforced by the contract
 
-- Only the current nonzero agent can call `transferToken`; owner functions are
+- Only the current nonzero, unexpired agent session can call `transferToken`; owner functions are
   restricted to the owner, and ownership transfer is two-step.
 - Transfers are disabled while paused. Emergency withdrawal remains owner-only
   and available while paused.
-- A token must be explicitly allowed; zero amounts, per-transaction overages,
-  and daily-cap overages always revert, regardless of approval.
+- A token must be explicitly allowed; zero amounts, token-wide per-transaction and daily-cap overages, and configured recipient-specific cap overages always revert, regardless of approval.
+- Agent sessions expire on-chain after at most 30 days; an expired agent cannot transfer until the owner renews or rotates it.
 - A destination must be allowlisted or have a valid approval for the exact
   `(token, recipient, amount, ref)` tuple, unless a configured threshold also
   requires approval. An approval is removed on successful use.
