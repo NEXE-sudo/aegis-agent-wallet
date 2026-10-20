@@ -115,7 +115,7 @@ def test_uncertain_broadcast_is_never_retried_automatically(tmp_path: Path) -> N
     state = {"steps": {"deploy": {"status": "broadcast_started"}}, "values": {}}
     with pytest.raises(LiveRunError, match="may already have broadcast"):
         _run_step("deploy", state=state, state_path=tmp_path / "state.json",
-                  report_dir=tmp_path, action=lambda: {}, broadcast=True)
+                  report_dir=tmp_path, action=dict, broadcast=True)
 
 
 def test_failure_saves_partial_state_and_marks_broadcast_uncertain(tmp_path: Path) -> None:
