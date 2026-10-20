@@ -6,7 +6,9 @@ AegisVault enforcement remain authoritative.
 """
 from __future__ import annotations
 
+import csv
 import hashlib
+import io
 import json
 import sqlite3
 import uuid
@@ -16,6 +18,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
 
 from agent.autonomy import Mandate, Payee, PayeeHistory, PaymentTask, decide_payments
@@ -769,6 +772,77 @@ def read_governance_tasks(request: Request, pending_only: bool = False) -> list[
 @router.get("/governance/audit/verify", dependencies=[Depends(require_owner)])
 def verify_governance_audit(request: Request) -> dict[str, Any]:
     return request.app.state.governance_store.verify_audit_chain()
+
+
+def _csv_safe(value: Any) -> str:
+    """Neutralise spreadsheet formula prefixes in owner-exported CSV cells."""
+    if value is None:
+        return ""
+    rendered = value if isinstance(value, str) else json.dumps(value, sort_keys=True, ensure_ascii=True)
+    if rendered.lstrip().startswith(("=", "+", "-", "@")):
+        return "'" + rendered
+    return rendered
+
+
+@router.get("/governance/export", dependencies=[Depends(require_owner)])
+def export_governance(request: Request, format: Literal["json", "csv"] = "json"):
+    """Export owner governance and decision history with an explicit integrity result."""
+    governance = request.app.state.governance_store
+    integrity = governance.verify_audit_chain()
+    mandate = governance.get_active_mandate()
+    payees = governance.list_payees()
+    tasks = governance.list_tasks()
+    exported_tasks = []
+    for task in tasks:
+        decision = governance.get_decision(task["task_id"])
+        exported_tasks.append({**task, "decision": decision})
+    if format == "json":
+        return {
+            "schema_version": 1,
+            "exported_at": utc_now().isoformat(),
+            "integrity": integrity,
+            "mandate": mandate,
+            "payees": payees,
+            "tasks": exported_tasks,
+            "limitations": [
+                "The governance audit chain is tamper-evident, not a digital signature.",
+                "A valid result does not prove the real-world identity of an owner-attested payee.",
+                "The mandate available balance is owner-maintained planning data, not a live chain balance.",
+            ],
+        }
+
+    output = io.StringIO(newline="")
+    columns = [
+        "task_id", "invoice_id", "payee_id", "amount_base_units", "token_symbol",
+        "due_at", "task_status", "decision_action", "decision_rationale",
+        "transaction_id", "transaction_status", "evidence_refs", "governance_integrity_valid",
+    ]
+    writer = csv.DictWriter(output, fieldnames=columns, extrasaction="ignore")
+    writer.writeheader()
+    for task in exported_tasks:
+        decision_record = task.get("decision") or {}
+        decision = decision_record.get("decision") if isinstance(decision_record, dict) else {}
+        decision = decision if isinstance(decision, dict) else {}
+        writer.writerow({
+            "task_id": _csv_safe(task.get("task_id")),
+            "invoice_id": _csv_safe(task.get("invoice_id")),
+            "payee_id": _csv_safe(task.get("payee_id")),
+            "amount_base_units": _csv_safe(task.get("amount_base_units")),
+            "token_symbol": _csv_safe(task.get("token_symbol")),
+            "due_at": _csv_safe(task.get("due_at")),
+            "task_status": _csv_safe(task.get("status")),
+            "decision_action": _csv_safe(decision.get("action")),
+            "decision_rationale": _csv_safe(decision.get("rationale")),
+            "transaction_id": _csv_safe(decision.get("transaction_id") or decision_record.get("transaction_id")),
+            "transaction_status": _csv_safe(decision.get("transaction_status") or decision_record.get("transaction_status")),
+            "evidence_refs": _csv_safe(decision.get("evidence_refs", [])),
+            "governance_integrity_valid": str(bool(integrity.get("valid"))).lower(),
+        })
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="aegis-governance-export.csv"'},
+    )
 
 
 @router.post("/agent/governance/decide-pending", dependencies=[Depends(require_agent)])
