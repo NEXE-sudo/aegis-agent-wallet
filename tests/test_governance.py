@@ -1,17 +1,17 @@
 import asyncio
+import sqlite3
 
 import httpx
-from fastapi.testclient import TestClient
 import pytest
+from fastapi.testclient import TestClient
 
 from agent.client import AegisApiClient
 from agent.runner import AegisAgent, AgentToolError
-
 from app import main
 from app.chain.base_sepolia import BASE_SEPOLIA_USDC_ADDRESS
+from app.governance import GovernanceStore
 from app.workflow.controller import TransactionController
 from app.workflow.store import WorkflowStore
-from app.governance import GovernanceStore
 
 AGENT_TOKEN = "governance-test-agent-token"
 OWNER_TOKEN = "governance-test-owner-token"
@@ -219,8 +219,6 @@ def test_audit_chain_detects_tampering(monkeypatch, tmp_path):
     governance = setup_isolated(monkeypatch, tmp_path)
     client.put("/governance/mandate", headers=OWNER_HEADERS, json=mandate_payload())
     assert governance.verify_audit_chain()["valid"] is True
-
-    import sqlite3
 
     with sqlite3.connect(governance.db_path) as db:
         db.execute("DROP TRIGGER governance_audit_no_update")
