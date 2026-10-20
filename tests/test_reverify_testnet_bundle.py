@@ -6,7 +6,6 @@ import pytest
 
 from scripts import reverify_testnet_bundle as reverify
 
-
 SENDER = "0x1111111111111111111111111111111111111111"
 VAULT = "0x4444444444444444444444444444444444444444"
 TX_HASH = "0x" + "a" * 64
