@@ -52,6 +52,14 @@ def fixture_tree(root: Path) -> Path:
     write_json(live / "phase5-success.json", {"result": "PASS", "transfer_transaction_hash": FIXTURE_SUCCESS_TX})
     write_json(live / "phase5-revert.json", {"result": "PASS", "transfer_transaction_hash": FIXTURE_REVERT_TX})
     (live / "reverify-success.log").write_text(
+        f"Testnet evidence re-verification: PASS\\nTransaction hash: {FIXTURE_SUCCESS_TX}\\n"
+        "Vault deployment/configuration snapshot: MATCH\\n", encoding="utf-8"
+    )
+    (live / "reverify-revert.log").write_text(
+        f"Testnet evidence re-verification: PASS\\nTransaction hash: {FIXTURE_REVERT_TX}\\n"
+        "Vault deployment/configuration snapshot: MATCH\\n", encoding="utf-8"
+    )
+    (live / "reverify-success.log").write_text(
         f"Testnet evidence re-verification: PASS\nMode: successful_transfer\nTransaction hash: {FIXTURE_SUCCESS_TX}\n"
         "Confirmations observed: 12 (minimum required: 12)\nVault deployment/configuration snapshot: MATCH\n",
         encoding="utf-8",
