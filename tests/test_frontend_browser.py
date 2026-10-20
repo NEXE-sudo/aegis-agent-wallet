@@ -551,11 +551,10 @@ def test_browser_receipt_rpc_error_is_visible_without_fabricating_a_receipt(page
     page.goto(frontend_url)
     _connect(page, "agent-token", "owner-token")
     page.locator('nav [data-view="activity"]').click()
-    page.get_by_role("button", name="Check receipt").click()
+    with page.expect_request(
+        lambda request: request.url.endswith("/transactions/" + transaction_id + "/receipt")
+        and request.headers.get("authorization") == "Bearer owner-token"
+    ):
+        page.get_by_role("button", name="Check receipt").click()
     expect(page.locator("#global-feedback")).to_contain_text("Receipt status is unavailable")
     expect(page.locator("#activity-rows .receipt-result")).to_have_count(0)
-    assert any(
-        call["path"] == "/transactions/" + transaction_id + "/receipt"
-        and call["authorization"] == "Bearer owner-token"
-        for call in calls
-    )
