@@ -1,3 +1,4 @@
+import json
 import sqlite3
 
 import httpx
@@ -157,8 +158,6 @@ async def test_agent_decision_uses_registry_address_and_existing_policy_gateway(
     assert transaction.json()["proposal"]["recipient"] == payee_payload()["address"]
     assert "b" * 40 not in transaction.text
     assert client.get("/governance/audit/verify", headers=OWNER_HEADERS).json()["valid"] is True
-
-    import json
 
     with sqlite3.connect(main.app.state.governance_store.db_path) as db:
         db.execute("DROP TRIGGER governance_decisions_no_update")
