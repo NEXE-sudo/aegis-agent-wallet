@@ -89,9 +89,30 @@ def test_recent_transactions_list_requires_owner_and_returns_persisted_records()
     assert all("proposal" in record and "risk_score" in record for record in records)
 
 
+def test_recent_transactions_list_supports_offset_pages():
+    first = propose()
+    second = propose(_payload(recipient="0x3333333333333333333333333333333333333333"))
+    third = propose(_payload(recipient="0x4444444444444444444444444444444444444444"))
+    assert [first.status_code, second.status_code, third.status_code] == [201, 201, 201]
+
+    all_records = client.get("/transactions?limit=10", headers=OWNER_HEADERS)
+    second_page = client.get("/transactions?limit=2&offset=2", headers=OWNER_HEADERS)
+    invalid_offset = client.get("/transactions?offset=-1", headers=OWNER_HEADERS)
+
+    assert all_records.status_code == second_page.status_code == 200
+    all_ids = [record["transaction_id"] for record in all_records.json()]
+    page_ids = [record["transaction_id"] for record in second_page.json()]
+    assert page_ids == all_ids[2:]
+    assert invalid_offset.status_code == 422
+
 def test_recent_transactions_list_validates_limit():
-    response = client.get("/transactions?limit=0", headers=OWNER_HEADERS)
-    assert response.status_code == 422
+    below_minimum = client.get("/transactions?limit=0", headers=OWNER_HEADERS)
+    above_maximum = client.get("/transactions?limit=101", headers=OWNER_HEADERS)
+    at_maximum = client.get("/transactions?limit=100", headers=OWNER_HEADERS)
+
+    assert below_minimum.status_code == 422
+    assert above_maximum.status_code == 422
+    assert at_maximum.status_code == 200
 
 
 def test_health():

@@ -257,6 +257,19 @@ contract AegisVaultTest is Test {
         vault.transferToken(address(token), UNLISTED, 10, REF);
     }
 
+    function testApprovalExpiresAtExactExpiryTimestamp() public {
+        uint256 expiry = block.timestamp + 1 days;
+        _approve(UNLISTED, 10, REF, expiry);
+        vm.warp(expiry);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(AegisVault.TransferApprovalExpired.selector, expiry)
+        );
+        vm.prank(AGENT);
+        vault.transferToken(address(token), UNLISTED, 10, REF);
+        assertEq(vault.approvalExpiry(address(token), UNLISTED, 10, REF), expiry);
+    }
+
     function testApprovalBindsReferenceAmountAndRecipient() public {
         uint256 expiry = block.timestamp + 1 days;
         _approve(UNLISTED, 10, REF, expiry);
