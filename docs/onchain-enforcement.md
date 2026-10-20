@@ -72,6 +72,8 @@ is the intended deployment, that the contract is audited, or that the observed
 state will remain unchanged. Verify addresses against trusted deployment records
 before any testnet execution. The endpoint never signs or submits transactions. The response's structural-validity flag checks only the observed fields; it cannot confirm the intended owner or agent unless compared with trusted deployment records.
 
+The portable evidence-bundle generator now records a related deployment snapshot for successful-transfer and reverted-call evidence: the current bytecode SHA-256 fingerprint, owner/agent addresses, pause state, and selected token policy. Re-verification re-reads the current values and fails on drift. This snapshot is captured at verification time, not at the transaction block, and a matching fingerprint does not establish who deployed the code or whether the deployment is trusted.
+
 ## Trust model and known risks
 
 The vault limits what a compromised Aegis server or agent session key can

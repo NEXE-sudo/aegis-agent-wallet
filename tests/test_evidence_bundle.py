@@ -6,6 +6,7 @@ import json
 import pytest
 
 from scripts import build_evidence_bundle as bundle_script
+from scripts.verify_evidence_bundle import validate_bundle
 
 
 def _offline_report(passed=True):
@@ -27,6 +28,27 @@ def _install_offline_eval(monkeypatch, report=None):
         return report or _offline_report()
 
     monkeypatch.setattr(bundle_script, "run_evaluation", fake_run_evaluation)
+    monkeypatch.setattr(
+        bundle_script,
+        "capture_vault_configuration",
+        lambda _rpc, vault, token: {
+            "chain_id": 84532,
+            "vault_address": vault.lower(),
+            "bytecode_sha256": "0x" + "d" * 64,
+            "owner": "0x5555555555555555555555555555555555555555",
+            "agent": "0x1111111111111111111111111111111111111111",
+            "paused": False,
+            "token_address": token.lower(),
+            "token_policy": {
+                "allowed": True,
+                "per_transaction_cap_base_units": 100,
+                "daily_cap_base_units": 500,
+                "approval_threshold_base_units": 80,
+            },
+            "configuration_structurally_valid": True,
+            "issues": [],
+        },
+    )
 
 
 def test_offline_bundle_is_portable_and_explicitly_not_onchain(monkeypatch, tmp_path):
@@ -36,7 +58,7 @@ def test_offline_bundle_is_portable_and_explicitly_not_onchain(monkeypatch, tmp_
 
     bundle = asyncio.run(bundle_script.build_evidence_bundle(tmp_path / "bundle"))
 
-    assert bundle["schema"] == "aegis-evidence-bundle/v5"
+    assert bundle["schema"] == "aegis-evidence-bundle/v6"
     assert bundle["provenance"] == {
         "source_revision": revision,
         "python_version": bundle_script.platform.python_version(),
@@ -121,8 +143,14 @@ def test_successful_testnet_bundle_links_chain_and_audit(monkeypatch, tmp_path):
         "audit_record_matches": True,
         "receipt_status_matches_expectation": True,
         "minimum_confirmations_met": True,
+        "vault_configuration_valid": True,
     }
+    assert (
+        bundle["testnet_evidence"]["vault_configuration"]["bytecode_sha256"]
+        == "0x" + "d" * 64
+    )
     assert bundle["testnet_evidence"]["audit_transaction_id"] == "txn-123"
+    assert validate_bundle(bundle) == bundle
 
 
 def test_testnet_bundle_fails_when_confirmation_depth_is_too_low(monkeypatch, tmp_path):
@@ -191,6 +219,7 @@ def test_testnet_bundle_fails_closed_on_wrong_sender(monkeypatch, tmp_path):
     evidence = {
         "chain_id": 84532,
         "receipt_status": "success",
+        "token_contract": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
         "sender": "0x1111111111111111111111111111111111111111",
     }
     monkeypatch.setattr(bundle_script, "BaseSepoliaRpc", FakeRpc)
@@ -232,6 +261,7 @@ def test_failed_receipt_does_not_pass_testnet_bundle(monkeypatch, tmp_path):
     evidence = {
         "chain_id": 84532,
         "receipt_status": "failed",
+        "token_contract": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
         "sender": "0x1111111111111111111111111111111111111111",
     }
     monkeypatch.setattr(bundle_script, "BaseSepoliaRpc", FakeRpc)

@@ -13,6 +13,7 @@ from app.chain.base_sepolia import (
     RpcRequestError,
     validate_address,
 )
+from scripts.vault_configuration_evidence import capture_vault_configuration
 from scripts.verify_evidence_bundle import validate_bundle
 from scripts.verify_testnet_evidence import verify_audit_record, verify_evidence
 
@@ -81,6 +82,17 @@ def reverify_testnet_evidence(
             vault,
             expect_revert=expect_revert,
         )
+        saved_configuration = testnet.get("vault_configuration")
+        current_configuration = None
+        if isinstance(saved_configuration, dict):
+            current_configuration = capture_vault_configuration(
+                rpc, vault, saved["token_contract"]
+            )
+            for field, saved_value in saved_configuration.items():
+                if current_configuration.get(field) != saved_value:
+                    raise ValueError(
+                        f"Current vault configuration differs from bundle field: {field}"
+                    )
 
     if current["sender"] != sender:
         raise ValueError("Current transaction sender does not match --expected-sender")
@@ -105,6 +117,8 @@ def reverify_testnet_evidence(
         "confirmations_observed": confirmations,
         "minimum_confirmations_required": required_depth,
         "audit_transaction_id": audit_transaction_id,
+        "vault_configuration_reverified": current_configuration is not None,
+        "vault_configuration": current_configuration,
     }
 
 
@@ -163,6 +177,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     if result["audit_transaction_id"] is not None:
         print(f"Aegis audit transaction ID: {result['audit_transaction_id']}")
+    if result["vault_configuration_reverified"]:
+        print("Vault deployment/configuration snapshot: MATCH")
+    else:
+        print("Vault deployment/configuration snapshot: NOT RECORDED IN LEGACY BUNDLE")
     print("Reverification uses read-only RPC calls and does not sign or submit transactions.")
     return 0
 
