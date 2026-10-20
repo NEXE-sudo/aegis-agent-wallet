@@ -10,7 +10,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
-SUPPORTED_SCHEMAS = {"aegis-evidence-bundle/v4", "aegis-evidence-bundle/v5", "aegis-evidence-bundle/v6"}
+SUPPORTED_SCHEMAS = {
+    "aegis-evidence-bundle/v4",
+    "aegis-evidence-bundle/v5",
+    "aegis-evidence-bundle/v6",
+}
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 
 
@@ -74,7 +78,7 @@ def validate_bundle(bundle: object) -> dict[str, Any]:
                 if checks.get("audit_record_matches") is not True:
                     raise ValueError("Successful-transfer evidence must pass its audit cross-check")
             elif mode == "reverted_vault_call":
-                if schema != "aegis-evidence-bundle/v5":
+                if schema not in {"aegis-evidence-bundle/v5", "aegis-evidence-bundle/v6"}:
                     raise ValueError("Reverted-call evidence requires schema v5")
                 if evidence.get("receipt_status") != "failed":
                     raise ValueError("Reverted-call evidence must have a failed receipt")
@@ -92,7 +96,9 @@ def validate_bundle(bundle: object) -> dict[str, Any]:
             if schema == "aegis-evidence-bundle/v6":
                 configuration = testnet.get("vault_configuration")
                 if not isinstance(configuration, dict):
-                    raise ValueError("Schema v6 passing testnet evidence requires a vault configuration snapshot")
+                    raise ValueError(
+                        "Schema v6 passing testnet evidence requires a vault configuration snapshot"
+                    )
                 if checks.get("vault_configuration_valid") is not True:
                     raise ValueError("Schema v6 passing testnet evidence must validate vault configuration")
                 if configuration.get("configuration_structurally_valid") is not True:
@@ -100,9 +106,13 @@ def validate_bundle(bundle: object) -> dict[str, Any]:
                 if configuration.get("chain_id") != 84532:
                     raise ValueError("Vault configuration snapshot must identify Base Sepolia")
                 if configuration.get("vault_address") != evidence.get("vault_address"):
-                    raise ValueError("Vault configuration snapshot address does not match transaction evidence")
+                    raise ValueError(
+                        "Vault configuration snapshot address does not match transaction evidence"
+                    )
                 if configuration.get("token_address") != evidence.get("token_contract"):
-                    raise ValueError("Vault configuration snapshot token does not match transaction evidence")
+                    raise ValueError(
+                        "Vault configuration snapshot token does not match transaction evidence"
+                    )
                 if not isinstance(configuration.get("bytecode_sha256"), str) or _SHA256_RE.fullmatch(
                     configuration["bytecode_sha256"].removeprefix("0x")
                 ) is None:
