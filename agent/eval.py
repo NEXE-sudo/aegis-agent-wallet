@@ -385,6 +385,12 @@ async def run_evaluation(output_dir: Path) -> dict[str, Any]:
         with patch.dict(os.environ, environment):
             from app import main as app
 
+            # Each evaluation run is isolated from prior process-local API traffic.
+            # This keeps repeated offline runs deterministic without disabling the
+            # API's production write-rate limit.
+            with app._rate_lock:
+                app._rate_windows.clear()
+
             for index, scenario in enumerate(scenarios()):
                 results.append(
                     await _run_scenario(
