@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from agent.autonomy import Decision, Mandate, Payee, PayeeHistory, PaymentTask, decide_payments
+from agent.autonomy import Mandate, Payee, PayeeHistory, PaymentTask, decide_payments
 
 
 def canonical_json(value: Any) -> str:
@@ -251,13 +251,13 @@ class GovernanceStore:
     def get_decision(self, task_id: str) -> dict[str, Any] | None:
         with closing(self._connect()) as db:
             row = db.execute(
-                "SELECT decision_json, record_hash FROM governance_decisions WHERE task_id = ?",
+                "SELECT decision_json, payload_hash FROM governance_decisions WHERE task_id = ?",
                 (task_id,),
             ).fetchone()
         if row is None:
             return None
         decision = json.loads(row["decision_json"])
-        if payload_hash(decision) != row["record_hash"]:
+        if payload_hash(decision) != row["payload_hash"]:
             raise GovernanceDataError("Stored decision hash does not match its payload")
         return decision
 
@@ -337,9 +337,11 @@ class GovernanceStore:
             task = json.loads(row["payload_json"])
             if task.get("payee_id") != payee_id:
                 continue
-            invoice_ids.add(task["invoice_id"])
             decision = json.loads(row["decision_json"]) if row["decision_json"] else None
-            if decision and decision.get("action") == "propose" and type(decision.get("amount")) is int:
+            if decision is None:
+                continue
+            invoice_ids.add(task["invoice_id"])
+            if decision.get("action") == "propose" and type(decision.get("amount")) is int:
                 recent_amounts.append(decision["amount"])
                 if row["created_at"] and row["created_at"][:10] == day:
                     paid_today += decision["amount"]
