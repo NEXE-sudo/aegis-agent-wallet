@@ -112,7 +112,8 @@ def test_owner_governance_persists_mandate_payee_and_task(monkeypatch, tmp_path)
     assert governance.verify_audit_chain()["valid"] is True
 
 
-def test_agent_decision_uses_registry_address_and_existing_policy_gateway(monkeypatch, tmp_path):
+@pytest.mark.anyio
+async def test_agent_decision_uses_registry_address_and_existing_policy_gateway(monkeypatch, tmp_path):
     setup_isolated(monkeypatch, tmp_path)
     client.put("/governance/mandate", headers=OWNER_HEADERS, json=mandate_payload())
     client.put(
@@ -141,7 +142,7 @@ def test_agent_decision_uses_registry_address_and_existing_policy_gateway(monkey
             api = AegisApiClient("http://127.0.0.1", AGENT_TOKEN, http)
             return await AegisAgent(api).run({"mode": "governance_queue"})
 
-    agent_result = asyncio.run(run_agent())
+    agent_result = await run_agent()
     body = agent_result["governance_results"]
     assert body["processed"] == 1
     decision_record = body["decisions"][0]
@@ -259,16 +260,17 @@ def test_audit_chain_detects_tampering(monkeypatch, tmp_path):
     assert response.json()["detail"]["code"] == "governance_integrity_failed"
 
 
-def test_governance_runner_rejects_caller_supplied_payment_fields():
+@pytest.mark.anyio
+async def test_governance_runner_rejects_caller_supplied_payment_fields():
     class FakeApi:
         async def decide_pending_governance_tasks(self):
             raise AssertionError("API must not be called for an invalid task envelope")
 
     with pytest.raises(AgentToolError):
-        asyncio.run(AegisAgent(FakeApi()).run({
+        await AegisAgent(FakeApi()).run({
             "mode": "governance_queue",
             "authorized_payment": {"recipient": "0x" + "b" * 40},
-        }))
+        })
 
 
 def test_task_escalates_if_mandate_or_payee_changes_after_creation(monkeypatch, tmp_path):
