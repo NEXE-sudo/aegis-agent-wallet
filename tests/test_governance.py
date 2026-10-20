@@ -1,6 +1,7 @@
 import asyncio
 import json
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 import pytest
@@ -19,6 +20,10 @@ OWNER_TOKEN = "governance-test-owner-token"
 AGENT_HEADERS = {"Authorization": f"Bearer {AGENT_TOKEN}"}
 OWNER_HEADERS = {"Authorization": f"Bearer {OWNER_TOKEN}"}
 client = TestClient(main.app)
+
+def run_async_in_thread(coroutine):
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        return executor.submit(asyncio.run, coroutine).result()
 
 
 def setup_isolated(monkeypatch, tmp_path):
@@ -183,7 +188,7 @@ def test_agent_decision_uses_registry_address_and_existing_policy_gateway(monkey
             audit = await http.get("/governance/audit/verify", headers=OWNER_HEADERS)
         assert audit.json()["valid"] is False
 
-    asyncio.run(exercise())
+    run_async_in_thread(exercise())
 
 
 def test_unverified_payee_escalates_without_creating_transaction(monkeypatch, tmp_path):
