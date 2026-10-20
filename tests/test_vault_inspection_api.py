@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from app import main
 from app.chain import router as chain_router
 from eth_utils import keccak
+from eth_account import Account
 
 client = TestClient(main.app)
 OWNER_HEADERS = {"Authorization": "Bearer test-owner-token-with-enough-length"}
@@ -250,3 +251,50 @@ def test_vault_inspection_sanitises_malformed_abi_response(monkeypatch):
         "detail": "Base Sepolia vault configuration is unavailable or malformed"
     }
     assert "provider secret" not in response.text
+
+
+def test_vault_inspection_compares_configured_owner_and_agent_key(monkeypatch):
+    monkeypatch.setenv("AEGIS_APPROVAL_TOKEN", OWNER_HEADERS["Authorization"].split()[-1])
+    agent_private_key = "0x" + "1" * 64
+    expected_agent = Account.from_key(agent_private_key).address.lower()
+    monkeypatch.setenv("AEGIS_VAULT_ADDRESS", VAULT)
+    monkeypatch.setenv("AEGIS_VAULT_OWNER_ADDRESS", OWNER)
+    monkeypatch.setenv("AEGIS_TESTNET_PRIVATE_KEY", agent_private_key)
+
+    class FakeRpc:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+        def chain_id(self):
+            return 84532
+
+        def get_code(self, _address):
+            return "0x6000"
+
+        def call(self, _sender, _address, data):
+            if data == _selector("owner()"):
+                return "0x" + _address_word(OWNER)
+            if data == _selector("agent()"):
+                return "0x" + _address_word(expected_agent)
+            if data == _selector("paused()"):
+                return "0x" + _word(0)
+            if data == _selector("tokenPolicy(address)") + _address_word(TOKEN):
+                return "0x" + _word(1) + _word(100) + _word(500) + _word(80)
+            raise AssertionError(f"Unexpected call data: {data}")
+
+    monkeypatch.setattr(chain_router, "BaseSepoliaRpc", FakeRpc)
+    response = client.get(
+        f"/chain/base-sepolia/vault/{VAULT}/status",
+        params={"token_address": TOKEN},
+        headers=OWNER_HEADERS,
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["configured_vault_matches"] is True
+    assert body["configured_owner_matches"] is True
+    assert body["configured_agent_key_matches"] is True
+    assert body["configuration_structurally_valid"] is True
+    assert body["configuration_issues"] == []
