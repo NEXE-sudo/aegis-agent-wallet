@@ -97,3 +97,18 @@ def test_naive_timestamp_is_rejected():
         assert "timezone" in str(exc)
     else:
         raise AssertionError("naive timestamp should be rejected")
+
+
+
+def test_batch_preserves_treasury_buffer_across_multiple_proposals():
+    tasks = [task("first", amount=200), task("second", amount=200)]
+    result = decide_payments(
+        tasks,
+        MANDATE,
+        {"p1": PAYEE},
+        HISTORY,
+        available_balance=500,
+        now=NOW,
+    )
+    assert [item.action for item in result] == ["propose", "skip"]
+    assert "treasury:buffer_preserved" in result[1].evidence_refs
