@@ -382,3 +382,53 @@ class BaseSepoliaVaultExecutor:
             if rpc.chain_id() != BASE_SEPOLIA_CHAIN_ID:
                 raise RpcRequestError("RPC endpoint is not on Base Sepolia (84532)")
             return rpc.transaction_receipt(transaction_hash)
+
+    def receipt_status(
+        self, transaction_hash: str, *, minimum_confirmations: int = 12
+    ) -> dict[str, int | str | bool | None]:
+        """Assess receipt inclusion against the RPC's current canonical block view."""
+        if type(minimum_confirmations) is not int or minimum_confirmations < 1:
+            raise ValueError("minimum_confirmations must be a positive integer")
+        with self._rpc_factory(self._rpc_url) as rpc:
+            if rpc.chain_id() != BASE_SEPOLIA_CHAIN_ID:
+                raise RpcRequestError("RPC endpoint is not on Base Sepolia (84532)")
+            receipt = rpc.transaction_receipt(transaction_hash)
+            if receipt["status"] == "pending":
+                return {
+                    "transaction_hash": receipt["transaction_hash"],
+                    "status": "pending",
+                    "block_number": None,
+                    "block_hash": None,
+                    "confirmations_observed": 0,
+                    "minimum_confirmations_required": minimum_confirmations,
+                    "canonical_block_match": None,
+                }
+
+            block_number = receipt["block_number"]
+            block_hash = receipt["block_hash"]
+            if not isinstance(block_number, int) or not isinstance(block_hash, str):
+                raise RpcRequestError("RPC returned an incomplete mined receipt")
+            latest_block = rpc.block_number()
+            if block_number > latest_block:
+                raise RpcRequestError("RPC receipt block is ahead of the reported chain head")
+            canonical_hash = rpc.block_hash_by_number(block_number)
+            canonical_match = canonical_hash == block_hash.lower()
+            confirmations = latest_block - block_number + 1
+            if not canonical_match:
+                status = "reorged"
+            elif receipt["status"] == "failed":
+                status = "failed"
+            elif confirmations >= minimum_confirmations:
+                status = "confirmed"
+            else:
+                status = "included"
+
+            return {
+                "transaction_hash": receipt["transaction_hash"],
+                "status": status,
+                "block_number": block_number,
+                "block_hash": block_hash.lower(),
+                "confirmations_observed": confirmations,
+                "minimum_confirmations_required": minimum_confirmations,
+                "canonical_block_match": canonical_match,
+            }

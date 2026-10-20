@@ -135,7 +135,7 @@ Governance records include canonical payload hashes and hash-linked audit entrie
 decision chain. These are tamper-evident consistency checks, not digital signatures or
 protection against an attacker who can rewrite the whole database and recompute all
 hashes. Proposed amounts are conservatively counted in governance budget history;
-reconciliation with downstream cancellation/block status remains outstanding.
+local reconciliation with downstream cancellation/block status is implemented; chain-observed settlement and receipt/finality reconciliation remain separate.
 
 ### Owner review and execution
 
@@ -152,9 +152,7 @@ reconciliation with downstream cancellation/block status remains outstanding.
    identity, exact proposal-bound calldata, and simulated call before signing.
    The contract re-enforces its policy when the call is submitted; an uncertain
    submission retries the same signed bytes rather than choosing a new nonce.
-6. `GET /transactions/{transaction_id}/receipt` is owner-only and reports
-   `pending`, `success`, or `failed` for a submitted testnet transaction. Submission
-   or a successful receipt response is not proof of finality.
+6. `GET /transactions/{transaction_id}/receipt` is owner-only and reports `pending`, `included`, `confirmed`, `failed`, or `reorged` for a submitted testnet transaction. It includes observed confirmations and checks the receipt block hash against the current RPC-reported block at that height. The 12-confirmation threshold is an operational heuristic, not proof of finality; the endpoint does not mutate workflow status or reconcile balances.
 
 ### On-chain vault flow (`base_sepolia_vault`)
 

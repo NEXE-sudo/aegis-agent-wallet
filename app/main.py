@@ -165,8 +165,12 @@ class TransactionReceiptResponse(BaseModel):
     transaction_id: str
     transaction_hash: str
     chain_id: Literal[84532]
-    status: Literal["pending", "success", "failed"]
+    status: Literal["pending", "included", "confirmed", "failed", "reorged"]
     block_number: int | None = None
+    block_hash: str | None = None
+    confirmations_observed: int = Field(ge=0)
+    minimum_confirmations_required: int = Field(ge=1)
+    canonical_block_match: bool | None = None
 
 
 DEMO_POLICY = AgentPolicy(
@@ -1089,7 +1093,7 @@ def get_transaction_receipt(transaction_id: str) -> TransactionReceiptResponse:
         raise HTTPException(status_code=409, detail="Transaction has no Base Sepolia vault receipt")
     try:
         executor = BaseSepoliaVaultExecutor(execution_settings)
-        receipt = executor.receipt(record["execution_reference"])
+        receipt = executor.receipt_status(record["execution_reference"])
     except ExecutionConfigurationError as exc:
         raise HTTPException(status_code=503, detail="Base Sepolia execution is not configured") from exc
     except (RpcConfigurationError, RpcRequestError) as exc:
@@ -1102,6 +1106,10 @@ def get_transaction_receipt(transaction_id: str) -> TransactionReceiptResponse:
         chain_id=BASE_SEPOLIA_CHAIN_ID,
         status=receipt["status"],
         block_number=receipt["block_number"],
+        block_hash=receipt["block_hash"],
+        confirmations_observed=receipt["confirmations_observed"],
+        minimum_confirmations_required=receipt["minimum_confirmations_required"],
+        canonical_block_match=receipt["canonical_block_match"],
     )
 
 
