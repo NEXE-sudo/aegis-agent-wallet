@@ -36,7 +36,7 @@ def test_offline_bundle_is_portable_and_explicitly_not_onchain(monkeypatch, tmp_
 
     bundle = asyncio.run(bundle_script.build_evidence_bundle(tmp_path / "bundle"))
 
-    assert bundle["schema"] == "aegis-evidence-bundle/v3"
+    assert bundle["schema"] == "aegis-evidence-bundle/v4"
     assert bundle["provenance"] == {
         "source_revision": revision,
         "python_version": bundle_script.platform.python_version(),
@@ -87,6 +87,8 @@ def test_successful_testnet_bundle_links_chain_and_audit(monkeypatch, tmp_path):
         "chain_id": 84532,
         "receipt_status": "success",
         "block_number": 123,
+        "receipt_block_hash": "0x" + "c" * 64,
+        "canonical_block_hash": "0x" + "c" * 64,
         "latest_block_number": 136,
         "confirmations_observed": 14,
         "token_contract": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
@@ -137,6 +139,8 @@ def test_testnet_bundle_fails_when_confirmation_depth_is_too_low(monkeypatch, tm
         "chain_id": 84532,
         "receipt_status": "success",
         "block_number": 123,
+        "receipt_block_hash": "0x" + "c" * 64,
+        "canonical_block_hash": "0x" + "c" * 64,
         "latest_block_number": 124,
         "confirmations_observed": 2,
         "token_contract": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
@@ -169,6 +173,8 @@ def test_testnet_bundle_fails_when_confirmation_depth_is_too_low(monkeypatch, tm
         bundle["testnet_evidence"]["error"]
     )
     report = (tmp_path / "bundle" / "aegis-evidence-bundle.md").read_text()
+    assert "Receipt block hash: `0x" + "c" * 64 + "`" in report
+    assert "Canonical block hash at verification: `0x" + "c" * 64 + "`" in report
     assert "Confirmations observed: 2 (minimum required: 3)" in report
 
 
