@@ -62,14 +62,17 @@ def _render_markdown(bundle: dict[str, Any]) -> str:
         evidence = onchain.get("evidence")
         if evidence:
             lines.extend([
-                f"- Chain ID: {evidence['chain_id']}",
-                f"- Receipt status: {evidence['receipt_status']}",
-                f"- Transaction: {evidence['transaction_hash']} ({evidence['explorer_url']})",
-                f"- Block: {evidence['block_number']}",
+                f"- Chain ID: {evidence.get('chain_id', 'not supplied')}",
+                f"- Receipt status: {evidence.get('receipt_status', 'not supplied')}",
+                (
+                    f"- Transaction: {evidence.get('transaction_hash', 'not supplied')} "
+                    f"({evidence.get('explorer_url', 'no explorer link')})"
+                ),
+                f"- Block: {evidence.get('block_number', 'not supplied')}",
                 f"- Vault: {evidence.get('vault_address', 'not supplied')}",
-                f"- Token: {evidence['token_contract']}",
-                f"- Recipient: {evidence['recipient']}",
-                f"- Amount (base units): {evidence['amount_base_units']}",
+                f"- Token: {evidence.get('token_contract', 'not supplied')}",
+                f"- Recipient: {evidence.get('recipient', 'not supplied')}",
+                f"- Amount (base units): {evidence.get('amount_base_units', 'not supplied')}",
             ])
         lines.extend(["", "| Check | Result |", "| --- | --- |"])
         for name, result in onchain["checks"].items():

@@ -148,6 +148,9 @@ def test_testnet_bundle_fails_closed_on_wrong_sender(monkeypatch, tmp_path):
     assert bundle["passed"] is False
     assert bundle["testnet_evidence"]["checks"]["expected_sender_matches"] is False
     assert bundle["testnet_evidence"]["checks"]["audit_record_matches"] is False
+    report = (tmp_path / "bundle" / "aegis-evidence-bundle.md").read_text()
+    assert "Verification error: Transaction sender does not match --expected-sender" in report
+    assert "Transaction: not supplied" in report
 
 
 def test_failed_receipt_does_not_pass_testnet_bundle(monkeypatch, tmp_path):
@@ -182,6 +185,9 @@ def test_failed_receipt_does_not_pass_testnet_bundle(monkeypatch, tmp_path):
     assert bundle["passed"] is False
     assert bundle["testnet_evidence"]["checks"]["receipt_succeeded"] is False
     assert "receipt status is not success" in bundle["testnet_evidence"]["error"]
+    report = (tmp_path / "bundle" / "aegis-evidence-bundle.md").read_text()
+    assert "Verification error: Transaction receipt status is not success" in report
+    assert "Transaction: not supplied" in report
 
 
 def test_cli_requires_complete_testnet_arguments():
