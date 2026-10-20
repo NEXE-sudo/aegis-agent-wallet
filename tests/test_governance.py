@@ -112,7 +112,7 @@ def test_owner_governance_persists_mandate_payee_and_task(monkeypatch, tmp_path)
     assert governance.verify_audit_chain()["valid"] is True
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_agent_decision_uses_registry_address_and_existing_policy_gateway(monkeypatch, tmp_path):
     setup_isolated(monkeypatch, tmp_path)
     transport = httpx.ASGITransport(app=main.app)
@@ -269,7 +269,7 @@ def test_audit_chain_detects_tampering(monkeypatch, tmp_path):
     assert response.json()["detail"]["code"] == "governance_integrity_failed"
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_governance_runner_rejects_caller_supplied_payment_fields():
     class FakeApi:
         async def decide_pending_governance_tasks(self):
