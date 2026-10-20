@@ -7,7 +7,6 @@ before editing any documentation. Fixture bundles must never be placed in report
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import subprocess
 import sys
@@ -108,6 +107,7 @@ def _render_block(evidence: dict[str, Any]) -> str:
         START,
         "## Verified Base Sepolia execution evidence",
         "",
+        f"- Source revision at fill time: `{evidence['source_revision']}`",
         f"- Chain ID: `{evidence['chain_id']}` (Base Sepolia only)",
         f"- Vault address: `{evidence['vault_address']}`",
         f"- Deployment transaction hash: `{evidence['deployment_transaction_hash']}`",
