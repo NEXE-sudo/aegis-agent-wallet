@@ -715,10 +715,21 @@ def save_payee(payee_id: str, payload: PayeeInput, request: Request) -> dict[str
     if payee_id != payload.payee_id:
         raise HTTPException(status_code=422, detail="Path payee_id must match the payload")
     policy = request.app.state.controller.policy
-    trusted = policy.trusted_tokens.get(payload.token_address)
+    trusted = next(
+        (
+            token
+            for address, token in policy.trusted_tokens.items()
+            if address.lower() == payload.token_address
+        ),
+        None,
+    )
+    allowed_token = any(
+        address.lower() == payload.token_address
+        for address in policy.allowed_token_addresses
+    )
     if (
         payload.chain_id not in policy.allowed_chain_ids
-        or payload.token_address not in policy.allowed_token_addresses
+        or not allowed_token
         or trusted is None
         or trusted.symbol != payload.token_symbol
         or trusted.decimals != payload.token_decimals
