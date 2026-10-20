@@ -31,7 +31,17 @@ def isolated_workflow(tmp_path, monkeypatch):
     monkeypatch.setenv("AEGIS_APPROVAL_TOKEN", OWNER_TOKEN)
     local_store = WorkflowStore(tmp_path / "workflow.sqlite3")
     monkeypatch.setattr(main, "store", local_store)
-    monkeypatch.setattr(main, "controller", TransactionController(main.DEMO_POLICY, local_store))
+    local_controller = TransactionController(main.DEMO_POLICY, local_store)
+    monkeypatch.setattr(main, "controller", local_controller)
+    monkeypatch.setattr(main.app.state, "controller", local_controller, raising=False)
+    from app.governance import GovernanceStore
+
+    monkeypatch.setattr(
+        main.app.state,
+        "governance_store",
+        GovernanceStore(tmp_path / "workflow.sqlite3"),
+        raising=False,
+    )
 
 
 def _payload(**overrides):
