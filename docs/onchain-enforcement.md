@@ -60,8 +60,11 @@ The owner-authenticated endpoint
 reads the RPC-reported chain, bytecode, owner, agent, pause state, and token policy
 for a supplied vault/token pair. It checks basic structural conditions and, when
 `AEGIS_VAULT_ADDRESS` is set, reports whether the supplied vault matches that
-local setting. If the setting is absent, the endpoint explicitly reports that it
-could not compare against local execution configuration. A wrong-chain RPC,
+local setting. When `AEGIS_VAULT_OWNER_ADDRESS` is configured, it compares the
+observed owner; when `AEGIS_TESTNET_PRIVATE_KEY` is supplied, it derives the
+public address and compares it with the on-chain agent without returning the key.
+Missing expected values are reported as unperformed comparisons, not successful
+matches. A wrong-chain RPC,
 malformed ABI response, or RPC failure fails closed.
 
 This is a read-only snapshot from one configured RPC, not proof that the address

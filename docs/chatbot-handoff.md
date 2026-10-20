@@ -50,8 +50,8 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 
 ### Phase 3 — Wallet lifecycle and configuration verification
 - Additional regression coverage checks that public-address balance reads refuse to query balances when the configured RPC reports a non-Base-Sepolia chain, and sanitise RPC read errors rather than exposing provider internals.
-- The current increment adds read-only vault inspection for chain identity, bytecode presence, owner/agent separation, pause state, token allowlisting, spending caps, and optional comparison with `AEGIS_VAULT_ADDRESS`. This is a structural check only; expected owner/agent identities still require trusted deployment records.
-- Remaining work: verify deployment state and the expected vault/token/agent against trusted deployment configuration, and cover the inspection flow with additional end-to-end tests.
+- The current increment adds read-only vault inspection for chain identity, bytecode presence, owner/agent separation, pause state, token allowlisting, spending caps, and optional comparisons against `AEGIS_VAULT_ADDRESS`, `AEGIS_VAULT_OWNER_ADDRESS`, and the public address derived from `AEGIS_TESTNET_PRIVATE_KEY`.
+- Phase 3's read-only verification surface is covered by regression tests for authentication, invalid addresses, wrong-chain RPCs, missing bytecode, malformed ABI responses, structural misconfiguration, and local identity matches. Missing expected values are explicitly reported as unverified rather than treated as matches.
 - Fail closed on wrong-chain RPCs and malformed configuration responses; inspection data from one RPC is not proof of contract authenticity or finality.
 
 ### Phase 4 — Wallet dashboard and visibility
