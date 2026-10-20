@@ -157,6 +157,9 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 
 ## Current status and next action
 
+- PR #221 (`feat/persisted-governance-decision-flow`) is merged at version 1.12.0; persisted mandates, payees, structured tasks, governance queue decisions, and tamper-evident governance audit verification are on `main`. User confirmed post-merge Ruff/pytest checks and deleted the branch.
+- Current PR in progress: `feat/vault-session-expiry-recipient-caps`. Adds bounded on-chain agent sessions (maximum 30 days), optional per-token/per-recipient transfer and UTC-day caps, Foundry regression tests, and on-chain operator docs. Do not merge until the user confirms checks and the Foundry workflow is green.
+
 - PR #203 added portable JSON/Markdown evidence bundles, optional read-only Base Sepolia transfer verification, audit cross-checking, and a canonical-payload SHA-256 digest.
 - PR #204 added receipt/latest-block heights and configurable minimum-confirmation checks; these remain point-in-time RPC observations, not finality guarantees.
 - PR #205 added aggregate evaluation metrics. PR #206 added machine-readable failure reasons and aggregate LLM failure diagnostics. Both are merged; the user confirmed post-merge checks and deleted the branch.
