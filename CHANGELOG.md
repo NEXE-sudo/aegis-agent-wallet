@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.11.0 (unreleased)
+
+- Add a deterministic mandate-bounded payment decision engine with registry-ID payee selection, duplicate invoice checks, budget and treasury-buffer controls, approval escalation, and possible split-payment structuring detection.
+- Add focused unit tests and document the decision engine trust boundary; existing API integration and persisted owner-managed governance remain follow-up work.
+
 ## 1.10.3 (unreleased)
 
 - Add an unaudited, testnet-only AegisVault with owner-managed token caps, exact transfer approvals, recipient allowlisting and pause controls, plus Foundry unit/fuzz/invariant tests; provide a Base Sepolia deployment script and owner runbook using Foundry keystore signing without repository-held keys.

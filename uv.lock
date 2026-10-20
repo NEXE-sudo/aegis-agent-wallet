@@ -9,7 +9,7 @@ resolution-markers = [
 
 [[package]]
 name = "aegis-agent-wallet"
-version = "1.10.3"
+version = "1.11.0"
 source = { editable = "." }
 dependencies = [
     { name = "eth-account" },

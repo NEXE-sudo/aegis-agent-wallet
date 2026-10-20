@@ -1,5 +1,9 @@
 # Aegis Agent Wallet — Chatbot Handoff
 
+## Current work in progress
+
+- Branch `feat/mandate-driven-agent-decisions` adds a deterministic mandate-bounded decision engine with owner-verified payee records, duplicate detection, daily and monthly budget checks, treasury-buffer protection, approval-threshold escalation, and structuring signals. It is a pure decision layer and does not grant approval or execution authority. Automated checks must be run before merge; no test result is claimed here.
+
 Last updated: 20 October 2026
 
 ## Repository and product
@@ -58,7 +62,6 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 - Browser credentials remain in memory only, asynchronous requests are guarded against stale sessions, and unavailable data is shown as unavailable rather than fabricated.
 - Activity displays the backend-derived approval expiry timestamp for approved transactions and flags elapsed deadlines; the browser display is advisory, while the backend remains authoritative for approval validity.
 - An end-to-end browser regression covers the wallet read/configuration surfaces together, including spending summary, network and vault status, balances, policy settings, and expired-approval visibility.
-
 ### Phase 5 — Contract and integration hardening (implementation complete; live evidence is operator-generated)
 
 - GitHub Actions runs the Solidity unit, fuzz, and invariant suite; Python tests and Ruff remain separate required checks.
@@ -117,8 +120,7 @@ Continue to favour coherent implementation-plus-tests-plus-docs PRs that improve
 - PR #210 (`feat/onchain-vault-configuration-inspection`) is merged; the owner-authenticated read-only AegisVault status endpoint is in `main`, and the user confirmed post-merge Ruff/pytest checks and deleted the branch.
 - PR #211 (`feat/approval-expiry-visibility`) is merged; it exposes the backend-derived absolute approval deadline and displays expired deadlines in Activity. The user confirmed post-merge Ruff/pytest checks and deleted the branch.
 - PR #216 is merged and post-merge Ruff/pytest checks passed; the user confirmed deletion of `feat/deployment-aware-testnet-evidence`.
-- PR #218 completed the dashboard visibility slice. The current Phase 5 close-out adds cross-artifact deployment-to-transfer evidence verification, regression coverage, and a single operational runbook; it does not generate fabricated live-chain evidence.
-- The user must run both local Python checks on the PR branch before merge. Then verify the PR head SHA and all CI jobs (including Foundry when relevant), squash-merge, ask for post-merge checks on updated `main`, and only then provide branch deletion commands.
+- PR #218 completed the dashboard visibility slice. The current Phase 5 close-out adds cross-artifact deployment-to-transfer evidence verification, regression coverage, and a single operational runbook; it does not generate fabricated live-chain evidence.- The user must run both local Python checks on the PR branch before merge. Then verify the PR head SHA and all CI jobs (including Foundry when relevant), squash-merge, ask for post-merge checks on updated `main`, and only then provide branch deletion commands.
 - Continue bundling the broadest coherent milestone scope practical, including implementation, regression/integration tests, docs and handoff updates; do not impose artificial PR size limits. Never update `main` directly.
 
 ## Standard accounting and safety semantics
