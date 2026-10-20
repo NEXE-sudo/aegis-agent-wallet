@@ -6,7 +6,6 @@ Secrets are read only from environment variables and are never written to report
 from __future__ import annotations
 
 import argparse
-from collections.abc import Callable
 import hashlib
 import json
 import os
@@ -16,6 +15,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -390,7 +390,7 @@ def run_live(args: argparse.Namespace, *, root: Path | None = None,
                      "--account", values["OWNER_KEYSTORE_ACCOUNT"], "--sender", public["owner"], "--broadcast"],
                     root=root, env=_cast_env(values, values["OWNER_KEYSTORE_ACCOUNT"]),
                     report_dir=report_dir, label="deploy-vault", timeout=300, cwd=root / "contracts")
-                address_match = re.search(r"AegisVault deployed at\s+(0x[0-9a-fA-F]{40})", output, re.I)
+                address_match = re.search(r"AegisVault deployed at\s+(0x[0-9a-fA-F]{40})", output, re.IGNORECASE)
                 if not address_match:
                     raise LiveRunError("Forge output did not contain the deployed vault address; inspect deploy-vault.log.")
                 return {"vault_address": address_match.group(1).lower(), "transaction_hash": _extract_hash(output)}
