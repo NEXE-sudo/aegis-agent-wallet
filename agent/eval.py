@@ -245,14 +245,15 @@ async def run_evaluation(output_dir: Path) -> dict[str, Any]:
             f"({report['summary']['pass_rate']:.1%} pass rate)"
         ),
         "",
-        "| Scenario | Result | Expected | Observed |",
-        "| --- | --- | --- | --- |",
+        "| Scenario | Result | Failure reasons | Expected | Observed |",
+        "| --- | --- | --- | --- | --- |",
     ]
     for result in results:
         observed = json.dumps(result["observed"], sort_keys=True)
+        reasons = ", ".join(result["failure_reasons"]) or "none"
         markdown.append(
             f"| {result['name']} | {'PASS' if result['passed'] else 'FAIL'} "
-            f"| {result['expected']} | `{observed}` |"
+            f"| {reasons} | {result['expected']} | `{observed}` |"
         )
     markdown.append("")
     (output_dir / "agent-eval.md").write_text(
