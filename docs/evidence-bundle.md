@@ -53,7 +53,13 @@ The JSON and Markdown reports record the UTC generation time, source revision wh
 
 The bundle includes the deterministic evaluation results, optional transaction evidence, explicit per-check outcomes, provenance, and a SHA-256 digest of the canonical JSON payload (excluding the digest field itself). Recompute the digest after removing `bundle_sha256` to check that the saved JSON has not changed. The digest covers the provenance fields, detects accidental or subsequent modification, and is not a digital signature or proof of authorship.
 
-A bundle fails if the included transaction cannot be verified, the expected sender differs, a required audit cross-check fails, the receipt status does not match the selected success/revert mode, the observed confirmation depth is below the requested minimum, or any offline scenario fails. A failed run still writes a report describing the outcome. The generator emits schema `aegis-evidence-bundle/v5`, including separate status-aware successful-transfer and reverted-call modes. The verifier also accepts schema v4 successful-transfer bundles. No live LLM evaluation is run by the generator.
+A bundle fails if the included transaction cannot be verified, the expected sender differs, a required audit cross-check fails, the receipt status does not match the selected success/revert mode, the observed confirmation depth is below the requested minimum, or any offline scenario fails. A failed run still writes a report describing the outcome. The generator emits schema `aegis-evidence-bundle/v6`, including status-aware successful-transfer and reverted-call modes plus a vault deployment/configuration snapshot. The verifier accepts schema v4/v5 legacy bundles as well as schema v6. No live LLM evaluation is run by the generator.
+
+## Vault deployment/configuration snapshot
+
+For requested on-chain evidence, schema v6 captures the configured RPC's latest view of the AegisVault after transaction evidence is read. The snapshot includes the Base Sepolia chain ID, vault address, SHA-256 fingerprint of the deployed bytecode, owner and agent addresses, pause state, selected token, and its allowlist/cap/approval-threshold policy. A passing v6 bundle requires non-empty bytecode and structurally valid owner/agent separation and token policy.
+
+The snapshot is taken at bundle-generation time, not at the transaction's historical block. It can therefore describe configuration that changed after the transaction was mined. It is integrity-protected by the bundle digest but is not signed, independently authenticated, or a proof of deployment provenance.
 
 ## Verify a saved bundle
 
@@ -79,7 +85,7 @@ uv run --locked python -m scripts.reverify_testnet_bundle \
   --audit-db ./aegis.sqlite3
 ```
 
-For a bundle describing a reverted vault call, omit `--audit-db`; the verifier infers reverted-call mode from the bundle. The saved bundle must be an internally consistent overall PASS with passing testnet evidence. The verifier re-queries the transaction, checks the expected sender and receipt status, compares the transaction's stable evidence fields—including receipt/canonical block hashes—with the saved evidence, enforces the recorded minimum confirmation depth, and cross-checks the read-only SQLite audit record for successful transfers. Use `--min-confirmations N` to override the saved threshold.
+For a bundle describing a reverted vault call, omit `--audit-db`; the verifier infers reverted-call mode from the bundle. The saved bundle must be an internally consistent overall PASS with passing testnet evidence. The verifier re-queries the transaction, checks the expected sender and receipt status, compares the transaction's stable evidence fields—including receipt/canonical block hashes—with the saved evidence, enforces the recorded minimum confirmation depth, and cross-checks the read-only SQLite audit record for successful transfers. For v6 bundles it also re-reads the current vault bytecode fingerprint, owner/agent, pause state and selected token policy, failing if any saved configuration field differs. Legacy v4/v5 bundles remain verifiable for their recorded transaction evidence but have no deployment snapshot to reverify. Use `--min-confirmations N` to override the saved threshold.
 
 A mismatch, missing receipt, changed block hash, insufficient confirmation depth, or audit mismatch fails the re-verification. This is a fresh observation from the configured RPC, not an independent consensus proof or finality guarantee. The command is read-only and never signs or broadcasts transactions. It requires the RPC configuration already used by the Base Sepolia verification tools.
 
