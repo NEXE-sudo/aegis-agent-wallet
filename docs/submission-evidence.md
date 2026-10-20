@@ -53,3 +53,18 @@ Manifest verification is offline: it checks the manifest digest and each listed 
 - Offline evaluation is not live LLM quality evidence or on-chain execution evidence.
 - A live transfer claim requires a separately verified Base Sepolia transaction and relevant configuration/audit checks. Simulated results must be labelled as simulated.
 - The vault remains unaudited and testnet-only. Never use this process with mainnet funds.
+
+
+## 4. Run the final offline preflight
+
+After generating the evaluation reports, evidence bundle, and manifest for the same committed source revision, run:
+
+```bash
+uv run --locked python -m scripts.submission_preflight
+```
+
+The preflight verifies the manifest and the hashes of the selected reports, checks that the manifest and evidence bundle identify the current Git revision, requires a clean tracked source tree as recorded in the manifest, validates deterministic and repeated-evaluation results, and confirms that the evidence bundle's offline evaluation passed. It defaults to five repeated runs and rejects incomplete, inconsistent, or failing scenario results.
+
+If your submission specifically requires verified live testnet evidence, add `--require-testnet`. Without that option, the preflight may pass with offline-only evidence, but it prints an explicit **NOT SUPPLIED** note for Base Sepolia. The tool is offline and read-only: it does not deploy contracts, submit transactions, contact an RPC, or create evidence.
+
+To use non-default artifact paths, pass `--root`, `--manifest`, `--agent-eval`, `--repeated-eval`, and `--evidence-bundle`. Relative paths are resolved from `--root`; selected JSON files must also be listed in the manifest.

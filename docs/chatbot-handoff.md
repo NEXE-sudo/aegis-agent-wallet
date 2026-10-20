@@ -4,8 +4,9 @@ Last updated: 20 October 2026
 
 ## Current work in progress
 
+- PR #228 — [Prepare FinTechathon submission close-out materials](https://github.com/NEXE-sudo/aegis-agent-wallet/pull/228) — squash-merged as `bb3ed0583690496afdae383d89306f2521a98dfa`; the user confirmed post-merge checks passed and deleted the feature branch.
 - PR #227 — [Prepare reproducible submission evidence](https://github.com/NEXE-sudo/aegis-agent-wallet/pull/227) — squash-merged as `ce5351d254ae1934055c2f4e3adec502fcd7ed60`; the user confirmed post-merge lint, tests, evaluation, repeated evaluation, and evidence-bundle verification passed, then deleted the feature branch.
-- **Current PR in preparation** — branch `docs/submission-closeout-kit`. It adds a consolidated submission kit covering architecture/data flow, security boundaries and non-claims, a ten-minute talk track, a 90-second video script, a WeBank-oriented business case, and a checklist for automated and optional live testnet evidence.
+- **Current PR in preparation** — branch `feat/submission-preflight-verifier`. It adds an offline submission preflight that validates manifest membership and hashes, current source revision, deterministic/repeated evaluation structure and pass results, and evidence-bundle integrity; live Base Sepolia evidence remains separately optional and explicitly reported.
 - PR #226 — [Reconcile governance budget with workflow outcomes](https://github.com/NEXE-sudo/aegis-agent-wallet/pull/226) — squash-merged as `3f4260e7b099425b3672117b608ed674fbe9c01f`; post-merge checks passed and branch deleted.
 - PR #225 — [Expand adversarial evaluation and governance evidence](https://github.com/NEXE-sudo/aegis-agent-wallet/pull/225) — squash-merged as `1e0b5f0b90020ffb2fb0d06c141275bef9e925fa`; user reported 110/110 scenario observations passed across five repeated runs, post-merge checks passed, and branch deleted.
 - PR #224 added repeatable evaluation and a demo guide; PR #223 added governance controls and operational hardening; PR #222 added expiring agent sessions and recipient caps; PR #221 persisted governance and integrated deterministic queue decisions.
@@ -38,10 +39,10 @@ Completion estimates are planning estimates, not CI results, audits, or producti
 
 ## Next priorities
 
-1. **Submission close-out kit:** complete review and merge of `docs/submission-closeout-kit.md`, then rehearse the demo and talk track against the exact source revision.
-2. **Fresh reproducible reports:** run deterministic evaluation, repeated evaluation, evidence-bundle verification, and submission-manifest verification on the final intended revision.
+1. **Submission preflight:** validate the new offline preflight against real generated reports and the exact committed source revision; never treat a pass as proof of live-chain execution.
+2. **Fresh reproducible reports:** run deterministic evaluation, repeated evaluation, evidence-bundle verification, manifest verification, and the final preflight on the final intended revision.
 3. **Live testnet evidence:** separately verify operator-run Base Sepolia deployment, successful transfer, and reverted-call evidence where available; never substitute fixtures or simulated results.
-4. **Remaining engineering gaps:** consider source provenance, role separation/token rotation, signer adapter boundaries, backup/restore, and chain receipt/finality reconciliation as future work, without overstating the current implementation.
+4. **Remaining engineering gaps:** consider role separation/token rotation, signer adapter boundaries, backup/restore, and chain receipt/finality reconciliation as future work, without overstating the current implementation.
 5. Keep the number of PRs low and the feature scope substantial, comparable in breadth to PR #221. Combine implementation, relevant tests, docs, changelog, version and handoff changes when they belong together.
 
 ## PR workflow — mandatory
