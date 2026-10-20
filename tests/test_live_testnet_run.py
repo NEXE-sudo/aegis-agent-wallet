@@ -161,5 +161,8 @@ def test_subprocess_mock_receives_rpc_url_only_in_environment(monkeypatch: pytes
     assert "BASE_SEPOLIA_RPC_URL" not in seen["command"]
     assert env["BASE_SEPOLIA_RPC_URL"] not in seen["command"]
     assert seen["env"]["ETH_RPC_URL"] == env["BASE_SEPOLIA_RPC_URL"]
+    assert "AEGIS_TESTNET_PRIVATE_KEY" not in seen["env"]
+    assert "AEGIS_AGENT_TOKEN" not in seen["env"]
+    assert "AEGIS_APPROVAL_TOKEN" not in seen["env"]
     assert "fixture-secret" not in output
     assert "0x" + "b" * 64 in output
