@@ -1,3 +1,5 @@
+- Reconcile persisted blocked, cancelled, and rejected workflow proposals out of governance budget history while retaining duplicate-invoice protection and conservative handling of missing transaction records.
+
 # Changelog
 
 ## 1.13.0 (unreleased)
