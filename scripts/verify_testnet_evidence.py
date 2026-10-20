@@ -60,6 +60,10 @@ def verify_evidence(
     block_number = receipt["block_number"]
     if not isinstance(block_number, int):
         raise RpcRequestError("RPC returned a receipt without a block number")
+    latest_block_number = rpc.block_number()
+    if latest_block_number < block_number:
+        raise RpcRequestError("RPC latest block is behind the receipt block")
+    confirmations_observed = latest_block_number - block_number + 1
 
     calldata = transaction["input"]
     if normalized_vault is None:
@@ -100,6 +104,8 @@ def verify_evidence(
         "chain_id": chain_id,
         "receipt_status": str(receipt["status"]),
         "block_number": block_number,
+        "latest_block_number": latest_block_number,
+        "confirmations_observed": confirmations_observed,
         "token_contract": token_contract,
         "sender": validate_address(transaction["from"]),
         "recipient": recipient,
@@ -341,11 +347,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--audit-db", help="optional read-only Aegis SQLite database path")
     parser.add_argument(
+        "--min-confirmations",
+        type=int,
+        default=1,
+        help="minimum observed block confirmations required for success (default: 1)",
+    )
+    parser.add_argument(
         "--vault",
         help="verify an AegisVault transferToken call and its vault/token receipt events",
     )
     args = parser.parse_args(argv)
 
+    if args.min_confirmations < 1:
+        parser.error("--min-confirmations must be at least 1")
     if args.expected_sender is not None:
         try:
             expected_sender = validate_address(args.expected_sender)
@@ -385,6 +399,11 @@ def main(argv: list[str] | None = None) -> int:
         )
     print(f"Receipt status: {evidence['receipt_status']}")
     print(f"Block number: {evidence['block_number']}")
+    print(f"Latest observed block: {evidence['latest_block_number']}")
+    print(
+        f"Confirmations observed: {evidence['confirmations_observed']} "
+        f"(minimum required: {args.min_confirmations})"
+    )
     print(f"Token contract: {evidence['token_contract']}")
     if vault_address is not None:
         print(f"AegisVault: {vault_address}")
@@ -398,6 +417,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Audit cross-check: OK (transaction {transaction_id})")
     if evidence["receipt_status"] != "success":
         print("Verification failed: the transaction receipt status is not success.", file=sys.stderr)
+        return 1
+    if evidence["confirmations_observed"] < args.min_confirmations:
+        print(
+            "Verification failed: observed "
+            f"{evidence['confirmations_observed']} confirmations, fewer than "
+            f"the {args.min_confirmations} required.",
+            file=sys.stderr,
+        )
         return 1
     return 0
 
