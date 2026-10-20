@@ -224,6 +224,16 @@ class AegisAgent:
         )
 
     async def run(self, task: dict[str, Any]) -> dict[str, Any]:
+        if task.get("mode") == "governance_queue":
+            if set(task) != {"mode"}:
+                raise AgentToolError(
+                    "Governance queue mode accepts no caller-supplied payment fields"
+                )
+            result = await self._api.decide_pending_governance_tasks()
+            return {
+                "governance_results": result,
+                "message": "Owner-created tasks were evaluated against persisted governance.",
+            }
         tools = AgentTools(self._api, task)
         if self._llm_settings is None:
             return await self._run_offline(tools)
