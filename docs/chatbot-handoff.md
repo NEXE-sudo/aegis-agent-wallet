@@ -50,6 +50,7 @@ Last updated: 20 October 2026
 
 ### Phase 5 — Contract and integration hardening
 - Strengthen contract and integration tests.
+- Add a boundary regression for exact-timestamp approval expiry; do not claim Foundry execution until a real Solidity test run is available.
 - Gather Foundry and testnet deployment/transfer/revert evidence, including transaction hashes where available.
 - Document remaining security limitations and residual risks.
 
