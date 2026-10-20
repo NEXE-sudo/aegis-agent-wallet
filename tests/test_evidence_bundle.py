@@ -36,7 +36,7 @@ def test_offline_bundle_is_portable_and_explicitly_not_onchain(monkeypatch, tmp_
 
     bundle = asyncio.run(bundle_script.build_evidence_bundle(tmp_path / "bundle"))
 
-    assert bundle["schema"] == "aegis-evidence-bundle/v4"
+    assert bundle["schema"] == "aegis-evidence-bundle/v5"
     assert bundle["provenance"] == {
         "source_revision": revision,
         "python_version": bundle_script.platform.python_version(),
@@ -119,7 +119,7 @@ def test_successful_testnet_bundle_links_chain_and_audit(monkeypatch, tmp_path):
         "chain_and_transfer_evidence_verified": True,
         "expected_sender_matches": True,
         "audit_record_matches": True,
-        "receipt_succeeded": True,
+        "receipt_status_matches_expectation": True,
         "minimum_confirmations_met": True,
     }
     assert bundle["testnet_evidence"]["audit_transaction_id"] == "txn-123"
@@ -249,11 +249,68 @@ def test_failed_receipt_does_not_pass_testnet_bundle(monkeypatch, tmp_path):
     )
 
     assert bundle["passed"] is False
-    assert bundle["testnet_evidence"]["checks"]["receipt_succeeded"] is False
+    assert bundle["testnet_evidence"]["checks"]["receipt_status_matches_expectation"] is False
     assert "receipt status is not success" in bundle["testnet_evidence"]["error"]
     report = (tmp_path / "bundle" / "aegis-evidence-bundle.md").read_text()
     assert "Verification error: Transaction receipt status is not success" in report
     assert "Transaction: not supplied" in report
+
+
+def test_reverted_testnet_bundle_verifies_failed_call_without_audit_db(monkeypatch, tmp_path):
+    _install_offline_eval(monkeypatch)
+
+    class FakeRpc:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return None
+
+    evidence = {
+        "chain_id": 84532,
+        "receipt_status": "failed",
+        "block_number": 123,
+        "receipt_block_hash": "0x" + "c" * 64,
+        "canonical_block_hash": "0x" + "c" * 64,
+        "latest_block_number": 136,
+        "confirmations_observed": 14,
+        "token_contract": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+        "sender": "0x1111111111111111111111111111111111111111",
+        "recipient": "0x2222222222222222222222222222222222222222",
+        "amount_base_units": 2500000,
+        "transaction_hash": "0x" + "a" * 64,
+        "explorer_url": "https://sepolia.basescan.org/tx/0x" + "a" * 64,
+        "vault_address": "0x4444444444444444444444444444444444444444",
+        "proposal_reference": "0x" + "b" * 64,
+    }
+    monkeypatch.setattr(bundle_script, "BaseSepoliaRpc", FakeRpc)
+    monkeypatch.setattr(
+        bundle_script,
+        "verify_evidence",
+        lambda *args, **kwargs: evidence if kwargs.get("expect_revert") else pytest.fail("Expected revert mode"),
+    )
+    monkeypatch.setattr(
+        bundle_script,
+        "verify_audit_record",
+        lambda *_args: pytest.fail("Revert mode must not require a successful transfer audit record"),
+    )
+
+    bundle = asyncio.run(
+        bundle_script.build_evidence_bundle(
+            tmp_path / "bundle",
+            transaction_hash=evidence["transaction_hash"],
+            expected_sender=evidence["sender"],
+            vault=evidence["vault_address"],
+            expect_revert=True,
+            min_confirmations=12,
+        )
+    )
+
+    assert bundle["passed"] is True
+    assert bundle["testnet_evidence"]["mode"] == "reverted_vault_call"
+    assert bundle["testnet_evidence"]["checks"]["receipt_status_matches_expectation"] is True
+    assert "audit_record_matches" not in bundle["testnet_evidence"]["checks"]
+    assert bundle["testnet_evidence"]["audit_transaction_id"] is None
 
 
 def test_cli_requires_complete_testnet_arguments():
