@@ -1,6 +1,7 @@
 """Capture a portable, read-only snapshot of an AegisVault deployment."""
 from __future__ import annotations
 
+import hashlib
 import re
 from typing import Any
 
@@ -45,7 +46,7 @@ def capture_vault_configuration(
     code = rpc.get_code(vault)
     if not isinstance(code, str) or _BYTECODE_RE.fullmatch(code) is None:
         raise RpcRequestError("RPC returned malformed or empty AegisVault bytecode")
-    bytecode_hash = "0x" + keccak(hexstr=code).hex()
+    bytecode_hash = "0x" + hashlib.sha256(bytes.fromhex(code[2:])).hexdigest()
 
     owner_word = _read_word(rpc, vault, "owner()")
     agent_word = _read_word(rpc, vault, "agent()")
