@@ -559,13 +559,17 @@ def evaluate_pending_tasks(store: GovernanceStore, *, now: datetime | None = Non
     }
     results: list[dict[str, Any]] = []
     pending_by_id = {item["task_id"]: item for item in pending}
+    reserved_monthly = store.monthly_proposed_spend(current.strftime("%Y-%m"))
+    available_planning_balance = max(
+        0, mandate_record["available_balance_base_units"] - reserved_monthly
+    )
     for decision in decide_payments(
         tasks,
         mandate,
         payees,
         histories,
-        available_balance=mandate_record["available_balance_base_units"],
-        reserved_monthly_spend=store.monthly_proposed_spend(current.strftime("%Y-%m")),
+        available_balance=available_planning_balance,
+        reserved_monthly_spend=reserved_monthly,
         now=current,
     ):
         task = pending_by_id[decision.task_id]
