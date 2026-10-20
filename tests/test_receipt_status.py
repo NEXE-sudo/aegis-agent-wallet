@@ -5,6 +5,7 @@ import json
 import httpx
 import pytest
 
+from app.chain.base_sepolia import BaseSepoliaRpc
 from app.chain.execution import BaseSepoliaVaultExecutor, ExecutionSettings
 
 TX_HASH = "0x" + "a" * 64
@@ -49,9 +50,7 @@ def make_executor(*, receipt=True, receipt_status="0x1", canonical_hash=BLOCK_HA
         vault_address=VAULT,
     )
     return BaseSepoliaVaultExecutor(
-        settings, rpc_factory=lambda url: __import__(
-            "app.chain.base_sepolia", fromlist=["BaseSepoliaRpc"]
-        ).BaseSepoliaRpc(url, transport=transport)
+        settings, rpc_factory=lambda url: BaseSepoliaRpc(url, transport=transport)
     )
 
 
