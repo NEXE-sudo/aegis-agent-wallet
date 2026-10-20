@@ -2,6 +2,8 @@
 
 ## 1.13.0 (unreleased)
 
+- Add a submission close-out kit with architecture/data-flow diagram, security summary, presentation talk track, demo video script, business case, and source-grounded evidence checklist.
+
 - Add a reproducible submission evidence manifest that hashes explicitly selected artifacts and verifies their size, digest, and root-relative paths without network access.
 
 - Reconcile persisted blocked, cancelled, and rejected workflow proposals out of governance budget history while retaining duplicate-invoice protection and conservative handling of missing transaction records.

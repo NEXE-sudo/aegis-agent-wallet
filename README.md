@@ -133,6 +133,7 @@ This remains a local prototype. Use simulated mode or the unaudited vault integr
 ## Documentation
 
 - [Technical document](docs/technical-document.md) — architecture, scope, and on-chain flow.
+- [Submission close-out kit](docs/submission-closeout-kit.md) — architecture and trust boundaries, security summary, ten-minute talk track, demo video script, business case, and evidence checklist.
 - [Chatbot handoff](docs/chatbot-handoff.md) — current project state, required PR workflow, and phased roadmap.
 - [Security self-assessment](docs/security-self-assessment.md) — implementation-based security assessment and residual risks.
 - [AegisVault on-chain enforcement](docs/onchain-enforcement.md) — vault design, runbook, and evidence placeholders.
