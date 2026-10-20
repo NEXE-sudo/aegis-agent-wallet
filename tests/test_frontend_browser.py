@@ -1,7 +1,7 @@
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from fastapi.testclient import TestClient
@@ -89,6 +89,7 @@ def _mock_api(
         calls.append({
             "method": request.method,
             "path": parsed.path,
+            "query": parsed.query,
             "authorization": authorization,
             "post_data": request.post_data,
         })
@@ -102,7 +103,11 @@ def _mock_api(
             )
         elif parsed.path == "/transactions" and request.method == "GET":
             status = remaining_transaction_statuses.pop(0) if remaining_transaction_statuses else 200
-            fulfill(route, status, transactions if status == 200 and transactions is not None else [])
+            query = parse_qs(parsed.query)
+            limit = int(query.get("limit", ["50"])[0])
+            offset = int(query.get("offset", ["0"])[0])
+            records = transactions if transactions is not None else []
+            fulfill(route, status, records[offset:offset + limit] if status == 200 else [])
         elif parsed.path.startswith("/chain/base-sepolia/address/") and parsed.path.endswith("/balances") and request.method == "GET":
             fulfill(route, 200, wallet_balances or {
                 "address": "0x2222222222222222222222222222222222222222",
@@ -530,6 +535,51 @@ def test_browser_policy_configuration_is_owner_read_only(page: Page, frontend_ur
     )
 
 
+
+def test_browser_activity_history_paginates_with_offset_and_keeps_search_page_scoped(page: Page, frontend_url: str):
+    transactions = [{
+        "transaction_id": f"workflow-{index:03d}",
+        "status": "blocked",
+        "fingerprint": f"{index:064x}",
+        "risk_level": "low",
+        "risk_score": 5,
+        "policy_decision": "block",
+        "policy_reasons": [],
+        "risk_reasons": [],
+        "proposal": {
+            "recipient": "0x" + f"{index:040x}",
+            "amount_base_units": 1000000,
+            "token_symbol": "USDC",
+            "token_decimals": 6,
+        },
+        "created_at": "2026-10-15T10:00:00Z",
+        "updated_at": "2026-10-15T10:00:00Z",
+    } for index in range(51)]
+    calls = _mock_api(page, transactions=transactions)
+    page.goto(frontend_url)
+    _connect(page, "agent-token", "owner-token")
+    page.locator('nav [data-view="activity"]').click()
+
+    rows = page.locator("#activity-rows tr")
+    expect(rows).to_have_count(50)
+    expect(page.locator("#activity-page-status")).to_contain_text("Records 1–50")
+    expect(page.get_by_role("button", name="Previous")).to_be_disabled()
+    expect(page.get_by_role("button", name="Next")).to_be_enabled()
+
+    page.get_by_role("button", name="Next").click()
+    expect(rows).to_have_count(1)
+    expect(rows.first).to_contain_text("workflow-050")
+    expect(page.locator("#activity-page-status")).to_contain_text("Records 51–51")
+    expect(page.get_by_role("button", name="Previous")).to_be_enabled()
+    expect(page.get_by_role("button", name="Next")).to_be_disabled()
+    assert any(call["path"] == "/transactions" and call["query"] == "limit=50&offset=50" for call in calls)
+
+    page.get_by_role("button", name="Previous").click()
+    expect(rows).to_have_count(50)
+    expect(rows.first).to_contain_text("workflow-000")
+    assert any(call["path"] == "/transactions" and call["query"] == "limit=50&offset=0" for call in calls)
+
+
 def test_browser_receipt_rpc_error_is_visible_without_fabricating_a_receipt(page: Page, frontend_url: str):
     transaction_id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
     transactions = [{
@@ -542,17 +592,30 @@ def test_browser_receipt_rpc_error_is_visible_without_fabricating_a_receipt(page
         "policy_decision": "allow",
         "policy_reasons": [],
         "risk_reasons": [],
-        "proposal": {"recipient": "0x" + "b" * 40, "amount_base_units": 1000000, "token_symbol": "USDC", "token_decimals": 6},
+        "proposal": {
+            "recipient": "0x" + "b" * 40,
+            "amount_base_units": 1000000,
+            "token_symbol": "USDC",
+            "token_decimals": 6,
+        },
         "created_at": "2026-10-15T10:00:00Z",
         "updated_at": "2026-10-15T10:00:00Z",
     }]
     _mock_api(page, transactions=transactions)
-    page.route("**/transactions/*/receipt", lambda route: route.fulfill(status=503, content_type="application/json", body=json.dumps({"detail": "receipt provider unavailable"})))
+    page.route(
+        "**/transactions/*/receipt",
+        lambda route: route.fulfill(
+            status=503,
+            content_type="application/json",
+            body=json.dumps({"detail": "receipt provider unavailable"}),
+        ),
+    )
     page.goto(frontend_url)
     _connect(page, "agent-token", "owner-token")
     page.locator('nav [data-view="activity"]').click()
+
     with page.expect_request(
-        lambda request: request.url.endswith("/transactions/" + transaction_id + "/receipt")
+        lambda request: request.url.endswith(f"/transactions/{transaction_id}/receipt")
         and request.headers.get("authorization") == "Bearer owner-token"
     ):
         page.get_by_role("button", name="Check receipt").click()

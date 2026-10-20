@@ -580,6 +580,13 @@ button.audit-card{text-align:left;width:100%;color:inherit}
               <tbody id="activity-rows"></tbody>
             </table>
           </div>
+          <div class="form-actions" style="justify-content:space-between;align-items:center">
+            <span id="activity-page-status" class="field-help" aria-live="polite">Connect to load workflow history.</span>
+            <div style="display:flex;gap:8px">
+              <button class="btn secondary" id="activity-previous" type="button" disabled>Previous</button>
+              <button class="btn secondary" id="activity-next" type="button" disabled>Next</button>
+            </div>
+          </div>
         </section>
         <section class="panel">
           <div class="panel-head">
@@ -679,6 +686,8 @@ const state = {
   proposalRequestId: 0,
   transactionsLoaded: false,
   transactionError: '',
+  transactionOffset: 0,
+  transactionPageSize: 50,
   spendingSummary: null,
   spendingSummaryError: '',
   spendingRequestId: 0,
@@ -962,7 +971,7 @@ const refreshTransactions = async () => {
     return;
   }
   try {
-    const records = await api('/transactions?limit=50', { method: 'GET' }, 'owner');
+    const records = await api(`/transactions?limit=${state.transactionPageSize}&offset=${state.transactionOffset}`, { method: 'GET' }, 'owner');
     if (sessionVersion !== state.sessionVersion || refreshId !== state.refreshId) return;
     state.transactions = Array.isArray(records) ? records : [];
     state.transactionsLoaded = true;
@@ -1537,6 +1546,16 @@ const renderApprovals = () => {
 
 const renderActivity = () => {
   const needle = document.getElementById('activity-search').value.trim().toLowerCase();
+  const previous = document.getElementById('activity-previous');
+  const next = document.getElementById('activity-next');
+  const pageStatus = document.getElementById('activity-page-status');
+  previous.disabled = !state.tokens.owner || state.transactionOffset === 0;
+  next.disabled = !state.tokens.owner || !state.transactionsLoaded || state.transactions.length < state.transactionPageSize;
+  pageStatus.textContent = !state.tokens.owner
+    ? 'Connect to load workflow history.'
+    : !state.transactionsLoaded
+      ? (state.transactionError || 'Workflow history is unavailable.')
+      : `Records ${state.transactionOffset + 1}–${state.transactionOffset + state.transactions.length} · page size ${state.transactionPageSize}; search filters this page only.`;
   const rows = state.transactions.filter((tx) => [
     tx.transaction_id, tx.status, tx.policy_decision, tx.proposal?.token_symbol,
     tx.proposal?.recipient, tx.risk_level
@@ -1587,6 +1606,13 @@ const renderActivity = () => {
   `;
     }).join('') : `<tr><td colspan="7" class="empty">${needle ? 'No matching records in the loaded set.' : 'No workflow records were returned.'}</td></tr>`;
   document.getElementById('activity-rows').innerHTML = body;
+};
+
+const changeTransactionPage = async (direction) => {
+  const nextOffset = Math.max(0, state.transactionOffset + direction * state.transactionPageSize);
+  if (nextOffset === state.transactionOffset || !state.tokens.owner) return;
+  state.transactionOffset = nextOffset;
+  await refreshTransactions();
 };
 
 const renderAll = () => {
@@ -1763,7 +1789,8 @@ const handleConnect = async (event) => {
     if (sessionVersion !== state.sessionVersion || connectionRequestId !== state.connectionRequestId) return;
     if (health?.status !== 'ok') throw new Error('The local API health check did not succeed.');
     setExecutionMode(health.mode);
-    const transactions = await api('/transactions?limit=50', { method: 'GET' }, 'owner');
+    state.transactionOffset = 0;
+    const transactions = await api(`/transactions?limit=${state.transactionPageSize}&offset=${state.transactionOffset}`, { method: 'GET' }, 'owner');
     if (sessionVersion !== state.sessionVersion || connectionRequestId !== state.connectionRequestId) return;
     state.transactions = Array.isArray(transactions) ? transactions : [];
     state.transactionsLoaded = true;
@@ -2204,6 +2231,8 @@ document.addEventListener('keydown', (event) => {
 document.getElementById('connection-form').addEventListener('submit', handleConnect);
 document.getElementById('proposal-form').addEventListener('submit', handleProposalSubmit);
 document.getElementById('activity-search').addEventListener('input', renderActivity);
+document.getElementById('activity-previous').addEventListener('click', () => void changeTransactionPage(-1));
+document.getElementById('activity-next').addEventListener('click', () => void changeTransactionPage(1));
 document.getElementById('market-search').addEventListener('input', renderMarketButtons);
 document.getElementById('retry-market').addEventListener('click', () =>
   loadMarketQuote(state.marketSelected.assetClass, state.marketSelected.symbol)
