@@ -336,3 +336,12 @@ them or the owner supplies them.
   roles, or withdraw. Token-specific behavior, such as an issuer blacklist or
   upgrade, remains outside the vault's control.
 - The project is not a broker, exchange, or investment-advice service.
+
+
+## Reproducible evaluation and testnet evidence bundle
+
+The optional evidence-bundle command writes a portable JSON report and Markdown summary. It always runs the deterministic evaluation in simulated mode against temporary SQLite databases. If the operator supplies an existing Base Sepolia transaction hash, expected public sender, deployed vault address, and local database path, it additionally verifies the vault transaction and token-transfer receipt events and cross-checks the matching workflow/audit record using a read-only SQLite connection.
+
+The bundle includes explicit check outcomes and a SHA-256 digest of the canonical JSON payload, excluding the digest field. This helps detect subsequent modification but is not a signature or proof of authorship. When no transaction is supplied, the bundle explicitly says that it contains no on-chain transfer evidence. The command does not sign or broadcast transactions and does not run the optional LLM evaluation.
+
+See [Reproducible Evidence Bundle](evidence-bundle.md) for commands and limitations.
