@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 import sys
+from pathlib import Path
 from typing import Any
 
 from app.chain.base_sepolia import (
@@ -190,6 +191,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--expected-owner", required=True, help="expected initial and current vault owner")
     parser.add_argument("--min-confirmations", type=int, default=12)
     parser.add_argument("--expected-bytecode-sha256", help="optional expected runtime bytecode SHA-256 (hex)")
+    parser.add_argument("--output", type=Path, help="optional path to write the machine-readable JSON evidence")
     args = parser.parse_args(argv)
 
     try:
@@ -206,8 +208,20 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Deployment verification failed: {exc}", file=sys.stderr)
         return 1
 
+    canonical = json.dumps(result, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    result["deployment_evidence_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    rendered = json.dumps(result, indent=2, sort_keys=True) + "\\n"
+    if args.output is not None:
+        try:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(rendered, encoding="utf-8")
+        except OSError as exc:
+            print(f"Could not write deployment evidence: {exc}", file=sys.stderr)
+            return 1
     print("AegisVault deployment verification: PASS")
-    print(json.dumps(result, indent=2, sort_keys=True))
+    print(rendered, end="")
+    if args.output is not None:
+        print(f"JSON evidence: {args.output}")
     print("Read-only verification; no transaction was signed or broadcast.")
     return 0
 
