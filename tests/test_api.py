@@ -106,8 +106,13 @@ def test_recent_transactions_list_supports_offset_pages():
     assert invalid_offset.status_code == 422
 
 def test_recent_transactions_list_validates_limit():
-    response = client.get("/transactions?limit=0", headers=OWNER_HEADERS)
-    assert response.status_code == 422
+    below_minimum = client.get("/transactions?limit=0", headers=OWNER_HEADERS)
+    above_maximum = client.get("/transactions?limit=101", headers=OWNER_HEADERS)
+    at_maximum = client.get("/transactions?limit=100", headers=OWNER_HEADERS)
+
+    assert below_minimum.status_code == 422
+    assert above_maximum.status_code == 422
+    assert at_maximum.status_code == 200
 
 
 def test_health():
