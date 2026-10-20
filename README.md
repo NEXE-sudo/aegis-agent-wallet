@@ -50,6 +50,12 @@ Start the API with the commands above, then open [http://127.0.0.1:8000/](http:/
 
 The UI reflects the current USDC-on-Base-Sepolia demo workflow. Owner-authenticated market quotes are provided by the separate read-only market-data API; see [the market-data guide](docs/market-data.md) for supported symbols and provider freshness. No broker or exchange order routing is provided. On-chain transfers are restricted to explicitly enabled AegisVault execution on Base Sepolia; direct EOA transfers are disabled and simulated mode is the default.
 
+## Governance control centre and operational probes
+
+The local frontend includes a **Governance** view for owner-managed mandates, payees, structured payment tasks, persisted agent decisions, audit-chain verification, and owner-authenticated JSON/CSV exports. The agent processes only owner-created structured tasks; it cannot approve, execute, or change governance. CSV exports neutralise spreadsheet formula-leading cells. Hash-chain verification is tamper-evident rather than a digital signature, and owner-attested payees are not independently identity-verified.
+
+Operational probes: `GET /health` is a liveness check, `GET /ready` checks persisted workflow/governance reads, and `GET /metrics` exposes process-local Prometheus-style request counters. Mutating requests are limited to 120 per client IP per minute by default; configure `AEGIS_RATE_LIMIT_REQUESTS` to change the per-process limit. This in-memory limiter is not distributed. Responses include a validated or generated `X-Request-ID`; request logs omit credentials, request bodies, and query strings.
+
 ## Base Sepolia integration (v0.7.0)
 
 Set `BASE_SEPOLIA_RPC_URL` to an HTTPS JSON-RPC endpoint from your RPC provider. Do not commit provider URLs containing private API keys. The following endpoints require the owner bearer token:
