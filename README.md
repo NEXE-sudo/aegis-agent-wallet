@@ -2,7 +2,7 @@
 
 A testnet-only AI-agent wallet prototype. This build includes deterministic policy checks, explainable heuristic risk scoring, persistent transaction state, atomic daily-spend reservations, time-limited fingerprint-bound approval with stale-approval expiry checks on execution and reapproval with persisted-proposal integrity verification, an append-only approval/execution audit trail, bearer-token separation for agent and owner operations, idempotent proposal retries with persisted-proposal integrity verification, and simulated execution by default with an explicitly gated AegisVault-only Base Sepolia testnet executor.
 
-For the environment-variable reference, safe local binding, and operational troubleshooting, see the [runtime configuration guide](docs/runtime-configuration.md). For the complete contract-hardening and evidence-verification workflow, see the [Phase 5 hardening runbook](docs/phase-5-hardening.md). For reproducible packaging, offline verification, and a final source/evidence preflight, see the [submission evidence guide](docs/submission-evidence.md).
+For the environment-variable reference, safe local binding, and operational troubleshooting, see the [runtime configuration guide](docs/runtime-configuration.md). For the complete contract-hardening and evidence-verification workflow, see the [Phase 5 hardening runbook](docs/phase-5-hardening.md). For reproducible packaging, offline verification, and a final source/evidence preflight, see the [submission evidence guide](docs/submission-evidence.md). For SQLite backup/restore and governance-export checks, see the [database recovery runbook](docs/database-recovery.md).
 
 ## macOS setup
 
@@ -133,6 +133,7 @@ This remains a local prototype. Use simulated mode or the unaudited vault integr
 ## Documentation
 
 - [Technical document](docs/technical-document.md) — architecture, scope, and on-chain flow.
+- [Database recovery runbook](docs/database-recovery.md) — offline SQLite backup, verification, guarded restore, and governance-export structural checks.
 - [Submission close-out kit](docs/submission-closeout-kit.md) — architecture and trust boundaries, security summary, ten-minute talk track, demo video script, business case, and evidence checklist.
 - [Chatbot handoff](docs/chatbot-handoff.md) — current project state, required PR workflow, and phased roadmap.
 - [Security self-assessment](docs/security-self-assessment.md) — implementation-based security assessment and residual risks.

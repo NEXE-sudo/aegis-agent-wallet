@@ -39,11 +39,11 @@ Completion estimates are planning estimates, not CI results, audits, or producti
 
 ## Next priorities
 
-1. **Submission preflight:** validate the new offline preflight against real generated reports and the exact committed source revision; never treat a pass as proof of live-chain execution.
-2. **Fresh reproducible reports:** run deterministic evaluation, repeated evaluation, evidence-bundle verification, manifest verification, and the final preflight on the final intended revision.
+1. **Operational recovery and export integrity:** branch `feat/operational-recovery-submission-integrity` adds consistent SQLite backups, offline integrity checks, guarded staged restore, governance export structure checks, regression tests, and a recovery runbook.
+2. **Fresh reproducible reports:** run deterministic evaluation, repeated evaluation, evidence-bundle verification, manifest verification, and the final preflight on the final intended revision; an offline pass is not proof of live-chain execution.
 3. **Live testnet evidence:** separately verify operator-run Base Sepolia deployment, successful transfer, and reverted-call evidence where available; never substitute fixtures or simulated results.
-4. **Remaining engineering gaps:** consider role separation/token rotation, signer adapter boundaries, backup/restore, and chain receipt/finality reconciliation as future work, without overstating the current implementation.
-5. Keep the number of PRs low and the feature scope substantial, comparable in breadth to PR #221. Combine implementation, relevant tests, docs, changelog, version and handoff changes when they belong together.
+4. **Remaining engineering gaps:** role separation/token rotation, signer adapter boundaries, and chain receipt/finality reconciliation remain future work; do not overstate the current implementation.
+5. Keep the number of PRs low and the feature scope substantial. Combine implementation, tests, docs, changelog, and handoff changes when they belong together.
 
 ## PR workflow — mandatory
 
