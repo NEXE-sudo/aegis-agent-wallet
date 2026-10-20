@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import sqlite3
 import uuid
 from contextlib import closing
@@ -579,7 +578,7 @@ def create_governance_task(payload: TaskInput, request: Request) -> dict[str, An
     payee = request.app.state.governance_store.get_payee(payload.payee_id)
     if payee and payload.token_symbol != payee["token_symbol"]:
         raise HTTPException(status_code=422, detail="Task token must match the registered payee token")
-    return request.app.state.governance_store.create_task(payload.model_dump())
+    return request.app.state.governance_store.create_task(payload.model_dump(mode="json"))
 
 
 @router.get("/governance/tasks", dependencies=[Depends(require_owner)])
