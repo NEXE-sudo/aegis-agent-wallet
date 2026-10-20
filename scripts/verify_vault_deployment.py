@@ -39,7 +39,8 @@ def _deployment_transaction(rpc: BaseSepoliaRpc, transaction_hash: str) -> dict[
     recipient = result.get("to")
     data = result.get("input", result.get("data"))
     if (
-        not isinstance(returned_hash, str)
+        "to" not in result
+        or not isinstance(returned_hash, str)
         or not _HASH_RE.fullmatch(returned_hash)
         or returned_hash.lower() != transaction_hash
         or not isinstance(sender, str)
@@ -94,7 +95,12 @@ def verify_deployment(
         raise ValueError("Deployment transaction receipt is not available yet")
     if not isinstance(receipt, dict):
         raise RpcRequestError("RPC returned a malformed deployment receipt")
-    if receipt.get("transactionHash", "").lower() != transaction_hash:
+    receipt_hash = receipt.get("transactionHash")
+    if (
+        not isinstance(receipt_hash, str)
+        or not _HASH_RE.fullmatch(receipt_hash)
+        or receipt_hash.lower() != transaction_hash
+    ):
         raise RpcRequestError("Deployment receipt transaction hash does not match")
     if receipt.get("status") != "0x1":
         raise ValueError("Deployment transaction receipt status is not success")
