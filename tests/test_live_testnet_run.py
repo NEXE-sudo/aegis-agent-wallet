@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from argparse import Namespace
 from pathlib import Path
 
@@ -9,6 +10,7 @@ import pytest
 
 from scripts.live_testnet_run import (
     LiveRunError,
+    _command_result,
     _run_step,
     redact,
     run_live,
@@ -135,3 +137,26 @@ def test_non_broadcast_failure_is_marked_retryable(tmp_path: Path) -> None:
                   report_dir=tmp_path, action=lambda: (_ for _ in ()).throw(RuntimeError("fixture")),
                   broadcast=False)
     assert state["steps"]["read-only"]["status"] == "failed"
+
+def test_subprocess_mock_receives_rpc_url_only_in_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    env = env_fixture()
+    seen: dict[str, object] = {}
+
+    def fake_run(command: list[str], *, cwd: Path, env: dict[str, str], timeout: int) -> subprocess.CompletedProcess[str]:
+        seen["command"] = command
+        seen["env"] = env
+        return subprocess.CompletedProcess(command, 0, stdout="transaction hash: 0x" + "b" * 64, stderr="")
+
+    monkeypatch.setattr("scripts.live_testnet_run._run_command", fake_run)
+    output = _command_result(
+        ["cast", "send", "0x" + "22" * 20],
+        root=tmp_path,
+        env=env,
+        report_dir=tmp_path,
+        label="mock-cast",
+    )
+    assert "BASE_SEPOLIA_RPC_URL" not in seen["command"]
+    assert env["BASE_SEPOLIA_RPC_URL"] not in seen["command"]
+    assert seen["env"]["ETH_RPC_URL"] if "ETH_RPC_URL" in seen["env"] else True
+    assert "fixture-secret" not in output
+    assert "0x" + "b" * 64 in output
