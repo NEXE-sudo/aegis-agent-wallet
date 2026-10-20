@@ -107,7 +107,7 @@ def _validate_live_evidence(live_dir: Path) -> dict[str, Any]:
 def _render_block(evidence: dict[str, Any]) -> str:
     return "\n".join([
         START,
-        "## Verified Base Sepolia execution evidence",
+        "### Verified Base Sepolia execution evidence",
         "",
         f"- Source revision at fill time: `{evidence['source_revision']}`",
         f"- Chain ID: `{evidence['chain_id']}` (Base Sepolia only)",
@@ -134,7 +134,7 @@ def _render_provenance(revision: str, python_ci_url: str | None, foundry_ci_url:
         return f"[Observed {label} CI run]({value}) — operator must confirm it tested this exact source revision."
     return "\n".join([
         PROVENANCE_START,
-        "## Final source and CI provenance",
+        "### Final source and CI provenance",
         "",
         f"- Source commit at documentation fill time: **{revision}**",
         f"- Python CI: {checked(python_ci_url, 'Python')}",
