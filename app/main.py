@@ -16,11 +16,6 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from app.auth import require_agent, require_owner
-from app.governance import (
-    GovernanceDataError,
-    GovernanceStore,
-    router as governance_router,
-)
 from app.chain.base_sepolia import (
     BASE_SEPOLIA_CHAIN_ID,
     BASE_SEPOLIA_USDC_ADDRESS,
@@ -37,6 +32,11 @@ from app.chain.execution import (
     VaultTransactionInvariantError,
 )
 from app.chain.router import router as base_sepolia_router
+from app.governance import (
+    GovernanceDataError,
+    GovernanceStore,
+    router as governance_router,
+)
 from app.market_data import (
     CompositeMarketDataProvider,
     MarketDataError,
