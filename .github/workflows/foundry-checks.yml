@@ -1,0 +1,38 @@
+name: Foundry contract checks
+
+on:
+  pull_request:
+    paths:
+      - "contracts/**"
+      - ".github/workflows/foundry-checks.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "contracts/**"
+      - ".github/workflows/foundry-checks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Install pinned Solidity dependencies
+        working-directory: contracts
+        run: |
+          forge install OpenZeppelin/openzeppelin-contracts@v5.7.0
+          forge install foundry-rs/forge-std@v1.17.0
+
+      - name: Run unit, fuzz, and invariant tests
+        working-directory: contracts
+        run: forge test -vvv
