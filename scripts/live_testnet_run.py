@@ -226,10 +226,13 @@ def _command_result(command: list[str], *, root: Path, env: dict[str, str],
     return output
 
 
-def _api_request(url: str, method: str, token: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+def _api_request(url: str, method: str, token: str, payload: dict[str, Any] | None = None,
+                 extra_headers: dict[str, str] | None = None) -> dict[str, Any]:
     body = None if payload is None else json.dumps(payload).encode()
-    request = urllib.request.Request(url, data=body, method=method,
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    if extra_headers:
+        headers.update(extra_headers)
+    request = urllib.request.Request(url, data=body, method=method, headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=15) as response:
             result = json.loads(response.read().decode("utf-8"))
@@ -490,7 +493,7 @@ def run_live(args: argparse.Namespace, *, root: Path | None = None,
                     "agent_id": "devops-01", "chain_id": 84532, "token_symbol": "USDC",
                     "token_address": public["token"], "recipient": public["recipient"],
                     "amount_base_units": args.amount_base_units, "token_decimals": 6,
-                })
+                }, extra_headers={"Idempotency-Key": "aegis-live-" + fingerprint[:40]})
             if not isinstance(response.get("transaction_id"), str) or not isinstance(response.get("fingerprint"), str):
                 raise LiveRunError("Proposal response lacks a transaction ID or fingerprint.")
             return {"transaction_id": response["transaction_id"], "fingerprint": response["fingerprint"],
@@ -498,10 +501,17 @@ def run_live(args: argparse.Namespace, *, root: Path | None = None,
         proposal = _run_step("create-proposal", state=state, state_path=state_path, report_dir=report_dir,
                              action=propose, broadcast=False)
         tx_id, fingerprint_value = proposal["transaction_id"], proposal["fingerprint"]
+        def owner_approve_workflow() -> dict[str, Any]:
+            transaction = api_request(base_url.rstrip("/") + f"/transactions/{tx_id}", "GET",
+                                      values["AEGIS_APPROVAL_TOKEN"])
+            if transaction.get("status") == "approved":
+                return {"status": "approved", "already_approved": True}
+            if transaction.get("status") != "awaiting_approval":
+                raise LiveRunError("The proposal is not awaiting owner approval; inspect the saved workflow record.")
+            return api_request(base_url.rstrip("/") + f"/transactions/{tx_id}/approve", "POST",
+                values["AEGIS_APPROVAL_TOKEN"], {"transaction_fingerprint": fingerprint_value, "confirmation": "APPROVE"})
         _run_step("owner-approve-workflow", state=state, state_path=state_path, report_dir=report_dir,
-            action=lambda: api_request(base_url.rstrip("/") + f"/transactions/{tx_id}/approve", "POST",
-                values["AEGIS_APPROVAL_TOKEN"], {"transaction_fingerprint": fingerprint_value, "confirmation": "APPROVE"}),
-            broadcast=False)
+            action=owner_approve_workflow, broadcast=False)
         approval = api_request(base_url.rstrip("/") + f"/transactions/{tx_id}/vault-approval", "GET",
                                values["AEGIS_APPROVAL_TOKEN"])
         a = approval.get("arguments")
