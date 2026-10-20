@@ -214,9 +214,14 @@ def _run_step(
 
 def _command_result(command: list[str], *, root: Path, env: dict[str, str],
                     report_dir: Path, label: str, timeout: int = 300,
-                    cwd: Path | None = None) -> str:
+                    cwd: Path | None = None, keep_agent_key: bool = False) -> str:
+    child_env = dict(env)
+    if not keep_agent_key:
+        child_env.pop("AEGIS_TESTNET_PRIVATE_KEY", None)
+    child_env.pop("AEGIS_AGENT_TOKEN", None)
+    child_env.pop("AEGIS_APPROVAL_TOKEN", None)
     try:
-        result = _run_command(command, cwd=cwd or root, env=env, timeout=timeout)
+        result = _run_command(command, cwd=cwd or root, env=child_env, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise LiveRunError(f"{label} could not be completed; inspect {report_dir / 'partial-report.json'}.") from exc
     output = redact((result.stdout or "") + (result.stderr or ""), env)
@@ -538,7 +543,8 @@ def run_live(args: argparse.Namespace, *, root: Path | None = None,
         def bypass() -> dict[str, Any]:
             output = _command_result(["uv", "run", "--locked", "python", "-m", "scripts.vault_bypass_demo",
                 "--vault", vault, "--token", public["token"], "--unlisted-recipient", public["recipient"],
-                "--broadcast"], root=root, env=values, report_dir=report_dir, label="bypass-demo", timeout=300)
+                "--broadcast"], root=root, env=values, report_dir=report_dir, label="bypass-demo", timeout=300,
+                keep_agent_key=True)
             hashes = HASH_RE.findall(output)
             if not hashes:
                 raise LiveRunError("Bypass demo did not report a reverted transaction hash; inspect bypass-demo.log.")
