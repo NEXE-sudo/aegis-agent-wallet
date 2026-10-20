@@ -2,6 +2,8 @@
 
 ## 1.13.0 (unreleased)
 
+- Extend owner-only Base Sepolia receipt reads with confirmation counts, current canonical-block hash comparison, and explicit pending/included/confirmed/failed/reorged states; document that these are point-in-time RPC observations, not finality guarantees or automated settlement accounting.
+
 - Add consistent SQLite backup, integrity verification, guarded staged restore utilities, and offline structural checks for governance JSON/CSV exports.
 
 - Add an offline submission preflight that cross-checks source revision, manifest membership and hashes, deterministic and repeated evaluation results, and evidence-bundle integrity while clearly separating optional live Base Sepolia evidence.
