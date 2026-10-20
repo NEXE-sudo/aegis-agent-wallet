@@ -1,4 +1,9 @@
 """Read-only Base Sepolia RPC endpoints."""
+import os
+import re
+
+from eth_account import Account
+from eth_utils import keccak
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth import require_chain_owner
@@ -48,6 +53,174 @@ def inspect_token(address: str) -> dict:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except RpcRequestError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+_ZERO_ADDRESS = "0x" + "0" * 40
+_WORD_RE = re.compile(r"^0x[0-9a-fA-F]{64}$")
+
+
+def _decode_vault_word(data: str, field: str) -> int:
+    if not isinstance(data, str) or not _WORD_RE.fullmatch(data):
+        raise RpcRequestError(f"Vault returned malformed {field} data")
+    return int(data, 0)
+
+
+def _vault_read(rpc: BaseSepoliaRpc, vault: str, signature: str, token: str | None = None) -> str:
+    calldata = "0x" + keccak(text=signature)[:4].hex()
+    if token is not None:
+        calldata += validate_address(token)[2:].rjust(64, "0")
+    return rpc.call(_ZERO_ADDRESS, vault, calldata)
+
+
+@router.get("/vault/{address}/status")
+def inspect_vault_configuration(address: str, token_address: str) -> dict:
+    """Read and structurally validate an AegisVault and one token's on-chain policy."""
+    try:
+        vault_address = validate_address(address)
+        normalized_token = validate_address(token_address)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    try:
+        with BaseSepoliaRpc() as rpc:
+            chain_id = rpc.chain_id()
+            if chain_id != BASE_SEPOLIA_CHAIN_ID:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Configured RPC endpoint is not Base Sepolia (84532)",
+                )
+            code = rpc.get_code(vault_address)
+            if code in {"", "0x", "0x0"}:
+                return {
+                    "address": vault_address,
+                    "token_address": normalized_token,
+                    "chain_id": chain_id,
+                    "has_contract_code": False,
+                    "configuration_matches_local": None,
+                    "issues": ["No contract bytecode found at the supplied vault address."],
+                    "read_only": True,
+                }
+
+            owner_word = _decode_vault_word(
+                _vault_read(rpc, vault_address, "owner()"), "owner"
+            )
+            agent_word = _decode_vault_word(
+                _vault_read(rpc, vault_address, "agent()"), "agent"
+            )
+            paused_word = _decode_vault_word(
+                _vault_read(rpc, vault_address, "paused()"), "paused"
+            )
+            policy_data = rpc.call(
+                _ZERO_ADDRESS,
+                vault_address,
+                "0x" + keccak(text="tokenPolicy(address)")[:4].hex()
+                + normalized_token[2:].rjust(64, "0"),
+            )
+            if not isinstance(policy_data, str) or not re.fullmatch(
+                r"0x[0-9a-fA-F]{256}", policy_data
+            ):
+                raise RpcRequestError("Vault returned malformed token policy data")
+            words = [int(policy_data[2 + i * 64:2 + (i + 1) * 64], 16) for i in range(4)]
+            if owner_word >> 160 or agent_word >> 160 or paused_word not in {0, 1} or words[0] not in {0, 1}:
+                raise RpcRequestError("Vault returned invalid configuration values")
+
+            owner = "0x" + f"{owner_word:040x}"
+            agent = "0x" + f"{agent_word:040x}"
+            configured_vault = os.environ.get("AEGIS_VAULT_ADDRESS", "").strip()
+            configured_owner = os.environ.get("AEGIS_VAULT_OWNER_ADDRESS", "").strip()
+            agent_private_key = os.environ.get("AEGIS_TESTNET_PRIVATE_KEY", "").strip()
+            local_match = None
+            owner_match = None
+            agent_key_match = None
+            configuration_issues = []
+            issues = []
+            if configured_vault:
+                try:
+                    local_match = validate_address(configured_vault) == vault_address
+                except ValueError:
+                    local_match = False
+                if not local_match:
+                    configuration_issues.append(
+                        "The supplied vault address does not match AEGIS_VAULT_ADDRESS."
+                    )
+            else:
+                configuration_issues.append(
+                    "AEGIS_VAULT_ADDRESS is not configured; local vault matching was not performed."
+                )
+
+            if configured_owner:
+                try:
+                    owner_match = validate_address(configured_owner) == owner
+                except ValueError:
+                    owner_match = False
+                if not owner_match:
+                    configuration_issues.append(
+                        "The on-chain owner does not match AEGIS_VAULT_OWNER_ADDRESS."
+                    )
+            else:
+                configuration_issues.append(
+                    "AEGIS_VAULT_OWNER_ADDRESS is not configured; owner identity was not compared."
+                )
+
+            if agent_private_key:
+                try:
+                    expected_agent = validate_address(Account.from_key(agent_private_key).address)
+                    agent_key_match = expected_agent == agent
+                except (TypeError, ValueError):
+                    agent_key_match = False
+                if not agent_key_match:
+                    configuration_issues.append(
+                        "The on-chain agent does not match the address derived from AEGIS_TESTNET_PRIVATE_KEY."
+                    )
+            else:
+                configuration_issues.append(
+                    "AEGIS_TESTNET_PRIVATE_KEY is not configured; agent signer identity was not compared."
+                )
+
+            if owner == _ZERO_ADDRESS:
+                issues.append("The vault owner is the zero address.")
+            if agent == _ZERO_ADDRESS:
+                issues.append("The vault agent is the zero address; execution is not configured.")
+            if agent == owner:
+                issues.append("The vault owner and agent addresses are identical.")
+            if words[0] != 1:
+                issues.append("The selected token is not enabled by the vault.")
+            if words[1] == 0 or words[2] == 0:
+                issues.append("The selected token policy has a zero spending cap.")
+
+            return {
+                "address": vault_address,
+                "token_address": normalized_token,
+                "chain_id": chain_id,
+                "expected_chain_id": BASE_SEPOLIA_CHAIN_ID,
+                "has_contract_code": True,
+                "owner": owner,
+                "agent": agent,
+                "paused": bool(paused_word),
+                "token_policy": {
+                    "allowed": bool(words[0]),
+                    "per_transaction_cap_base_units": words[1],
+                    "daily_cap_base_units": words[2],
+                    "approval_threshold_base_units": words[3],
+                },
+                "configured_vault_matches": local_match,
+                "configured_owner_matches": owner_match,
+                "configured_agent_key_matches": agent_key_match,
+                "configuration_structurally_valid": not issues,
+                "issues": issues,
+                "configuration_issues": configuration_issues,
+                "read_only": True,
+            }
+    except HTTPException:
+        raise
+    except RpcConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except RpcRequestError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Base Sepolia vault configuration is unavailable or malformed",
+        ) from exc
+
 
 def _format_units(amount: int, decimals: int) -> str:
     """Format an integer token amount without floating-point rounding."""

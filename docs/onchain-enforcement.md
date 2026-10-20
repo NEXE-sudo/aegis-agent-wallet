@@ -53,6 +53,25 @@ changes. The workflow's actual result must be checked on each pull request; Pyth
 checks do not establish Solidity test results. Locally, run `forge test` from
 `contracts/` after installing Foundry and the pinned dependencies.
 
+## Read-only vault configuration inspection
+
+The owner-authenticated endpoint
+`GET /chain/base-sepolia/vault/{address}/status?token_address={token_address}`
+reads the RPC-reported chain, bytecode, owner, agent, pause state, and token policy
+for a supplied vault/token pair. It checks basic structural conditions and, when
+`AEGIS_VAULT_ADDRESS` is set, reports whether the supplied vault matches that
+local setting. When `AEGIS_VAULT_OWNER_ADDRESS` is configured, it compares the
+observed owner; when `AEGIS_TESTNET_PRIVATE_KEY` is supplied, it derives the
+public address and compares it with the on-chain agent without returning the key.
+Missing expected values are reported as unperformed comparisons, not successful
+matches. A wrong-chain RPC,
+malformed ABI response, or RPC failure fails closed.
+
+This is a read-only snapshot from one configured RPC, not proof that the address
+is the intended deployment, that the contract is audited, or that the observed
+state will remain unchanged. Verify addresses against trusted deployment records
+before any testnet execution. The endpoint never signs or submits transactions. The response's structural-validity flag checks only the observed fields; it cannot confirm the intended owner or agent unless compared with trusted deployment records.
+
 ## Trust model and known risks
 
 The vault limits what a compromised Aegis server or agent session key can
