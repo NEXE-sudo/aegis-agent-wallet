@@ -318,30 +318,23 @@ and deployment/owner runbook in [on-chain enforcement](onchain-enforcement.md).
 Direct EOA execution is disabled. The contract is unaudited and testnet-only. No live deployment or transfer is claimed by this
 document.
 
-- **Evidence (pending owner-run test; not yet verified):**
-  Transaction hash: TODO (supplied by the owner after a real transfer)
-  Verify with: `uv run python scripts/verify_testnet_evidence.py "<TRANSACTION_HASH>" --expected-sender "<AGENT_OR_SENDER_ADDRESS>" --audit-db "<AEGIS_DB_PATH>"`
-- **TODO:** Record the date, RPC provider (without credentials), and reviewer for
-  that manual validation.
+<!-- LIVE_EVIDENCE_START -->
+### Verified Base Sepolia execution evidence
 
-### AegisVault evidence (pending owner-run test; not yet verified)
+Pending operator evidence: no live deployment or transfer is claimed until verified reports are generated under reports/live.
+<!-- LIVE_EVIDENCE_END -->
 
-- Vault address: `TODO: supply the real deployed AegisVault address`
-  - Verify against the deployment receipt:
-    `cast receipt "<DEPLOYMENT_TX_HASH>" --rpc-url "$BASE_SEPOLIA_RPC_URL"`
-- Deployment transaction hash: `TODO: supply the real Base Sepolia deployment hash`
-  - Verify:
-    `cast receipt "<DEPLOYMENT_TX_HASH>" --rpc-url "$BASE_SEPOLIA_RPC_URL"`
-- Executed `transferToken` transaction hash: `TODO: supply the real successful transfer hash`
-  - Verify the vault call, sender, events, and audit reference:
-    `uv run python scripts/verify_testnet_evidence.py "<TRANSFER_TX_HASH>" --vault "<VAULT_ADDRESS>" --expected-sender "<AGENT_ADDRESS>" --audit-db "<AEGIS_DB_PATH>"`
-- Blocked bypass transaction hash: `TODO: supply the real reverted bypass hash`
-  - Verify the call and failed receipt (`status` must be `0x0`):
-    `cast tx "<BLOCKED_BYPASS_TX_HASH>" --rpc-url "$BASE_SEPOLIA_RPC_URL" && cast receipt "<BLOCKED_BYPASS_TX_HASH>" --rpc-url "$BASE_SEPOLIA_RPC_URL"`
+<!-- SUBMISSION_PROVENANCE_START -->
+### Final source and CI provenance
 
-Foundry results: **TODO: run forge test**. Python checks do not establish Solidity
-test results. Do not replace any `TODO` with values until a real run produces
-them or the owner supplies them.
+- Source commit at documentation fill time: pending script fill.
+- Python CI run: pending run URL for the exact final source revision.
+- Foundry CI run: pending run URL for the exact final source revision.
+<!-- SUBMISSION_PROVENANCE_END -->
+
+Operator note (pending): record the date, RPC provider without credentials, and reviewer after any manual testnet validation.
+
+The last observed Foundry workflow passed unit, fuzz, and invariant tests on commit 8ee561e5df50a0704bfbac39681d0818fea5bd09 ([run #4](https://github.com/NEXE-sudo/aegis-agent-wallet/actions/runs/39407398590)). GitHub's comparison shows no contract files changed through main commit 59e0e4567bae76710c43ebf065c07c9b987308a5; this is not a fresh Foundry run on the final runner PR.
 
 ## 6. Known limitations
 
