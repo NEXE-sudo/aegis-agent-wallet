@@ -158,6 +158,19 @@ def test_agent_decision_uses_registry_address_and_existing_policy_gateway(monkey
     assert "b" * 40 not in transaction.text
     assert client.get("/governance/audit/verify", headers=OWNER_HEADERS).json()["valid"] is True
 
+    import json
+
+    with sqlite3.connect(main.app.state.governance_store.db_path) as db:
+        db.execute("DROP TRIGGER governance_decisions_no_update")
+        row = db.execute("SELECT task_id, decision_json FROM governance_decisions").fetchone()
+        stored = json.loads(row[1])
+        stored["action"] = "tampered"
+        db.execute(
+            "UPDATE governance_decisions SET decision_json = ? WHERE task_id = ?",
+            (json.dumps(stored), row[0]),
+        )
+    assert client.get("/governance/audit/verify", headers=OWNER_HEADERS).json()["valid"] is False
+
 
 def test_unverified_payee_escalates_without_creating_transaction(monkeypatch, tmp_path):
     setup_isolated(monkeypatch, tmp_path)
