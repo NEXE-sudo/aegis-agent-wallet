@@ -1,10 +1,10 @@
 import pytest
+from eth_account import Account
+from eth_utils import keccak
 from fastapi.testclient import TestClient
 
 from app import main
 from app.chain import router as chain_router
-from eth_utils import keccak
-from eth_account import Account
 
 client = TestClient(main.app)
 OWNER_HEADERS = {"Authorization": "Bearer test-owner-token-with-enough-length"}
