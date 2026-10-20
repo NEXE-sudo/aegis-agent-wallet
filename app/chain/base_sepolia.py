@@ -121,6 +121,12 @@ class BaseSepoliaRpc:
         except ValueError as exc:
             raise RpcRequestError("RPC returned an invalid chain ID") from exc
 
+    def block_number(self) -> int:
+        """Return the latest block height reported by the configured RPC."""
+        return self._parse_quantity(
+            self._rpc("eth_blockNumber", []), "latest block number"
+        )
+
     def transaction_count(self, address: str) -> int:
         result = self._rpc(
             "eth_getTransactionCount", [validate_address(address), "pending"]
