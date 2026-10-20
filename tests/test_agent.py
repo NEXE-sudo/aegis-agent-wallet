@@ -445,7 +445,7 @@ def test_llm_evaluation_records_pass_counts_and_writes_separate_reports(tmp_path
     assert "Pass count" in (tmp_path / "agent-eval-llm.md").read_text()
     assert "Aggregate runs: 10/10 passed (100.0% pass rate)" in (
         tmp_path / "agent-eval-llm.md"
-    )
+    ).read_text()
     assert not (tmp_path / "agent-eval.json").exists()
     assert len(llm_injection_scenarios()) == 5
 
