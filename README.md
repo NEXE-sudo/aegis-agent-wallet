@@ -140,6 +140,7 @@ This remains a local prototype. Use simulated mode or the unaudited vault integr
 - [Threat model](docs/threat-model.md) — security goals, assets, trust boundaries, and threats.
 - [Runtime configuration](docs/runtime-configuration.md) — environment variables, local binding, and operational troubleshooting.
 - [Agent and evaluation guide](docs/agent.md) — agent tools, trusted payment inputs, and evaluation.
+- [Adversarial evaluation matrix](docs/adversarial-evaluation.md) — attack families, reproducible commands, report-integrity checks, and evaluation limits.
 - [Workflow state transitions](docs/workflow-state-transitions.md) — workflow statuses and state changes.
 - [Reproducible demo scenario](docs/demo-scenario.md) — API walkthrough and expected outcomes.
 - [End-to-end demo](docs/end-to-end-demo.md) — local owner-governed workflow and repeatable offline evaluation evidence.
