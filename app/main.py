@@ -822,9 +822,41 @@ def get_agent_transaction_status(
     )
 
 
+def _require_current_governance_for_transaction(transaction_id: str) -> None:
+    """Block governance-created proposals when their governing records have changed."""
+    record = store.get(transaction_id)
+    if record is None or record["status"] in {
+        "blocked", "cancelled", "rejected", "executed_simulated", "submitted_onchain"
+    }:
+        return
+    governance = app.state.governance_store
+    decision = governance.get_decision_for_transaction(transaction_id)
+    if decision is None:
+        return
+    if not governance.verify_audit_chain()["valid"]:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "governance_integrity_failed", "message": "Governance evidence failed integrity verification."},
+        )
+    mandate = governance.get_active_mandate()
+    if mandate is None or mandate["payload_hash"] != decision.get("mandate_hash"):
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "governance_mandate_changed", "message": "The mandate changed after this proposal; requeue the task for owner review."},
+        )
+    payee_id = decision.get("payee_id")
+    payee = governance.get_payee(payee_id) if isinstance(payee_id, str) else None
+    if payee is None or payee["payload_hash"] != decision.get("payee_hash"):
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "governance_payee_changed", "message": "The registered payee changed after this proposal; requeue the task for owner review."},
+        )
+
+
 @app.post("/transactions/{transaction_id}/approve", response_model=TransactionResponse,
           dependencies=[Depends(require_owner)])
 def approve_transaction(transaction_id: str, request: ApprovalRequest) -> TransactionResponse:
+    _require_current_governance_for_transaction(transaction_id)
     if store.is_paused():
         raise HTTPException(
             status_code=409,
@@ -861,6 +893,7 @@ def approve_transaction(transaction_id: str, request: ApprovalRequest) -> Transa
 @app.post("/transactions/{transaction_id}/execute", response_model=TransactionResponse,
           dependencies=[Depends(require_owner)])
 def execute_transaction(transaction_id: str) -> TransactionResponse:
+    _require_current_governance_for_transaction(transaction_id)
     if store.is_paused():
         raise HTTPException(
             status_code=409,
