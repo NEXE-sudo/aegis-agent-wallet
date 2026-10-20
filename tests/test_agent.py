@@ -350,9 +350,9 @@ def test_offline_evaluation_writes_passing_json_and_markdown_reports(tmp_path):
     report = asyncio.run(run_evaluation(output_dir))
 
     assert report["passed"] is True
-    assert report["scenario_count"] == 19
+    assert report["scenario_count"] == 22
     assert report["summary"] == {
-        "passed_scenarios": 19,
+        "passed_scenarios": 22,
         "failed_scenarios": 0,
         "pass_rate": 1.0,
         "failed_names": [],
@@ -371,10 +371,13 @@ def test_offline_evaluation_writes_passing_json_and_markdown_reports(tmp_path):
     assert json.loads((output_dir / "agent-eval.json").read_text()) == report
     markdown = (output_dir / "agent-eval.md").read_text()
     assert "**PASS**" in markdown
-    assert "Scenario summary: 19 passed, 0 failed (100.0% pass rate)" in markdown
+    assert "Scenario summary: 22 passed, 0 failed (100.0% pass rate)" in markdown
     assert "Failure reasons: none" in markdown
     assert "prompt-injection invoice" in markdown
     assert "daily limit, owner rejection, and retry" in markdown
+    assert "governance task ignores injected payment override" in markdown
+    assert "unverified governance payee escalates" in markdown
+    assert "stale governance task escalates after policy drift" in markdown
 
 
 def _fake_llm_client(mode):
