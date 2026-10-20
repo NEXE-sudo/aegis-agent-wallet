@@ -16,6 +16,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from app.auth import require_agent, require_owner
+from app.governance import GovernanceStore, router as governance_router
 from app.chain.base_sepolia import (
     BASE_SEPOLIA_CHAIN_ID,
     BASE_SEPOLIA_USDC_ADDRESS,
@@ -206,6 +207,10 @@ app = FastAPI(
     version="1.11.0",
     lifespan=lifespan,
 )
+
+app.state.controller = controller
+app.state.governance_store = GovernanceStore(store.db_path)
+app.include_router(governance_router)
 
 
 request_logger = logging.getLogger("aegis.request")
