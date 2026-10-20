@@ -146,6 +146,9 @@ def test_successful_testnet_bundle_links_chain_and_audit(monkeypatch, tmp_path):
     }
     assert bundle["testnet_evidence"]["vault_configuration"]["bytecode_sha256"] == "0x" + "d" * 64
     assert bundle["testnet_evidence"]["audit_transaction_id"] == "txn-123"
+    from scripts.verify_evidence_bundle import validate_bundle
+
+    assert validate_bundle(bundle) == bundle
 
 
 def test_testnet_bundle_fails_when_confirmation_depth_is_too_low(monkeypatch, tmp_path):
