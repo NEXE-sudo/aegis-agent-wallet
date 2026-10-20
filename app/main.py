@@ -35,7 +35,8 @@ from app.chain.execution import (
     VaultTransactionInvariantError,
 )
 from app.chain.router import router as base_sepolia_router
-from app.governance import GovernanceDataError, GovernanceStore, router as governance_router
+from app.governance import GovernanceDataError, GovernanceStore
+from app.governance import router as governance_router
 from app.market_data import (
     CompositeMarketDataProvider,
     MarketDataError,
@@ -370,13 +371,13 @@ def readiness() -> JSONResponse:
     try:
         store.list_recent(1)
         checks["workflow_store"] = "ok"
-    except Exception:
+    except (sqlite3.Error, WorkflowDataError, ValueError, TypeError, KeyError, OSError):
         checks["workflow_store"] = "unavailable"
     try:
         app.state.governance_store.get_active_mandate()
         app.state.governance_store.list_payees()
         checks["governance_store"] = "ok"
-    except Exception:
+    except (sqlite3.Error, GovernanceDataError, ValueError, TypeError, KeyError, OSError):
         checks["governance_store"] = "unavailable"
     ready = all(value == "ok" for value in checks.values())
     return JSONResponse(
