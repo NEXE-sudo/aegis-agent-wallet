@@ -177,6 +177,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     if result["audit_transaction_id"] is not None:
         print(f"Aegis audit transaction ID: {result['audit_transaction_id']}")
+    if result["vault_configuration_reverified"]:
+        print("Vault deployment/configuration snapshot: MATCH")
+    else:
+        print("Vault deployment/configuration snapshot: NOT RECORDED IN LEGACY BUNDLE")
     print("Reverification uses read-only RPC calls and does not sign or submit transactions.")
     return 0
 
