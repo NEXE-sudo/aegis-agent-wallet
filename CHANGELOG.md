@@ -1,8 +1,8 @@
-- Reconcile persisted blocked, cancelled, and rejected workflow proposals out of governance budget history while retaining duplicate-invoice protection and conservative handling of missing transaction records.
-
 # Changelog
 
 ## 1.13.0 (unreleased)
+
+- Reconcile persisted blocked, cancelled, and rejected workflow proposals out of governance budget history while retaining duplicate-invoice protection and conservative handling of missing transaction records.
 
 - Add request IDs, process-local write rate limiting, readiness and Prometheus-style request metrics with bounded route labels and secret-free request metadata logging.
 - Add owner-facing mandate, payee and structured-task controls, persisted decision review, and JSON/CSV governance exports with CSV formula neutralisation and explicit audit-integrity limitations.
