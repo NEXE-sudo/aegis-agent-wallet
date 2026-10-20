@@ -62,6 +62,23 @@ def test_dry_run_makes_no_rpc_or_subprocess_calls(tmp_path: Path) -> None:
     assert (tmp_path / "reports/live/partial-report.json").is_file()
 
 
+def test_invalid_configuration_saves_partial_report_without_rpc(tmp_path: Path) -> None:
+    env = env_fixture()
+    env.pop("AEGIS_AGENT_TOKEN")
+    calls: list[str] = []
+
+    def rpc(*_args: object, **_kwargs: object) -> object:
+        calls.append("rpc")
+        raise AssertionError("configuration failures must precede RPC")
+
+    with pytest.raises(LiveRunError, match="AEGIS_AGENT_TOKEN"):
+        run_live(args_fixture(tmp_path), root=tmp_path, env=env, rpc_call=rpc)
+    report = json.loads((tmp_path / "reports/live/partial-report.json").read_text())
+    assert report["result"] == "INCOMPLETE"
+    assert "AEGIS_AGENT_TOKEN" in report["error"]
+    assert calls == []
+
+
 def test_configuration_validates_public_inputs_without_printing_secrets(tmp_path: Path) -> None:
     env = env_fixture()
     public = validate_configuration(args_fixture(tmp_path), env)
