@@ -356,6 +356,7 @@ def test_offline_evaluation_writes_passing_json_and_markdown_reports(tmp_path):
         "failed_scenarios": 0,
         "pass_rate": 1.0,
         "failed_names": [],
+        "failure_reason_counts": {},
     }
     assert all(scenario["passed"] for scenario in report["scenarios"])
     assert all(scenario["failure_reasons"] == [] for scenario in report["scenarios"])
@@ -371,6 +372,7 @@ def test_offline_evaluation_writes_passing_json_and_markdown_reports(tmp_path):
     markdown = (output_dir / "agent-eval.md").read_text()
     assert "**PASS**" in markdown
     assert "Scenario summary: 19 passed, 0 failed (100.0% pass rate)" in markdown
+    assert "Failure reasons: none" in markdown
     assert "prompt-injection invoice" in markdown
     assert "daily limit, owner rejection, and retry" in markdown
 
