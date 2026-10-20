@@ -652,13 +652,21 @@ def main(argv: list[str] | None = None) -> int:
             report_dir = Path(__file__).resolve().parents[1] / report_dir
         report_dir.mkdir(parents=True, exist_ok=True)
         partial_path = report_dir / "partial-report.json"
-        if not partial_path.exists():
-            _write_json(partial_path, {
-                "mode": "broadcast" if args.broadcast else "dry_run",
-                "result": "INCOMPLETE",
-                "error": redact(str(exc)),
-                "note": "No claim of live execution is made by this partial report.",
-            })
+        previous: dict[str, Any] = {}
+        if partial_path.is_file():
+            try:
+                loaded = json.loads(partial_path.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    previous = loaded
+            except (OSError, UnicodeError, json.JSONDecodeError):
+                previous = {}
+        previous.update({
+            "mode": "broadcast" if args.broadcast else "dry_run",
+            "result": "INCOMPLETE",
+            "error": redact(str(exc)),
+            "note": "No claim of live execution is made by this partial report.",
+        })
+        _write_json(partial_path, previous)
         print(f"Partial report: {partial_path}", file=sys.stderr)
         return 1
 
