@@ -1,8 +1,8 @@
 import asyncio
 import json
 import sqlite3
-from datetime import UTC, datetime
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 
 import httpx
 import pytest
