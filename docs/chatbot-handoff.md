@@ -37,7 +37,7 @@ Completion estimates are planning estimates, not CI results, audits, or producti
 
 ## Next priorities
 
-1. **Finish PR #223 safely:** check UI/route wiring, CSV formula neutralisation, rate-limit behaviour, request-ID propagation, readiness semantics, and CI. Merge only after the user reports local Ruff/pytest checks passed and CI is green.
+1. **Complete governance lifecycle handling:** verify budget release for blocked/cancelled/rejected proposals, duplicate-invoice safety, and conservative handling of missing/uncertain workflow records.
 2. **Evidence close-out:** run the expanded 22-scenario deterministic suite and repeated evaluator from the exact submission commit; inspect generated reports and separately verify any claimed Base Sepolia deployment, success, or revert evidence.
 3. **Submission close-out:** improve evidence-bundle usability, final security/threat-model and README material, Mermaid architecture/data-flow diagrams, a ten-minute talk track, video script, and one-page business case.
 4. Keep the number of PRs low and the feature scope substantial, comparable in breadth to PR #221. Combine implementation, relevant tests, docs, changelog, version and handoff changes when they belong together.
